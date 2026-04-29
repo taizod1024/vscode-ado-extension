@@ -10,34 +10,7 @@ export function activate(context: vscode.ExtensionContext) {
     console.log("azure-devops: registered TreeDataProvider for", "azureDevOps.sidePanel");
     console.log("azure-devops: extension path:", context.extensionPath);
 
-    // register a simple command to reveal the activity view
-    context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.showView", async () => {
-        try {
-          await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error("azure-devops: showView error", msg);
-        }
-      }),
-    );
-
-    // Save PAT command
-    context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.savePat", async () => {
-        try {
-          const org = await vscode.window.showInputBox({ prompt: "Organization for this PAT (e.g. myorg)" });
-          if (!org) return;
-          const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
-          if (!pat) return;
-          await context.secrets.store(`azure-devops.pat.${org}`, pat);
-          vscode.window.showInformationMessage(`PAT saved for ${org}`);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to save PAT: " + msg);
-        }
-      }),
-    );
+    // (removed unused helper commands: showView, savePat)
 
     // Enter PAT for a specific organization (used by tree items)
     context.subscriptions.push(
@@ -65,19 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Fetch projects command (removed; use per-organization fetch via context menu or view actions)
 
-    // Refresh projects command
-    context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.refreshProjects", async () => {
-        try {
-          const cached = context.workspaceState.get<any[]>("azureDevops.projects") || [];
-          provider.setProjects(cached.map(p => ({ id: p.id, name: p.name, url: p.url })));
-          vscode.window.showInformationMessage("Projects refreshed");
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to refresh projects: " + msg);
-        }
-      }),
-    );
+    // (removed unused refreshProjects command)
 
     // Open project/repo/pipeline URL
     context.subscriptions.push(
@@ -151,7 +112,6 @@ export function activate(context: vscode.ExtensionContext) {
             { label: "Add organization", command: "azure-devops.addOrganization" },
             { label: "Remove organization", command: "azure-devops.removeOrganization" },
             { label: "Fetch projects (Org)", command: "azure-devops.fetchOrganization" },
-            { label: "Save PAT", command: "azure-devops.savePat" },
           ];
           const pick = await vscode.window.showQuickPick(
             items.map(i => i.label),

@@ -22,10 +22,8 @@ export interface AdoProject {
 export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDevOpsTreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<AzureDevOpsTreeItem | undefined | null | void> = new vscode.EventEmitter();
   readonly onDidChangeTreeData: vscode.Event<AzureDevOpsTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
-  private projects: AdoProject[] = [];
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private context: vscode.ExtensionContext | undefined;
-  private organization?: string;
   private loadingOrg?: string;
   private errorsByOrg: { [org: string]: string } = {};
 
@@ -33,8 +31,6 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     this.context = context;
     // try to load cached projects from workspaceState
     if (this.context) {
-      const cached = this.context.workspaceState.get<AdoProject[]>("azureDevops.projects");
-      if (cached) this.projects = cached;
       const byOrg = this.context.workspaceState.get<{ [org: string]: AdoProject[] }>("azuredevops.projectsByOrg");
       if (byOrg) this.projectsByOrg = byOrg;
       const orgs = this.context.workspaceState.get<string[]>("azuredevops.organizations");
@@ -308,14 +304,9 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     this._onDidChangeTreeData.fire();
   }
 
-  setProjects(projects: AdoProject[], org?: string) {
-    if (org) {
-      this.projectsByOrg[org] = projects;
-      if (this.context) this.context.workspaceState.update("azuredevops.projectsByOrg", this.projectsByOrg);
-    } else {
-      this.projects = projects;
-      if (this.context) this.context.workspaceState.update("azureDevops.projects", projects);
-    }
+  setProjects(projects: AdoProject[], org: string) {
+    this.projectsByOrg[org] = projects;
+    if (this.context) this.context.workspaceState.update("azuredevops.projectsByOrg", this.projectsByOrg);
     this.refresh();
   }
 
