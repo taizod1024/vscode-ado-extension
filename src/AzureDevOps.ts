@@ -103,7 +103,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
                   if (orgDesc) {
                     it.tooltip = String(orgDesc);
                     this.refresh();
-                }
+                  }
                 } catch (e) {
                   // ignore per-org fetch errors
                 }
