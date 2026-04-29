@@ -42,9 +42,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Open project/repo/pipeline URL
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.openProject", async (url: string) => {
-        if (!url) return;
+      vscode.commands.registerCommand("azure-devops.openProject", async (arg?: any) => {
         try {
+          const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
+          if (!url) return;
           await vscode.env.openExternal(vscode.Uri.parse(url));
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -111,7 +112,7 @@ export function activate(context: vscode.ExtensionContext) {
           const items = [
             { label: "Add organization", command: "azure-devops.addOrganization" },
             { label: "Remove organization", command: "azure-devops.removeOrganization" },
-            { label: "Fetch projects (Org)", command: "azure-devops.fetchOrganization" },
+            { label: "Fetch organization", command: "azure-devops.fetchOrganization" },
           ];
           const pick = await vscode.window.showQuickPick(
             items.map(i => i.label),

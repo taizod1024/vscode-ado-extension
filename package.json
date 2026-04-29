@@ -21,7 +21,8 @@
     "commands": [
       {
         "command": "azure-devops.openProject",
-        "title": "Azure DevOps: Open Project"
+        "title": "Azure DevOps: Open Project",
+        "icon": "$(link)"
       },
       {
         "command": "azure-devops.addOrganization",
@@ -57,6 +58,23 @@
         {
           "command": "azure-devops.fetchOrganization",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
+          "group": "inline"
+        }
+      ],
+      "view/item/toolbar": [
+        {
+          "command": "azure-devops.openProject",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
+          "group": "inline"
+        },
+        {
+          "command": "azure-devops.openProject",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipeline",
+          "group": "inline"
+        },
+        {
+          "command": "azure-devops.openProject",
+          "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
         }
       ]
