@@ -17,6 +17,7 @@ export interface AdoProject {
   id: string;
   name: string;
   url: string;
+  description?: string;
 }
 
 export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDevOpsTreeItem> {
@@ -26,13 +27,13 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   private context: vscode.ExtensionContext | undefined;
   private loadingOrg?: string;
   private errorsByOrg: { [org: string]: string } = {};
+  private orgDescriptions: { [org: string]: string } = {};
 
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
     // try to load cached projects from workspaceState
     if (this.context) {
-      const byOrg = this.context.workspaceState.get<{ [org: string]: AdoProject[] }>("azuredevops.projectsByOrg");
-      if (byOrg) this.projectsByOrg = byOrg;
+      // do not persist project lists or descriptions; only load organizations and errors
       const orgs = this.context.workspaceState.get<string[]>("azuredevops.organizations");
       if (orgs) this.organizations = orgs;
       const errs = this.context.workspaceState.get<{ [org: string]: string }>("azuredevops.errorsByOrg");
@@ -73,14 +74,44 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       // root-level Save PAT and Refresh Projects removed — per-org fetch only
 
       // organization nodes after actions — make organizations the root entries
-      const orgItems = this.organizations.map(o => {
+      const orgItems: AzureDevOpsTreeItem[] = [];
+      for (const o of this.organizations) {
         const it = new AzureDevOpsTreeItem(o, vscode.TreeItemCollapsibleState.Collapsed);
         it.itemType = "organization";
         it.organization = o;
+        it.id = `org:${o}`;
         it.contextValue = "organization";
         it.iconPath = new vscode.ThemeIcon("organization");
-        return it;
-      });
+        // set organization web URL so inline/open commands can open it
+        it.url = `https://dev.azure.com/${encodeURIComponent(o)}`;
+        // do not set click command on the label — opening the web page is handled by the inline action
+        // tooltip default to URL; fetch org description in background (do not await)
+        it.tooltip = it.url;
+        (async () => {
+          try {
+            if (this.context) {
+              const key = this.patKeyForOrg(o);
+              const storedPat = await this.context.secrets.get(key);
+              if (storedPat) {
+                try {
+                  const orgMetaUrl = `https://dev.azure.com/${encodeURIComponent(o)}/_apis/organization?api-version=6.0`;
+                  const orgMeta = await getJson(orgMetaUrl, storedPat || "");
+                  const orgDesc = orgMeta?.description || orgMeta?.displayName || orgMeta?.name || "";
+                  if (orgDesc) {
+                    it.tooltip = String(orgDesc);
+                    this.refresh();
+                  }
+                } catch (e) {
+                  // ignore per-org fetch errors
+                }
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        })();
+        orgItems.push(it);
+      }
 
       // per-org loading/error handled when expanding each organization
 
@@ -109,7 +140,23 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         return [it];
       }
       // show cached projects for this organization
-      const cached = this.projectsByOrg[org] || [];
+      let cached = this.projectsByOrg[org] || [];
+      if (cached.length === 0) {
+        // automatically fetch projects when expanding an organization (no prompt)
+        // trigger fetch only if not already loading
+        try {
+          if (this.loadingOrg !== org) {
+            this.fetchProjects(org).catch(() => {});
+          }
+        } catch (e) {
+          // ignore
+        }
+        // return a loading indicator so the tree doesn't continuously re-enter fetch synchronously
+        const it = new AzureDevOpsTreeItem("(loading projects...)", vscode.TreeItemCollapsibleState.None);
+        it.itemType = "loading";
+        it.iconPath = new vscode.ThemeIcon("sync~spin");
+        return [it];
+      }
       if (cached.length === 0) return [];
       const items = cached.map(p => {
         const it = new AzureDevOpsTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
@@ -117,8 +164,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         it.projectId = p.id;
         it.url = p.url;
         it.organization = org;
-        it.iconPath = new vscode.ThemeIcon("briefcase");
+        it.id = `project:${org}:${p.id}`;
+        it.iconPath = new vscode.ThemeIcon("server-environment");
         it.contextValue = "adoProject";
+        // show fetched description in tooltip (hover); fallback to URL
+        it.tooltip = p.description || p.url;
         return it;
       });
 
@@ -126,12 +176,26 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
 
     if (element.itemType === "project") {
+      // ensure we have project list for this org (auto-fetch if missing)
+      try {
+        const org = element.organization as string;
+        if (!this.projectsByOrg[org] || this.projectsByOrg[org].length === 0) {
+          try {
+            await this.fetchProjects(org);
+          } catch (e) {
+            // ignore fetch errors
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
       // categories under project
       const repos = new AzureDevOpsTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
       repos.itemType = "category";
       repos.projectId = element.projectId;
       repos.organization = element.organization;
       repos.contextValue = "category";
+      repos.id = `category:${element.organization}:${element.projectId}:repositories`;
       repos.iconPath = new vscode.ThemeIcon("database");
 
       const boards = new AzureDevOpsTreeItem("Boards", vscode.TreeItemCollapsibleState.Collapsed);
@@ -139,6 +203,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       boards.projectId = element.projectId;
       boards.organization = element.organization;
       boards.contextValue = "category";
+      boards.id = `category:${element.organization}:${element.projectId}:boards`;
       boards.iconPath = new vscode.ThemeIcon("layout");
 
       const pipelines = new AzureDevOpsTreeItem("Pipelines", vscode.TreeItemCollapsibleState.Collapsed);
@@ -146,6 +211,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       pipelines.projectId = element.projectId;
       pipelines.organization = element.organization;
       pipelines.contextValue = "category";
+      pipelines.id = `category:${element.organization}:${element.projectId}:pipelines`;
       pipelines.iconPath = new vscode.ThemeIcon("git-branch");
 
       return [repos, boards, pipelines];
@@ -175,18 +241,32 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_apis/git/repositories?api-version=6.0`;
           const data = await getJson(url, pat);
           if (data && Array.isArray(data.value)) {
-            const repoItems = data.value.map((r: any) => {
-              const it = new AzureDevOpsTreeItem(r.name, vscode.TreeItemCollapsibleState.None);
-              it.itemType = "repo";
-              it.url = r._links?.web?.href || "";
-              it.contextValue = "repo";
-              if (it.url) {
-                it.command = {
-                  command: "ado-assist.openProject",
-                  title: "Open Repo",
-                  arguments: [it.url],
-                };
+            // find project name from cached projects (projectId -> name)
+            let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+            // if project description missing, trigger background refresh of project list (do not await)
+            if (!projectEntry || !projectEntry.description) {
+              try {
+                if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
+              } catch (e) {
+                // ignore
               }
+              projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+            }
+            const projectNameForUrl = projectEntry?.name || String(proj);
+            const repoItems = data.value.map((r: any) => {
+              const repoName = String(r.name);
+              const it = new AzureDevOpsTreeItem(repoName, vscode.TreeItemCollapsibleState.None);
+              it.itemType = "repo";
+              // prefer API-provided web link, otherwise construct canonical repo URL
+              const apiUrl = r._links?.web?.href;
+              const canonicalRepoUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectNameForUrl)}/_git/${encodeURIComponent(repoName)}`;
+              it.url = String(apiUrl || canonicalRepoUrl);
+              it.contextValue = "repo";
+              // Use projectId for stability rather than project name
+              it.id = `repo:${org}:${proj}:${repoName}`;
+              // opening web page handled by inline/context action; do not attach to item click
+              // tooltip: prefer repo description or project description, fallback to URL
+              it.tooltip = r.description || projectEntry?.description || it.url;
               it.iconPath = new vscode.ThemeIcon("database");
               return it;
             });
@@ -220,18 +300,23 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_apis/pipelines?api-version=6.0-preview.1`;
           const data = await getJson(url, pat);
           if (data && Array.isArray(data.value)) {
+            // try to refresh project descriptions if missing before building pipeline items
+            let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
+            if (!projectEntry || !projectEntry.description) {
+              try {
+                if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
+              } catch (e) {}
+              projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
+            }
             const pipelineItems = data.value.map((p: any) => {
               const it = new AzureDevOpsTreeItem(p.name || `Pipeline ${p.id}`, vscode.TreeItemCollapsibleState.None);
               it.itemType = "pipeline";
               it.url = p._links?.web?.href || "";
               it.contextValue = "pipeline";
-              if (it.url) {
-                it.command = {
-                  command: "ado-assist.openProject",
-                  title: "Open Pipeline",
-                  arguments: [it.url],
-                };
-              }
+              it.id = `pipeline:${org}:${proj}:${p.id}`;
+              // opening web page handled by inline/context action; do not attach to item click
+              // tooltip: pipeline description or URL
+              it.tooltip = p.description || it.url;
               it.iconPath = new vscode.ThemeIcon("git-branch");
               return it;
             });
@@ -267,6 +352,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const data = await getJson(url, pat);
           if (data && Array.isArray(data.value)) {
             // flatten queries
+            // ensure project description cached before showing boards
+            let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
+            if (!projectEntry || !projectEntry.description) {
+              try {
+                if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
+              } catch (e) {}
+              projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
+            }
             const items: AzureDevOpsTreeItem[] = [];
             const walk = (nodes: any[]) => {
               for (const n of nodes) {
@@ -277,8 +370,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
                   it.itemType = "board";
                   it.url = n._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
                   it.contextValue = "board";
+                  it.id = `board:${org}:${proj}:${n.id || n.name}`;
+                  // tooltip: use query description if available
+                  it.tooltip = n.description || it.url;
                   it.iconPath = new vscode.ThemeIcon("layout");
-                  if (it.url) it.command = { command: "ado-assist.openProject", title: "Open Board", arguments: [it.url] };
+                  // opening web page handled by inline/context action; do not attach to item click
                   items.push(it);
                 }
               }
@@ -287,13 +383,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             for (const v of data.value) {
               if (v.hasOwnProperty("children") && Array.isArray(v.children)) walk(v.children);
               else if (!v.isFolder) {
-                const it = new AzureDevOpsTreeItem(v.name, vscode.TreeItemCollapsibleState.None);
-                it.itemType = "board";
-                it.url = v._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
-                it.contextValue = "board";
-                it.iconPath = new vscode.ThemeIcon("layout");
-                if (it.url) it.command = { command: "ado-assist.openProject", title: "Open Board", arguments: [it.url] };
-                items.push(it);
+                  const it = new AzureDevOpsTreeItem(v.name, vscode.TreeItemCollapsibleState.None);
+                  it.itemType = "board";
+                  it.url = v._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
+                  it.contextValue = "board";
+                  it.id = `board:${org}:${proj}:${v.id || v.name}`;
+                  it.iconPath = new vscode.ThemeIcon("layout");
+                  // opening web page handled by inline/context action; do not attach to item click
+                  items.push(it);
               }
             }
             if (items.length === 0) return [new AzureDevOpsTreeItem("(no boards)")];
@@ -316,7 +413,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
 
   setProjects(projects: AdoProject[], org: string) {
     this.projectsByOrg[org] = projects;
-    if (this.context) this.context.workspaceState.update("azuredevops.projectsByOrg", this.projectsByOrg);
+    // do not persist project lists (store only organizations and PATs per user request)
     this.refresh();
   }
 
@@ -375,10 +472,27 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           throw new Error(`Failed to save PAT for ${organization}: ${msg}`);
         }
       }
+      // attempt to fetch organization metadata (best-effort) to get description for tooltip
+      try {
+        const orgMetaUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/organization?api-version=6.0`;
+        const orgMeta = await getJson(orgMetaUrl, usePat || "");
+        const orgDesc = orgMeta?.description || orgMeta?.displayName || orgMeta?.name || "";
+        if (orgDesc) {
+          // keep only in-memory; do not persist
+          this.orgDescriptions[organization] = String(orgDesc);
+        }
+      } catch (e) {
+        // ignore org metadata errors
+      }
       const projects: AdoProject[] = [];
       if (data && Array.isArray(data.value)) {
         for (const p of data.value) {
-          projects.push({ id: String(p.id), name: String(p.name), url: String(p._links?.web?.href || `https://dev.azure.com/${organization}/_projects`) });
+          // prefer API-provided web link, otherwise construct a canonical project URL
+          const projectName = String(p.name);
+          const apiUrl = p._links?.web?.href;
+          const canonical = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}`;
+          const desc = p.description || p.properties?.description || "";
+          projects.push({ id: String(p.id), name: projectName, url: String(apiUrl || canonical), description: String(desc) });
         }
       }
       this.setProjects(projects, organization);
@@ -411,7 +525,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
     // remove cached projects
     delete this.projectsByOrg[org];
-    if (this.context) this.context.workspaceState.update("azuredevops.projectsByOrg", this.projectsByOrg);
+    // do not persist projectsByOrg
     this.refresh();
   }
 }
