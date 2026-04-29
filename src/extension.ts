@@ -63,20 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Fetch projects command
-    context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.fetchProjects", async () => {
-        try {
-          const org = await vscode.window.showInputBox({ prompt: "Azure DevOps organization (e.g. myorg)" });
-          if (!org) return;
-          await provider.fetchProjects(org);
-          vscode.window.showInformationMessage(`Fetched projects for ${org}`);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to fetch projects: " + msg);
-        }
-      }),
-    );
+    // Fetch projects command (removed; use per-organization fetch via context menu or view actions)
 
     // Refresh projects command
     context.subscriptions.push(
@@ -140,9 +127,9 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Fetch projects for a specific org (used by org-level action)
+    // Fetch organization command (used by org-level action)
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.fetchProjectsForOrg", async (orgArg?: any) => {
+      vscode.commands.registerCommand("azure-devops.fetchOrganization", async (orgArg?: any) => {
         try {
           const orgFromArg = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           const org = orgFromArg || (await vscode.window.showInputBox({ prompt: "Organization (e.g. myorg)" }));
@@ -163,7 +150,7 @@ export function activate(context: vscode.ExtensionContext) {
           const items = [
             { label: "Add organization", command: "azure-devops.addOrganization" },
             { label: "Remove organization", command: "azure-devops.removeOrganization" },
-            { label: "Fetch projects (Org)", command: "azure-devops.fetchProjectsForOrg" },
+            { label: "Fetch projects (Org)", command: "azure-devops.fetchOrganization" },
             { label: "Save PAT", command: "azure-devops.savePat" },
           ];
           const pick = await vscode.window.showQuickPick(

@@ -34,8 +34,8 @@
         "icon": "$(trash)"
       },
       {
-        "command": "azure-devops.fetchProjectsForOrg",
-        "title": "Azure DevOps: Fetch Projects (Org)",
+        "command": "azure-devops.fetchOrganization",
+        "title": "Azure DevOps: Fetch Organization",
         "icon": "$(refresh)"
       }
     ],
@@ -55,7 +55,7 @@
       ],
       "view/item/context": [
         {
-          "command": "azure-devops.fetchProjectsForOrg",
+          "command": "azure-devops.fetchOrganization",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
         }
