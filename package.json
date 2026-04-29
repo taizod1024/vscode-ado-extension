@@ -1,0 +1,75 @@
+{
+  "version": "0.0.1",
+  "name": "azure-devops",
+  "displayName": "Azure DevOps Extension",
+  "description": "A VS Code extension for Azure DevOps",
+  "engines": {
+    "vscode": "^1.117.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "Azure DevOps"
+  ],
+  "publisher": "taizod1024",
+  "main": "./build/main.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "azure-devops.doSomething",
+        "title": "Do Something"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "azure-devops.doSomething",
+          "when": "true"
+        }
+      ]
+    },
+    "keybindings": []
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=build/main.js --format=cjs --platform=node --external:vscode",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "test": "node ./build/test/runTest.js",
+    "vscode:uninstall": "node bin/uninstall.js",
+    "release": "npm run release-premerge && npx standard-version && vsce publish && npm run release-postmerge",
+    "release-premerge": "git switch main && git merge --no-ff develop --no-edit",
+    "release-postmerge": "git push --follow-tags origin main && git push origin develop && git switch develop",
+    "package": "vsce package",
+    "clean": "rmdir /q /s .\\build || exit /b 0"
+  },
+  "author": "yamamoto.taizo <taizod1024@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/cli": "^19.3.0",
+    "@commitlint/config-conventional": "^13.2.0",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "^16.18.126",
+    "@types/superagent": "^4.1.13",
+    "@types/superagent-proxy": "^2.0.1",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "esbuild": "^0.27.2",
+    "eslint": "^8.0.1",
+    "husky": "^9.1.7",
+    "standard-version": "^9.5.0",
+    "ts-node": "^10.3.0",
+    "typescript": "^4.4.4",
+    "utf-8-validate": "^5.0.7",
+    "vscode-test": "^1.4.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/taizod1024/vscode-azure-devops-extension.git"
+  }
+}
