@@ -10,3 +10,5 @@
   - 認証方法は入力、PAT、環境変数を選択可能
 - Work Item
   - Epic, Issue, Taskについて新規作成、更新、削除が可能
+- Merge Request
+  - Merge Requestが作成可能。コメントも参照可能

@@ -65,7 +65,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     return element;
   }
 
+  // (debug helper removed)
+
   async getChildren(element?: AzureDevOpsTreeItem): Promise<AzureDevOpsTreeItem[]> {
+    // getChildren called
     if (!element) {
       // action buttons at the top
       const actions: AzureDevOpsTreeItem[] = [];
@@ -100,7 +103,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
                   if (orgDesc) {
                     it.tooltip = String(orgDesc);
                     this.refresh();
-                  }
+                }
                 } catch (e) {
                   // ignore per-org fetch errors
                 }
@@ -141,6 +144,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       }
       // show cached projects for this organization
       let cached = this.projectsByOrg[org] || [];
+      // organization children: cachedProjects count and loadingOrg state
       if (cached.length === 0) {
         // automatically fetch projects when expanding an organization (no prompt)
         // trigger fetch only if not already loading
@@ -176,15 +180,21 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
 
     if (element.itemType === "project") {
+      // project expand for: log suppressed
       // ensure we have project list for this org (auto-fetch if missing)
       try {
         const org = element.organization as string;
         if (!this.projectsByOrg[org] || this.projectsByOrg[org].length === 0) {
+          // trigger background fetch instead of awaiting to avoid re-entrancy
           try {
-            await this.fetchProjects(org);
+            if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
           } catch (e) {
-            // ignore fetch errors
+            // ignore
           }
+          const loading = new AzureDevOpsTreeItem("(loading project details...)", vscode.TreeItemCollapsibleState.None);
+          loading.itemType = "loading";
+          loading.iconPath = new vscode.ThemeIcon("sync~spin");
+          return [loading];
         }
       } catch (e) {
         // ignore
@@ -243,8 +253,8 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           if (data && Array.isArray(data.value)) {
             // find project name from cached projects (projectId -> name)
             let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
-            // if project description missing, trigger background refresh of project list (do not await)
-            if (!projectEntry || !projectEntry.description) {
+            // if project entry missing, trigger background refresh of project list (do not await)
+            if (!projectEntry) {
               try {
                 if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
               } catch (e) {
@@ -302,7 +312,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           if (data && Array.isArray(data.value)) {
             // try to refresh project descriptions if missing before building pipeline items
             let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            if (!projectEntry || !projectEntry.description) {
+            if (!projectEntry) {
               try {
                 if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
               } catch (e) {}
@@ -354,7 +364,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             // flatten queries
             // ensure project description cached before showing boards
             let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            if (!projectEntry || !projectEntry.description) {
+            if (!projectEntry) {
               try {
                 if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
               } catch (e) {}
@@ -383,14 +393,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             for (const v of data.value) {
               if (v.hasOwnProperty("children") && Array.isArray(v.children)) walk(v.children);
               else if (!v.isFolder) {
-                  const it = new AzureDevOpsTreeItem(v.name, vscode.TreeItemCollapsibleState.None);
-                  it.itemType = "board";
-                  it.url = v._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
-                  it.contextValue = "board";
-                  it.id = `board:${org}:${proj}:${v.id || v.name}`;
-                  it.iconPath = new vscode.ThemeIcon("layout");
-                  // opening web page handled by inline/context action; do not attach to item click
-                  items.push(it);
+                const it = new AzureDevOpsTreeItem(v.name, vscode.TreeItemCollapsibleState.None);
+                it.itemType = "board";
+                it.url = v._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
+                it.contextValue = "board";
+                it.id = `board:${org}:${proj}:${v.id || v.name}`;
+                it.iconPath = new vscode.ThemeIcon("layout");
+                // opening web page handled by inline/context action; do not attach to item click
+                items.push(it);
               }
             }
             if (items.length === 0) return [new AzureDevOpsTreeItem("(no boards)")];
