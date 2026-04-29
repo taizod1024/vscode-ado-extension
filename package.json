@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
-  "name": "azure-devops",
+  "name": "ado-assist",
   "displayName": "Azure DevOps Extension",
   "description": "A VS Code extension for Azure DevOps",
   "engines": {
@@ -20,22 +20,22 @@
   "contributes": {
     "commands": [
       {
-        "command": "azure-devops.openProject",
+        "command": "ado-assist.openProject",
         "title": "Azure DevOps: Open Project",
         "icon": "$(link)"
       },
       {
-        "command": "azure-devops.addOrganization",
+        "command": "ado-assist.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
       },
       {
-        "command": "azure-devops.removeOrganization",
+        "command": "ado-assist.removeOrganization",
         "title": "Azure DevOps: Remove Organization",
         "icon": "$(trash)"
       },
       {
-        "command": "azure-devops.fetchOrganization",
+        "command": "ado-assist.fetchOrganization",
         "title": "Azure DevOps: Fetch Organization",
         "icon": "$(refresh)"
       }
@@ -44,36 +44,36 @@
       "commandPalette": [],
       "view/title": [
         {
-          "command": "azure-devops.addOrganization",
+          "command": "ado-assist.addOrganization",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation"
         },
         {
-          "command": "azure-devops.removeOrganization",
+          "command": "ado-assist.removeOrganization",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "azure-devops.fetchOrganization",
+          "command": "ado-assist.fetchOrganization",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
         }
       ],
       "view/item/toolbar": [
         {
-          "command": "azure-devops.openProject",
+          "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
         {
-          "command": "azure-devops.openProject",
+          "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == pipeline",
           "group": "inline"
         },
         {
-          "command": "azure-devops.openProject",
+          "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
         }
@@ -135,6 +135,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/taizod1024/vscode-azure-devops-extension.git"
+    "url": "https://github.com/taizod1024/vscode-ado-assist-extension.git"
   }
 }

@@ -2,26 +2,26 @@ import * as vscode from "vscode";
 import { createTreeProvider } from "./AzureDevOps";
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("azure-devops: activate() start");
+  console.log("ado-assist: activate() start");
   try {
     // Register a TreeDataProvider for the side panel view id
     const provider = createTreeProvider(context);
     context.subscriptions.push(vscode.window.registerTreeDataProvider("azureDevOps.sidePanel", provider));
-    console.log("azure-devops: registered TreeDataProvider for", "azureDevOps.sidePanel");
-    console.log("azure-devops: extension path:", context.extensionPath);
+    console.log("ado-assist: registered TreeDataProvider for", "azureDevOps.sidePanel");
+    console.log("ado-assist: extension path:", context.extensionPath);
 
     // (removed unused helper commands: showView, savePat)
 
     // Enter PAT for a specific organization (used by tree items)
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.enterPatForOrg", async (orgArg?: any) => {
+      vscode.commands.registerCommand("ado-assist.enterPatForOrg", async (orgArg?: any) => {
         try {
           const orgFromArg = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           const org = orgFromArg || (await vscode.window.showInputBox({ prompt: "Organization for this PAT (e.g. myorg)" }));
           if (!org) return;
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
-          await context.secrets.store(`azure-devops.pat.${org}`, pat);
+          await context.secrets.store(`ado-assist.pat.${org}`, pat);
           vscode.window.showInformationMessage(`PAT saved for ${org}`);
           // trigger a refresh/fetch for this org if provider is available
           try {
@@ -42,7 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Open project/repo/pipeline URL
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.openProject", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-assist.openProject", async (arg?: any) => {
         try {
           const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
           if (!url) return;
@@ -56,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Add organization
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.addOrganization", async () => {
+      vscode.commands.registerCommand("ado-assist.addOrganization", async () => {
         try {
           const org = await vscode.window.showInputBox({ prompt: "Organization name to add (e.g. myorg)" });
           if (!org) return;
@@ -71,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Remove organization
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.removeOrganization", async () => {
+      vscode.commands.registerCommand("ado-assist.removeOrganization", async () => {
         try {
           const orgs = context.workspaceState.get<string[]>("azuredevops.organizations") || [];
           if (orgs.length === 0) {
@@ -80,6 +80,10 @@ export function activate(context: vscode.ExtensionContext) {
           }
           const pick = await vscode.window.showQuickPick(orgs, { placeHolder: "Select organization to remove" });
           if (!pick) return;
+          const confirm = await vscode.window.showQuickPick(["REMOVE", "CANCEL"], {
+            placeHolder: `Confirm remove organization ${pick}?`,
+          });
+          if (confirm !== "REMOVE") return;
           provider.removeOrganization(pick);
           vscode.window.showInformationMessage(`Removed organization ${pick}`);
         } catch (err) {
@@ -91,7 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Fetch organization command (used by org-level action)
     context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.fetchOrganization", async (orgArg?: any) => {
+      vscode.commands.registerCommand("ado-assist.fetchOrganization", async (orgArg?: any) => {
         try {
           const orgFromArg = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           const org = orgFromArg || (await vscode.window.showInputBox({ prompt: "Organization (e.g. myorg)" }));
@@ -107,13 +111,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
-    console.error("azure-devops: error registering provider", err);
+    console.error("ado-assist: error registering provider", err);
   }
-  console.log("azure-devops: activate() end");
+  console.log("ado-assist: activate() end");
   // attempt to force reveal the view after a short delay
   setTimeout(async () => {
     try {
-      console.log("azure-devops: attempting automatic reveal of side panel");
+      console.log("ado-assist: attempting automatic reveal of side panel");
       await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
       try {
         // try the newer openView command if available
@@ -121,12 +125,12 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.commands.executeCommand("workbench.views.openView", "azureDevOps.sidePanel", true);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.log("azure-devops: optional openView failed", msg);
+        console.log("ado-assist: optional openView failed", msg);
       }
-      console.log("azure-devops: automatic reveal attempt finished");
+      console.log("ado-assist: automatic reveal attempt finished");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("azure-devops: automatic reveal setup error", msg);
+      console.error("ado-assist: automatic reveal setup error", msg);
     }
   }, 500);
 }

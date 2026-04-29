@@ -41,7 +41,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   }
 
   private patKeyForOrg(org: string) {
-    return `azure-devops.pat.${org}`;
+    return `ado-assist.pat.${org}`;
   }
 
   private async promptAndStorePat(org: string): Promise<string | undefined> {
@@ -168,7 +168,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           }
           if (!pat) {
             const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
-            ask.command = { command: "azure-devops.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
             ask.iconPath = new vscode.ThemeIcon("key");
             return [ask];
           }
@@ -182,7 +182,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               it.contextValue = "repo";
               if (it.url) {
                 it.command = {
-                  command: "azure-devops.openProject",
+                  command: "ado-assist.openProject",
                   title: "Open Repo",
                   arguments: [it.url],
                 };
@@ -213,7 +213,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           }
           if (!pat) {
             const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
-            ask.command = { command: "azure-devops.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
             ask.iconPath = new vscode.ThemeIcon("key");
             return [ask];
           }
@@ -227,7 +227,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               it.contextValue = "pipeline";
               if (it.url) {
                 it.command = {
-                  command: "azure-devops.openProject",
+                  command: "ado-assist.openProject",
                   title: "Open Pipeline",
                   arguments: [it.url],
                 };
@@ -258,7 +258,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           }
           if (!pat) {
             const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
-            ask.command = { command: "azure-devops.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
             ask.iconPath = new vscode.ThemeIcon("key");
             return [ask];
           }
@@ -278,7 +278,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
                   it.url = n._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
                   it.contextValue = "board";
                   it.iconPath = new vscode.ThemeIcon("layout");
-                  if (it.url) it.command = { command: "azure-devops.openProject", title: "Open Board", arguments: [it.url] };
+                  if (it.url) it.command = { command: "ado-assist.openProject", title: "Open Board", arguments: [it.url] };
                   items.push(it);
                 }
               }
@@ -292,7 +292,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
                 it.url = v._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
                 it.contextValue = "board";
                 it.iconPath = new vscode.ThemeIcon("layout");
-                if (it.url) it.command = { command: "azure-devops.openProject", title: "Open Board", arguments: [it.url] };
+                if (it.url) it.command = { command: "ado-assist.openProject", title: "Open Board", arguments: [it.url] };
                 items.push(it);
               }
             }
@@ -431,7 +431,9 @@ function getJson(urlStr: string, pat: string): Promise<any> {
         path: u.pathname + u.search,
         method: "GET",
         headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           Authorization: "Basic " + auth,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           Accept: "application/json",
         },
       } as any;
