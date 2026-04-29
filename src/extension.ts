@@ -105,30 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // View title dropdown menu: show a QuickPick with actions
-    context.subscriptions.push(
-      vscode.commands.registerCommand("azure-devops.viewMenu", async () => {
-        try {
-          const items = [
-            { label: "Add organization", command: "azure-devops.addOrganization" },
-            { label: "Remove organization", command: "azure-devops.removeOrganization" },
-            { label: "Fetch organization", command: "azure-devops.fetchOrganization" },
-          ];
-          const pick = await vscode.window.showQuickPick(
-            items.map(i => i.label),
-            { placeHolder: "Select Azure DevOps action" },
-          );
-          if (!pick) return;
-          const selected = items.find(i => i.label === pick);
-          if (selected) {
-            await vscode.commands.executeCommand(selected.command);
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error("azure-devops: viewMenu error", msg);
-        }
-      }),
-    );
+    // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
     console.error("azure-devops: error registering provider", err);
   }

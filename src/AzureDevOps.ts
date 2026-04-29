@@ -121,12 +121,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         it.contextValue = "adoProject";
         return it;
       });
-      // debug: log project tree items for toolbar visibility troubleshooting
-      try {
-        items.forEach(i => console.log("[ADO] project item:", i.label, i.contextValue, i.command && i.command.command, i.command && i.command.arguments));
-      } catch (e) {
-        /* ignore */
-      }
+
       return items;
     }
 
@@ -154,18 +149,6 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       pipelines.iconPath = new vscode.ThemeIcon("git-branch");
 
       return [repos, boards, pipelines];
-    }
-
-    // leaf items: repo/pipeline/board can expose an explicit child action as a workaround
-    if (element.itemType === "repo" || element.itemType === "pipeline" || element.itemType === "board") {
-      const url = element.url;
-      if (!url) return [];
-      const open = new AzureDevOpsTreeItem("Open in browser", vscode.TreeItemCollapsibleState.None);
-      open.itemType = "action";
-      open.contextValue = "action";
-      open.command = { command: "azure-devops.openProject", title: "Open in browser", arguments: [url] };
-      open.iconPath = new vscode.ThemeIcon("link");
-      return [open];
     }
 
     if (element.itemType === "category") {
@@ -207,7 +190,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               it.iconPath = new vscode.ThemeIcon("database");
               return it;
             });
-            try { repoItems.forEach((i: AzureDevOpsTreeItem) => console.log("[ADO] repo item:", i.label, i.contextValue, i.command && i.command.command, i.command && i.command.arguments)); } catch (e) { }
+
             return repoItems;
           }
           return [new AzureDevOpsTreeItem("(no repositories)")];
@@ -236,7 +219,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           }
           const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_apis/pipelines?api-version=6.0-preview.1`;
           const data = await getJson(url, pat);
-            if (data && Array.isArray(data.value)) {
+          if (data && Array.isArray(data.value)) {
             const pipelineItems = data.value.map((p: any) => {
               const it = new AzureDevOpsTreeItem(p.name || `Pipeline ${p.id}`, vscode.TreeItemCollapsibleState.None);
               it.itemType = "pipeline";
@@ -252,7 +235,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               it.iconPath = new vscode.ThemeIcon("git-branch");
               return it;
             });
-            try { pipelineItems.forEach((i: AzureDevOpsTreeItem) => console.log("[ADO] pipeline item:", i.label, i.contextValue, i.command && i.command.command, i.command && i.command.arguments)); } catch (e) { }
+
             return pipelineItems;
           }
           return [new AzureDevOpsTreeItem("(no pipelines)")];
@@ -314,7 +297,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               }
             }
             if (items.length === 0) return [new AzureDevOpsTreeItem("(no boards)")];
-            try { items.forEach(i => console.log("[ADO] board item:", i.label, i.contextValue, i.command && i.command.command, i.command && i.command.arguments)); } catch (e) { }
+
             return items;
           }
           return [new AzureDevOpsTreeItem("(no boards)")];
