@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-export class AzureDevOpsTreeItem extends vscode.TreeItem {
+export class AdoTreeItem extends vscode.TreeItem {
   // custom metadata
   id?: string;
   itemType?: string; // 'project' | 'category' | 'repo' | 'pipeline' | 'error' | 'loading'
@@ -22,15 +22,15 @@ export interface AdoProject {
   description?: string;
 }
 
-export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDevOpsTreeItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<AzureDevOpsTreeItem | undefined | null | void> = new vscode.EventEmitter();
-  readonly onDidChangeTreeData: vscode.Event<AzureDevOpsTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
+  private _onDidChangeTreeData: vscode.EventEmitter<AdoTreeItem | undefined | null | void> = new vscode.EventEmitter();
+  readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private loadingNodes: { [id: string]: boolean } = {};
-  private reposByProject: { [key: string]: AzureDevOpsTreeItem[] } = {};
-  private branchesByRepo: { [key: string]: AzureDevOpsTreeItem[] } = {};
-  private prsByScope: { [key: string]: AzureDevOpsTreeItem[] } = {};
-  private workItemsByProject: { [key: string]: AzureDevOpsTreeItem[] } = {};
+  private reposByProject: { [key: string]: AdoTreeItem[] } = {};
+  private branchesByRepo: { [key: string]: AdoTreeItem[] } = {};
+  private prsByScope: { [key: string]: AdoTreeItem[] } = {};
+  private workItemsByProject: { [key: string]: AdoTreeItem[] } = {};
   private context: vscode.ExtensionContext | undefined;
   private loadingOrg?: string;
   private errorsByOrg: { [org: string]: string } = {};
@@ -38,10 +38,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
   private projectsCache: { [org: string]: { ts: number; projects: AdoProject[] } } = {};
   private projectsCacheExpiryMs = 5000; // short-lived in-memory cache to avoid rapid repeated requests
-  private reposFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
-  private prsFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
-  private branchesFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
-  private workItemsFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
+  private reposFetchPromises: { [key: string]: Promise<AdoTreeItem[]> } = {};
+  private prsFetchPromises: { [key: string]: Promise<AdoTreeItem[]> } = {};
+  private branchesFetchPromises: { [key: string]: Promise<AdoTreeItem[]> } = {};
+  private workItemsFetchPromises: { [key: string]: Promise<AdoTreeItem[]> } = {};
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
 
   constructor(context?: vscode.ExtensionContext) {
@@ -76,26 +76,26 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
 
   private organizations: string[] = [];
 
-  getTreeItem(element: AzureDevOpsTreeItem): vscode.TreeItem {
+  getTreeItem(element: AdoTreeItem): vscode.TreeItem {
     // loading state indicated by child '(loading...)' items; do not override item icons
     return element;
   }
 
   // (debug helper removed)
 
-  async getChildren(element?: AzureDevOpsTreeItem): Promise<AzureDevOpsTreeItem[]> {
+  async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
     // getChildren called
     if (!element) {
       // action buttons at the top
-      const actions: AzureDevOpsTreeItem[] = [];
+      const actions: AdoTreeItem[] = [];
       // (removed global Fetch Projects — use per-organization fetch under each organization)
 
       // root-level Save PAT and Refresh Projects removed — per-org fetch only
 
       // organization nodes after actions — make organizations the root entries
-      const orgItems: AzureDevOpsTreeItem[] = [];
+      const orgItems: AdoTreeItem[] = [];
       for (const o of this.organizations) {
-        const it = new AzureDevOpsTreeItem(o, vscode.TreeItemCollapsibleState.Collapsed);
+        const it = new AdoTreeItem(o, vscode.TreeItemCollapsibleState.Collapsed);
         it.itemType = "organization";
         it.organization = o;
         it.id = `org:${o}`;
@@ -135,7 +135,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       // per-org loading/error handled when expanding each organization
 
       if (orgItems.length === 0) {
-        return actions.concat([new AzureDevOpsTreeItem("(no organizations)")]);
+        return actions.concat([new AdoTreeItem("(no organizations)")]);
       }
 
       return actions.concat(orgItems);
@@ -144,7 +144,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     // element-specific children
     // if this node is currently loading due to a refresh, show loading indicator only
     if (element && element.id && this.loadingNodes[element.id]) {
-      const it = new AzureDevOpsTreeItem("(loading...)", vscode.TreeItemCollapsibleState.None);
+      const it = new AdoTreeItem("(loading...)", vscode.TreeItemCollapsibleState.None);
       it.itemType = "loading";
       it.iconPath = new vscode.ThemeIcon("sync~spin");
       return [it];
@@ -153,14 +153,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       const org = element.organization as string;
       // if this org is loading, show loading indicator
       if (this.loadingOrg === org) {
-        const it = new AzureDevOpsTreeItem("(loading...)", vscode.TreeItemCollapsibleState.None);
+        const it = new AdoTreeItem("(loading...)", vscode.TreeItemCollapsibleState.None);
         it.itemType = "loading";
         it.iconPath = new vscode.ThemeIcon("sync~spin");
         return [it];
       }
       // if this org had an error, show it
       if (this.errorsByOrg[org]) {
-        const it = new AzureDevOpsTreeItem(`(error) ${this.errorsByOrg[org]}`, vscode.TreeItemCollapsibleState.None);
+        const it = new AdoTreeItem(`(error) ${this.errorsByOrg[org]}`, vscode.TreeItemCollapsibleState.None);
         it.itemType = "error";
         it.iconPath = new vscode.ThemeIcon("error");
         return [it];
@@ -168,9 +168,9 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       // fetch projects each time (caching disabled)
       try {
         const projects = await this.fetchProjects(org);
-        if (!projects || projects.length === 0) return [new AzureDevOpsTreeItem("(no projects)")];
+        if (!projects || projects.length === 0) return [new AdoTreeItem("(no projects)")];
         const items = projects.map(p => {
-          const it = new AzureDevOpsTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
+          const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
           it.itemType = "project";
           it.projectId = p.id;
           it.url = p.url;
@@ -183,7 +183,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         });
         return items;
       } catch (e) {
-        return [new AzureDevOpsTreeItem("(failed to load projects)")];
+        return [new AdoTreeItem("(failed to load projects)")];
       }
     }
 
@@ -199,7 +199,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       }
 
       // categories under project
-      const repos = new AzureDevOpsTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
+      const repos = new AdoTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
       repos.itemType = "category";
       repos.projectId = element.projectId;
       repos.organization = element.organization;
@@ -207,7 +207,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       repos.id = `category:${element.organization}:${element.projectId}:repositories`;
       repos.iconPath = new vscode.ThemeIcon("files");
 
-      const boards = new AzureDevOpsTreeItem("Boards", vscode.TreeItemCollapsibleState.Collapsed);
+      const boards = new AdoTreeItem("Boards", vscode.TreeItemCollapsibleState.Collapsed);
       boards.itemType = "category";
       boards.projectId = element.projectId;
       boards.organization = element.organization;
@@ -225,7 +225,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       const repoName = element.repoName || String(element.label);
       const repoIdentifier = element.repoId || repoName;
 
-      const prCategory = new AzureDevOpsTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
+      const prCategory = new AdoTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
       prCategory.itemType = "category";
       prCategory.projectId = proj;
       prCategory.organization = org;
@@ -235,7 +235,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       prCategory.id = `category:${org}:${proj}:pullrequests:${repoIdentifier}`;
       prCategory.iconPath = new vscode.ThemeIcon("git-pull-request");
 
-      const branchesCategory = new AzureDevOpsTreeItem("Branches", vscode.TreeItemCollapsibleState.Collapsed);
+      const branchesCategory = new AdoTreeItem("Branches", vscode.TreeItemCollapsibleState.Collapsed);
       branchesCategory.itemType = "category";
       branchesCategory.projectId = proj;
       branchesCategory.organization = org;
@@ -257,7 +257,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const items = this.reposByProject[`${org}:${proj}`] || (await this.fetchRepositories(org, proj));
           return items;
         } catch (e) {
-          return [new AzureDevOpsTreeItem("(failed to load repositories)")];
+          return [new AdoTreeItem("(failed to load repositories)")];
         }
       }
       if (label === "Recent Work Items") {
@@ -267,7 +267,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const items = await this.fetchWorkItems(org, proj);
           return items;
         } catch (e) {
-          return [new AzureDevOpsTreeItem("(failed to load work items)")];
+          return [new AdoTreeItem("(failed to load work items)")];
         }
       }
       if (label === "Pull Requests") {
@@ -279,7 +279,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const items = this.prsByScope[pKey] || (await this.fetchPullRequests(org, proj, repoIdentifier));
           return items;
         } catch (e) {
-          return [new AzureDevOpsTreeItem("(failed to load pull requests)")];
+          return [new AdoTreeItem("(failed to load pull requests)")];
         }
       }
 
@@ -291,7 +291,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const items = this.branchesByRepo[`${org}:${proj}:${repoIdentifier}`] || (await this.fetchBranches(org, proj, repoIdentifier, element.repoName as string | undefined));
           return items;
         } catch (e) {
-          return [new AzureDevOpsTreeItem("(failed to load branches)")];
+          return [new AdoTreeItem("(failed to load branches)")];
         }
       }
 
@@ -304,12 +304,12 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             pat = await this.context.secrets.get(this.patKeyForOrg(org));
             if (!pat) {
               const entered = await this.promptAndStorePat(org);
-              if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              if (!entered) return [new AdoTreeItem("(no PAT provided)")];
               pat = entered;
             }
           }
           if (!pat) {
-            const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+            const ask = new AdoTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
             ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
             ask.iconPath = new vscode.ThemeIcon("key");
             return [ask];
@@ -321,13 +321,13 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             // flatten queries
             // ensure project description cached before showing boards
             let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            const items: AzureDevOpsTreeItem[] = [];
+            const items: AdoTreeItem[] = [];
             const walk = (nodes: any[]) => {
               for (const n of nodes) {
                 if (n.isFolder && Array.isArray(n.children)) {
                   walk(n.children);
                 } else if (!n.isFolder) {
-                  const it = new AzureDevOpsTreeItem(n.name, vscode.TreeItemCollapsibleState.None);
+                  const it = new AdoTreeItem(n.name, vscode.TreeItemCollapsibleState.None);
                   it.itemType = "board";
                   it.url = n._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
                   it.contextValue = "board";
@@ -344,7 +344,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             for (const v of data.value) {
               if (v.hasOwnProperty("children") && Array.isArray(v.children)) walk(v.children);
               else if (!v.isFolder) {
-                const it = new AzureDevOpsTreeItem(v.name, vscode.TreeItemCollapsibleState.None);
+                const it = new AdoTreeItem(v.name, vscode.TreeItemCollapsibleState.None);
                 it.itemType = "board";
                 it.url = v._links?.web?.href || `https://dev.azure.com/${org}/${proj}/_workitems`;
                 it.contextValue = "board";
@@ -355,7 +355,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               }
             }
             // prepend a Recent Work Items category under Boards
-            const recent = new AzureDevOpsTreeItem("Recent Work Items", vscode.TreeItemCollapsibleState.Collapsed);
+            const recent = new AdoTreeItem("Recent Work Items", vscode.TreeItemCollapsibleState.Collapsed);
             recent.itemType = "category";
             recent.projectId = proj;
             recent.organization = org;
@@ -366,9 +366,9 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             // cache boards-as-queries not needed; work items handled separately
             return [recent, ...items];
           }
-          return [new AzureDevOpsTreeItem("(no boards)")];
+          return [new AdoTreeItem("(no boards)")];
         } catch (err) {
-          return [new AzureDevOpsTreeItem("(failed to load boards)")];
+          return [new AdoTreeItem("(failed to load boards)")];
         }
       }
     }
@@ -421,7 +421,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
    * - project: re-fetch projects for the parent organization
    * - category/repo/other: trigger a tree refresh so getChildren re-queries dynamic endpoints
    */
-  async refreshNode(element?: AzureDevOpsTreeItem): Promise<void> {
+  async refreshNode(element?: AdoTreeItem): Promise<void> {
     if (!element) {
       this.refresh();
       return;
@@ -665,11 +665,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   }
 
   // Fetch repositories for a given project and cache them. Does not call this.refresh().
-  async fetchRepositories(org: string, projectId: string): Promise<AzureDevOpsTreeItem[]> {
+  async fetchRepositories(org: string, projectId: string): Promise<AdoTreeItem[]> {
     const cacheKey = `${org}:${projectId}`;
     if (this.reposFetchPromises[cacheKey]) return this.reposFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:repositories`;
-    if (this.loadingNodes[id]) return [new AzureDevOpsTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -680,21 +680,21 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const entered = await this.promptAndStorePat(org);
             if (!entered) {
               delete this.loadingNodes[id];
-              return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              return [new AdoTreeItem("(no PAT provided)")];
             }
             pat = entered;
           }
         }
         if (!pat) {
           delete this.loadingNodes[id];
-          const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+          const ask = new AdoTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
           ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
         }
         const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectId)}/_apis/git/repositories?api-version=6.0`;
         const data = await getJson(url, pat);
-        const repoItems: AzureDevOpsTreeItem[] = [];
+        const repoItems: AdoTreeItem[] = [];
         if (data && Array.isArray(data.value)) {
           let projectEntry: AdoProject | undefined;
           // Prefer in-memory project list to avoid calling fetchProjects repeatedly
@@ -708,7 +708,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           const projectNameForUrl = projectEntry?.name || String(projectId);
           for (const r of data.value) {
             const repoName = String(r.name);
-            const it = new AzureDevOpsTreeItem(repoName, vscode.TreeItemCollapsibleState.Collapsed);
+            const it = new AdoTreeItem(repoName, vscode.TreeItemCollapsibleState.Collapsed);
             it.itemType = "repo";
             it.organization = org;
             it.projectId = projectId;
@@ -728,7 +728,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         this.reposByProject[`${org}:${projectId}`] = repoItems;
         return repoItems;
       } catch (err) {
-        return [new AzureDevOpsTreeItem("(failed to load repositories)")];
+        return [new AdoTreeItem("(failed to load repositories)")];
       } finally {
         delete this.loadingNodes[id];
       }
@@ -741,11 +741,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
   }
 
-  async fetchPullRequests(org: string, projectId: string, repoIdentifier?: string): Promise<AzureDevOpsTreeItem[]> {
+  async fetchPullRequests(org: string, projectId: string, repoIdentifier?: string): Promise<AdoTreeItem[]> {
     const cacheKey = `${org}:${projectId}:${repoIdentifier || ""}`;
     if (this.prsFetchPromises[cacheKey]) return this.prsFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:pullrequests:${repoIdentifier || ""}`;
-    if (this.loadingNodes[id]) return [new AzureDevOpsTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -756,14 +756,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const entered = await this.promptAndStorePat(org);
             if (!entered) {
               delete this.loadingNodes[id];
-              return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              return [new AdoTreeItem("(no PAT provided)")];
             }
             pat = entered;
           }
         }
         if (!pat) {
           delete this.loadingNodes[id];
-          const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+          const ask = new AdoTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
           ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
@@ -776,7 +776,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         if (data && Array.isArray(data.value)) {
           const prItems = data.value.map((p: any) => {
             const title = p.title || `PR ${p.pullRequestId}`;
-            const it = new AzureDevOpsTreeItem(title, vscode.TreeItemCollapsibleState.None);
+            const it = new AdoTreeItem(title, vscode.TreeItemCollapsibleState.None);
             it.itemType = "pullrequest";
             it.url = p._links?.web?.href || `https://dev.azure.com/${org}/${projectName}/_git/${p.repository?.name}/pullrequest/${p.pullRequestId}`;
             it.contextValue = "pullrequest";
@@ -787,11 +787,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             it.iconPath = new vscode.ThemeIcon("git-pull-request");
             return it;
           });
-          return prItems.length ? prItems : [new AzureDevOpsTreeItem("(no pull requests)")];
+          return prItems.length ? prItems : [new AdoTreeItem("(no pull requests)")];
         }
-        return [new AzureDevOpsTreeItem("(no pull requests)")];
+        return [new AdoTreeItem("(no pull requests)")];
       } catch (err) {
-        return [new AzureDevOpsTreeItem("(failed to load pull requests)")];
+        return [new AdoTreeItem("(failed to load pull requests)")];
       } finally {
         delete this.loadingNodes[id];
       }
@@ -804,11 +804,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
   }
 
-  async fetchBranches(org: string, projectId: string, repoIdentifier: string, repoName?: string): Promise<AzureDevOpsTreeItem[]> {
+  async fetchBranches(org: string, projectId: string, repoIdentifier: string, repoName?: string): Promise<AdoTreeItem[]> {
     const cacheKey = `${org}:${projectId}:${repoIdentifier}`;
     if (this.branchesFetchPromises[cacheKey]) return this.branchesFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:branches:${repoIdentifier}`;
-    if (this.loadingNodes[id]) return [new AzureDevOpsTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -819,14 +819,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const entered = await this.promptAndStorePat(org);
             if (!entered) {
               delete this.loadingNodes[id];
-              return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              return [new AdoTreeItem("(no PAT provided)")];
             }
             pat = entered;
           }
         }
         if (!pat) {
           delete this.loadingNodes[id];
-          const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+          const ask = new AdoTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
           ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
@@ -840,7 +840,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const fullName = String(r.name || r.name);
             const parts = fullName.split("/");
             const branchName = parts.slice(2).join("/") || fullName;
-            const it = new AzureDevOpsTreeItem(branchName, vscode.TreeItemCollapsibleState.None);
+            const it = new AdoTreeItem(branchName, vscode.TreeItemCollapsibleState.None);
             it.itemType = "branch";
             it.contextValue = "branch";
             it.id = `branch:${org}:${projectId}:${repoIdentifier}:${branchName}`;
@@ -849,11 +849,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             it.iconPath = new vscode.ThemeIcon("git-branch");
             return it;
           });
-          return items.length ? items : [new AzureDevOpsTreeItem("(no branches)")];
+          return items.length ? items : [new AdoTreeItem("(no branches)")];
         }
-        return [new AzureDevOpsTreeItem("(no branches)")];
+        return [new AdoTreeItem("(no branches)")];
       } catch (err) {
-        return [new AzureDevOpsTreeItem("(failed to load branches)")];
+        return [new AdoTreeItem("(failed to load branches)")];
       } finally {
         delete this.loadingNodes[id];
       }
@@ -866,11 +866,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
   }
 
-  async fetchWorkItems(org: string, projectId: string): Promise<AzureDevOpsTreeItem[]> {
+  async fetchWorkItems(org: string, projectId: string): Promise<AdoTreeItem[]> {
     const cacheKey = `${org}:${projectId}`;
     if (this.workItemsFetchPromises[cacheKey]) return this.workItemsFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:recentWorkItems`;
-    if (this.loadingNodes[id]) return [new AzureDevOpsTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -881,14 +881,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const entered = await this.promptAndStorePat(org);
             if (!entered) {
               delete this.loadingNodes[id];
-              return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              return [new AdoTreeItem("(no PAT provided)")];
             }
             pat = entered;
           }
         }
         if (!pat) {
           delete this.loadingNodes[id];
-          const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+          const ask = new AdoTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
           ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
@@ -899,7 +899,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         const wiqlBody = { query: `Select [System.Id] From WorkItems Where [System.TeamProject] = '${projectName}' ORDER BY [System.ChangedDate] DESC` };
         const wiqlRes = await postJson(wiqlUrl, pat, wiqlBody);
         const ids = Array.isArray(wiqlRes?.workItems) ? wiqlRes.workItems.slice(0, 50).map((w: any) => w.id) : [];
-        if (ids.length === 0) return [new AzureDevOpsTreeItem("(no work items)")];
+        if (ids.length === 0) return [new AdoTreeItem("(no work items)")];
         const fields = encodeURIComponent("System.Title,System.State,System.AssignedTo");
         const idsParam = ids.join(",");
         const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems?ids=${idsParam}&fields=${fields}&api-version=6.0`;
@@ -910,7 +910,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const title = w.fields?.["System.Title"] || "(no title)";
             const state = w.fields?.["System.State"] || "";
             const assigned = (w.fields?.["System.AssignedTo"] && w.fields["System.AssignedTo"].displayName) || "";
-            const it = new AzureDevOpsTreeItem(`#${id} ${title}`, vscode.TreeItemCollapsibleState.None);
+            const it = new AdoTreeItem(`#${id} ${title}`, vscode.TreeItemCollapsibleState.None);
             it.itemType = "workitem";
             it.url = w._links?.html?.href || `https://dev.azure.com/${org}/${projectName}/_workitems?id=${id}`;
             it.contextValue = "workitem";
@@ -921,9 +921,9 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           });
           return items;
         }
-        return [new AzureDevOpsTreeItem("(no work items)")];
+        return [new AdoTreeItem("(no work items)")];
       } catch (err) {
-        return [new AzureDevOpsTreeItem("(failed to load work items)")];
+        return [new AdoTreeItem("(failed to load work items)")];
       } finally {
         delete this.loadingNodes[id];
       }
@@ -956,8 +956,8 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   }
 }
 
-export function createTreeProvider(context?: vscode.ExtensionContext): AzureDevOpsTreeProvider {
-  return new AzureDevOpsTreeProvider(context);
+export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {
+  return new AdoTreeProvider(context);
 }
 
 async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any): Promise<any> {
