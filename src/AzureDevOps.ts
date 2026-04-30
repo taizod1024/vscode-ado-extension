@@ -42,6 +42,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   private prsFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
   private branchesFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
   private workItemsFetchPromises: { [key: string]: Promise<AzureDevOpsTreeItem[]> } = {};
+  private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
 
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
@@ -76,10 +77,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   private organizations: string[] = [];
 
   getTreeItem(element: AzureDevOpsTreeItem): vscode.TreeItem {
-    // if this node is marked loading, show spinner icon
-    if (element && element.id && this.loadingNodes[element.id]) {
-      element.iconPath = new vscode.ThemeIcon("sync~spin");
-    }
+    // loading state indicated by child '(loading...)' items; do not override item icons
     return element;
   }
 
@@ -191,18 +189,15 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
 
     if (element.itemType === "project") {
       // project expand for: log suppressed
-      // ensure we have project list for this org (auto-fetch if missing)
+      const org = element.organization as string;
+      // Do not auto-fetch full project list here — rely on organization expand to populate projectsByOrg.
+      // prefetch project-scoped dynamic children sequentially and cache them
       try {
-        const org = element.organization as string;
-        // fetch projects to ensure project metadata available (no caching)
-        try {
-          await this.fetchProjects(org);
-        } catch (e) {
-          // ignore
-        }
+        await this.prefetchProjectData(org, element.projectId as string);
       } catch (e) {
-        // ignore
+        // ignore; category handlers will show errors if needed
       }
+
       // categories under project
       const repos = new AzureDevOpsTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
       repos.itemType = "category";
@@ -259,7 +254,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         const org = element.organization as string;
         const proj = element.projectId as string;
         try {
-          const items = await this.fetchRepositories(org, proj);
+          const items = this.reposByProject[`${org}:${proj}`] || (await this.fetchRepositories(org, proj));
           return items;
         } catch (e) {
           return [new AzureDevOpsTreeItem("(failed to load repositories)")];
@@ -280,7 +275,8 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         const proj = element.projectId as string;
         const repoIdentifier = (element.repoId as string) || (element.repoName as string) || undefined;
         try {
-          const items = await this.fetchPullRequests(org, proj, repoIdentifier);
+          const pKey = repoIdentifier ? `${org}:${proj}:${repoIdentifier}` : `${org}:${proj}`;
+          const items = this.prsByScope[pKey] || (await this.fetchPullRequests(org, proj, repoIdentifier));
           return items;
         } catch (e) {
           return [new AzureDevOpsTreeItem("(failed to load pull requests)")];
@@ -292,7 +288,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         const proj = element.projectId as string;
         const repoIdentifier = (element.repoId as string) || (element.repoName as string) || "";
         try {
-          const items = await this.fetchBranches(org, proj, repoIdentifier, element.repoName as string | undefined);
+          const items = this.branchesByRepo[`${org}:${proj}:${repoIdentifier}`] || (await this.fetchBranches(org, proj, repoIdentifier, element.repoName as string | undefined));
           return items;
         } catch (e) {
           return [new AzureDevOpsTreeItem("(failed to load branches)")];
@@ -325,12 +321,6 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             // flatten queries
             // ensure project description cached before showing boards
             let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            if (!projectEntry) {
-              try {
-                if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
-              } catch (e) {}
-              projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            }
             const items: AzureDevOpsTreeItem[] = [];
             const walk = (nodes: any[]) => {
               for (const n of nodes) {
@@ -372,9 +362,8 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             recent.contextValue = "category";
             recent.id = `category:${org}:${proj}:recentWorkItems`;
             recent.iconPath = new vscode.ThemeIcon("list-unordered");
-
             if (items.length === 0) return [recent];
-
+            // cache boards-as-queries not needed; work items handled separately
             return [recent, ...items];
           }
           return [new AzureDevOpsTreeItem("(no boards)")];
@@ -385,6 +374,41 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
 
     return [];
+  }
+
+  // Prefetch and cache repositories, pull requests, branches (per-repo) and work items for a project
+  async prefetchProjectData(org: string, projectId: string): Promise<void> {
+    if (!org || !projectId) return;
+    const key = `${org}:${projectId}`;
+    try {
+      const repos = await this.fetchRepositories(org, projectId);
+      this.reposByProject[key] = repos;
+    } catch (e) {
+      this.reposByProject[key] = [];
+    }
+    try {
+      const prs = await this.fetchPullRequests(org, projectId);
+      this.prsByScope[key] = prs;
+    } catch (e) {
+      this.prsByScope[key] = [];
+    }
+    // fetch branches per repo sequentially to avoid bursts
+    const reposCached = this.reposByProject[key] || [];
+    for (const r of reposCached) {
+      try {
+        const repoId = (r.repoId as string) || (r.repoName as string) || "";
+        const b = await this.fetchBranches(org, projectId, repoId, r.repoName);
+        this.branchesByRepo[`${org}:${projectId}:${repoId}`] = b;
+      } catch (e) {
+        // ignore per-repo branch errors
+      }
+    }
+    try {
+      const wis = await this.fetchWorkItems(org, projectId);
+      this.workItemsByProject[key] = wis;
+    } catch (e) {
+      this.workItemsByProject[key] = [];
+    }
   }
 
   refresh(): void {
@@ -407,6 +431,19 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       // mark node as loading and clear its children visually
       if (element.id) {
         this.loadingNodes[element.id] = true;
+        // safety timer to avoid permanent spinner if something fails to clear loading state
+        try {
+          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+        } catch (e) {}
+        this.loadingTimers[element.id] = setTimeout(() => {
+          try {
+            if (this.loadingNodes[element.id]) {
+              delete this.loadingNodes[element.id];
+              delete this.loadingTimers[element.id];
+              this._onDidChangeTreeData.fire(element);
+            }
+          } catch (e) {}
+        }, 10000);
         // collapse the node so children are hidden during refresh
         element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         // clear caches relevant to this node so children disappear immediately
@@ -449,6 +486,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             // ignore fetch errors; fetchProjects handles errors state
           }
           if (element.id) {
+            try {
+              if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+            } catch (e) {}
+            delete this.loadingTimers[element.id];
             delete this.loadingNodes[element.id];
             this._onDidChangeTreeData.fire(element);
           }
@@ -475,6 +516,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           // ignore individual fetch errors
         }
         if (element.id) {
+          try {
+            if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+          } catch (e) {}
+          delete this.loadingTimers[element.id];
           delete this.loadingNodes[element.id];
           this._onDidChangeTreeData.fire(element);
         }
@@ -482,6 +527,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       }
       // categories, repos, boards, etc. are dynamic -- trigger a re-render for the node
       if (element.id) {
+        try {
+          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+        } catch (e) {}
+        delete this.loadingTimers[element.id];
         // clear loading state before re-render so getChildren will re-query endpoints
         delete this.loadingNodes[element.id];
       }
@@ -489,7 +538,13 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       return;
     } catch (err) {
       // fallback to full refresh on error
-      if (element?.id) delete this.loadingNodes[element.id];
+      if (element?.id) {
+        try {
+          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+        } catch (e) {}
+        delete this.loadingTimers[element.id];
+        delete this.loadingNodes[element.id];
+      }
       this.refresh();
     }
   }
@@ -583,14 +638,13 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         }
         // cache projects briefly in-memory to suppress rapid repeated requests
         this.projectsCache[organization] = { ts: Date.now(), projects };
+        // populate in-memory projectsByOrg for callers that check it (do not persist)
+        this.projectsByOrg[organization] = projects;
         // do not persist projects to workspaceState
         // clear any previous error for this org
         delete this.errorsByOrg[organization];
         if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
         return projects;
-        // clear any previous error for this org
-        delete this.errorsByOrg[organization];
-        if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         this.errorsByOrg[organization] = msg;
@@ -643,10 +697,14 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         const repoItems: AzureDevOpsTreeItem[] = [];
         if (data && Array.isArray(data.value)) {
           let projectEntry: AdoProject | undefined;
-          try {
-            const projects = await this.fetchProjects(org);
-            projectEntry = projects.find(p => p.id === (projectId as any));
-          } catch (e) {}
+          // Prefer in-memory project list to avoid calling fetchProjects repeatedly
+          projectEntry = this.projectsByOrg[org]?.find(p => p.id === (projectId as any));
+          if (!projectEntry) {
+            try {
+              const projects = await this.fetchProjects(org);
+              projectEntry = projects.find(p => p.id === (projectId as any));
+            } catch (e) {}
+          }
           const projectNameForUrl = projectEntry?.name || String(projectId);
           for (const r of data.value) {
             const repoName = String(r.name);
@@ -666,6 +724,8 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             repoItems.push(it);
           }
         }
+        // store in-memory for synchronous retrieval by getChildren
+        this.reposByProject[`${org}:${projectId}`] = repoItems;
         return repoItems;
       } catch (err) {
         return [new AzureDevOpsTreeItem("(failed to load repositories)")];
@@ -708,11 +768,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
         }
-        let projectEntry: AdoProject | undefined;
-        try {
-          const projects = await this.fetchProjects(org);
-          projectEntry = projects.find(p => p.id === (projectId as any));
-        } catch (e) {}
+        let projectEntry: AdoProject | undefined = this.projectsByOrg[org]?.find(p => p.id === (projectId as any));
         const projectName = projectEntry?.name || String(projectId);
         const repoFilter = repoIdentifier ? `&searchCriteria.repositoryId=${encodeURIComponent(repoIdentifier)}` : "";
         const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/pullrequests?api-version=6.0&searchCriteria.status=active${repoFilter}`;
@@ -775,11 +831,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
         }
-        let projectEntry: AdoProject | undefined;
-        try {
-          const projects = await this.fetchProjects(org);
-          projectEntry = projects.find(p => p.id === (projectId as any));
-        } catch (e) {}
+        let projectEntry: AdoProject | undefined = this.projectsByOrg[org]?.find(p => p.id === (projectId as any));
         const projectName = projectEntry?.name || String(projectId);
         const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/repositories/${encodeURIComponent(repoIdentifier)}/refs?filter=heads/&api-version=6.0`;
         const data = await getJson(url, pat);
@@ -841,11 +893,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           ask.iconPath = new vscode.ThemeIcon("key");
           return [ask];
         }
-        let projectEntry: AdoProject | undefined;
-        try {
-          const projects = await this.fetchProjects(org);
-          projectEntry = projects.find(x => x.id === (projectId as any));
-        } catch (e) {}
+        let projectEntry: AdoProject | undefined = this.projectsByOrg[org]?.find(x => x.id === (projectId as any));
         const projectName = projectEntry?.name || String(projectId);
         const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/wit/wiql?api-version=6.0`;
         const wiqlBody = { query: `Select [System.Id] From WorkItems Where [System.TeamProject] = '${projectName}' ORDER BY [System.ChangedDate] DESC` };
@@ -945,8 +993,8 @@ async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, 
             } catch (e) {
               // ignore logging errors
             }
-            // slight delay to reduce loading spikes
-            setTimeout(() => resolve(parsed), 500);
+            // resolve immediately (removed artificial 0.5s delay)
+            resolve(parsed);
           } catch (err) {
             reject(err);
           }
