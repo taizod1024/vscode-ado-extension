@@ -34,9 +34,20 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
+  /**
+   * コンストラクタ。
+   * @param context 拡張の `ExtensionContext`（省略可）。workspaceState や secrets にアクセスします。
+   */
+
   private patKeyForOrg(org: string) {
     return `ado-assist.pat.${org}`;
   }
+
+  /**
+   * 指定した組織に対応する secrets のキーを返します。
+   * @param org 組織名
+   * @returns secrets に保存するためのキー文字列
+   */
 
   private async promptAndStorePat(org: string): Promise<string | undefined> {
     const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
@@ -52,19 +63,29 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
+  /**
+   * ユーザーに PAT 入力を促し、入力があれば secrets に保存します。
+   * @param org 組織名
+   * @returns 保存された PAT（保存されなかった場合は undefined）
+   */
+
   private organizations: string[] = [];
 
   // --- TreeDataProvider のメソッド（VS Code が要求） ---
   /**
    * 要素の TreeItem 表現を返します。（TreeDataProvider）
+   * @param element 表示する `AdoTreeItem`
+   * @returns `vscode.TreeItem`（ツリー表示用）
    */
   getTreeItem(element: AdoTreeItem): vscode.TreeItem {
     return element;
   }
 
   /**
-   * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
-   * （TreeDataProvider）
+    * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
+    * （TreeDataProvider）
+    * @param element 親要素（未指定ならルート）
+    * @returns 子要素の配列
    */
   async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
     if (!element) {
@@ -89,13 +110,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   refresh(): void {
     // 公開ヘルパー: ツリー全体を更新する
+    // @returns void
     this._onDidChangeTreeData.fire();
   }
 
   // --- 公開コマンド / ヘルパー（TreeDataProvider インターフェース外） ---
   /**
-   * 特定ノード（または element 未指定でツリー全体）を更新します。
-   * 登録されたコマンドから呼ばれる公開ヘルパーです。
+    * 特定ノード（または element 未指定でツリー全体）を更新します。
+    * 登録されたコマンドから呼ばれる公開ヘルパーです。
+    * @param element 更新対象の `AdoTreeItem`（未指定で全体更新）
+    * @returns Promise<void>
    */
   async refreshNode(element?: AdoTreeItem): Promise<void> {
     if (!element) {
@@ -197,6 +221,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // --- 内部ヘルパー（TreeDataProvider の一部ではない） ---
   /**
    * 組織のプロジェクトを取得します。重複リクエストは in-flight promise によって合流されます。
+   * @param organization 組織名
+   * @param pat 任意の PAT（未指定時は secrets から取得／入力を促す）
+   * @returns 取得した `AdoProject` の配列
    */
   async fetchProjects(organization: string, pat?: string): Promise<AdoProject[]> {
     // キャッシュロジックは削除済み：常に最新を取得します（同時実行合流は維持）
@@ -295,6 +322,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
+  /**
+   * 組織を追加します（重複は無視）。workspaceState に永続化します。
+   * @param org 追加する組織名
+   */
+
   removeOrganization(org: string) {
     if (!org) return;
     this.organizations = this.organizations.filter(o => o !== org);
@@ -302,6 +334,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     delete this.projectsByOrg[org];
     this.refresh();
   }
+
+  /**
+   * 組織を削除します。workspaceState を更新し、関連するプロジェクト情報を消去します。
+   * @param org 削除する組織名
+   */
 
   clearOrganizations(): void {
     // remove all organizations and cached data
@@ -311,8 +348,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     this.projectsFetchPromises = {};
     this.refresh();
   }
+
+  /**
+   * すべての組織情報と関連データをクリアします（workspaceState は空の配列に更新）。
+   * @returns void
+   */
 }
 
 export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {
+  /**
+   * AdoTreeProvider のファクトリ。
+   * @param context 拡張の `ExtensionContext`（省略可）
+   * @returns `AdoTreeProvider` インスタンス
+   */
   return new AdoTreeProvider(context);
 }
