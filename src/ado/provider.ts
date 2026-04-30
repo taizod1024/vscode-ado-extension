@@ -123,6 +123,32 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       if (orgItems.length === 0) return actions.concat([new AdoTreeItem("(no organizations)")]);
       return actions.concat(orgItems);
     }
+    // organization の子として project を返す
+    const t = element.itemType;
+    if (t === "organization" && element.organization) {
+      const org = element.organization as string;
+      try {
+        const projects = await this.fetchProjects(org);
+        const items: AdoTreeItem[] = [];
+        for (const p of projects) {
+          const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.None);
+          it.itemType = "project";
+          it.organization = org;
+          it.projectId = p.id;
+          it.description = p.description || "";
+          it.id = `proj:${org}:${p.id}`;
+          it.contextValue = "project";
+          it.iconPath = new vscode.ThemeIcon("repo");
+          it.url = p.url;
+          it.tooltip = p.description || p.url;
+          items.push(it);
+        }
+        if (items.length === 0) return [new AdoTreeItem("(no projects)")];
+        return items;
+      } catch (e) {
+        return [new AdoTreeItem("(failed to load projects)")];
+      }
+    }
     return [];
   }
 
