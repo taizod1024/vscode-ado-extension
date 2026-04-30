@@ -3,7 +3,16 @@ import { AdoTreeItem, AdoProject } from "./types";
 import { httpRequest } from "./api";
 
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
+  // --- TreeDataProvider イベントと API（実装） ---
+  /**
+   * ツリー変更用のイベントエミッタ。TreeDataProvider の契約の一部です。
+   * VS Code は `onDidChangeTreeData` を監視してビューを更新します。
+   */
   private _onDidChangeTreeData: vscode.EventEmitter<AdoTreeItem | undefined | null | void> = new vscode.EventEmitter();
+  /**
+   * VS Code API が要求する TreeDataProvider のイベント。
+   * インターフェースを満たすために公開の読み取り専用プロパティとして実装しています。
+   */
   readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private loadingNodes: { [id: string]: boolean } = {};
@@ -45,10 +54,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   private organizations: string[] = [];
 
+  // --- TreeDataProvider のメソッド（VS Code が要求） ---
+  /**
+   * 要素の TreeItem 表現を返します。（TreeDataProvider）
+   */
   getTreeItem(element: AdoTreeItem): vscode.TreeItem {
     return element;
   }
 
+  /**
+   * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
+   * （TreeDataProvider）
+   */
   async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
     if (!element) {
       const actions: AdoTreeItem[] = [];
@@ -71,9 +88,15 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   refresh(): void {
+    // 公開ヘルパー: ツリー全体を更新する
     this._onDidChangeTreeData.fire();
   }
 
+  // --- 公開コマンド / ヘルパー（TreeDataProvider インターフェース外） ---
+  /**
+   * 特定ノード（または element 未指定でツリー全体）を更新します。
+   * 登録されたコマンドから呼ばれる公開ヘルパーです。
+   */
   async refreshNode(element?: AdoTreeItem): Promise<void> {
     if (!element) {
       this.refresh();
@@ -171,8 +194,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
+  // --- 内部ヘルパー（TreeDataProvider の一部ではない） ---
+  /**
+   * 組織のプロジェクトを取得します。重複リクエストは in-flight promise によって合流されます。
+   */
   async fetchProjects(organization: string, pat?: string): Promise<AdoProject[]> {
-    // caching disabled: always fetch fresh data (in-flight dedupe still applies)
+    // キャッシュロジックは削除済み：常に最新を取得します（同時実行合流は維持）
 
     if (this.projectsFetchPromises[organization]) return this.projectsFetchPromises[organization];
     const p = (async () => {
