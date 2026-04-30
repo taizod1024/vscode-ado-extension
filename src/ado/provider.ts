@@ -86,7 +86,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /**
    * 読み込み時に変更した collapsibleState を復元するためのバックアップ。
    */
-  
 
   /**
    * コンストラクタ。
