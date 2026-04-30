@@ -112,8 +112,8 @@ export function activate(context: vscode.ExtensionContext) {
               // ignore per-org deletion errors
             }
           }
-          // clear provider state
-          if (provider && provider.clearOrganizations) provider.clearOrganizations();
+          // clear provider state (provider now also removes stored PATs)
+          if (provider && provider.clearOrganizations) await provider.clearOrganizations();
           vscode.window.showInformationMessage(`Cleared ${orgs.length} organizations and their PATs`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

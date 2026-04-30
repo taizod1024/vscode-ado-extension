@@ -397,13 +397,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
       // 組織のプロジェクトキャッシュと関連する children キャッシュ／in-flight を削除して再フェッチ
       delete this.projectsByOrg[org];
-      const prefixes = [
-        `projects:${org}`,
-        `workitems:${org}:`,
-        `repos:${org}:`,
-        `branches:${org}:`,
-        `prs:${org}:`,
-      ];
+      const prefixes = [`projects:${org}`, `workitems:${org}:`, `repos:${org}:`, `branches:${org}:`, `prs:${org}:`];
       try {
         for (const k of Object.keys(this.childrenCache)) {
           for (const p of prefixes) {
@@ -497,11 +491,22 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /**
    * すべての組織情報と関連データをクリアします。
    */
-  clearOrganizations(): void {
+  async clearOrganizations(): Promise<void> {
+    // delete stored PATs for known organizations
+    const orgs = Array.from(this.organizations || []);
+    if (this.context) {
+      for (const o of orgs) {
+        try {
+          await this.context.secrets.delete(this.patKeyForOrg(o));
+        } catch (e) {}
+      }
+    }
     this.organizations = [];
     if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
     this.projectsByOrg = {};
     this.projectsFetchPromises = {};
+    this.childrenCache = {};
+    this.childrenFetchPromises = {};
     this.refresh();
   }
 
