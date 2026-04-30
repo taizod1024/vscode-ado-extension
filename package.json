@@ -35,11 +35,6 @@
         "icon": "$(trash)"
       },
       {
-        "command": "ado-assist.fetchOrganization",
-        "title": "Azure DevOps: Fetch Organization",
-        "icon": "$(refresh)"
-      },
-      {
         "command": "ado-assist.refreshNode",
         "title": "Azure DevOps: Refresh Node",
         "icon": "$(refresh)"
@@ -60,11 +55,6 @@
         }
       ],
       "view/item/context": [
-        {
-          "command": "ado-assist.fetchOrganization",
-          "when": "view == azureDevOps.sidePanel && viewItem == organization",
-          "group": "inline"
-        },
         {
           "command": "ado-assist.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",

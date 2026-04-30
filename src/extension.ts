@@ -93,21 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Fetch organization command (used by org-level action)
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.fetchOrganization", async (orgArg?: any) => {
-        try {
-          const orgFromArg = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
-          const org = orgFromArg || (await vscode.window.showInputBox({ prompt: "Organization (e.g. myorg)" }));
-          if (!org) return;
-          await provider.fetchProjects(org);
-          vscode.window.showInformationMessage(`Fetched projects for ${org}`);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to fetch projects: " + msg);
-        }
-      }),
-    );
+    // Fetch organization command removed: org refresh no longer triggers fetch from UI
 
     // Refresh a specific node (organization/project/category/repo) or full tree
     context.subscriptions.push(

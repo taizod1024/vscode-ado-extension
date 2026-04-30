@@ -615,8 +615,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       const t = element.itemType;
       if (t === "organization") {
         const org = element.organization;
-        if (org) await this.fetchProjects(org);
-        else this.refresh();
+        if (org) {
+          // do not re-fetch projects on org refresh; only refresh the org node
+          this._onDidChangeTreeData.fire(element);
+        } else this.refresh();
         return;
       }
       if (t === "project") {
