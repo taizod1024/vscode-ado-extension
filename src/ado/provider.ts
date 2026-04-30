@@ -123,19 +123,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       if (orgItems.length === 0) return actions.concat([new AdoTreeItem("(no organizations)")]);
       return actions.concat(orgItems);
     }
-    // organization の子として project を返す
+    // organization の子として project を返す（キャッシュ確認 → 必要時に非同期フェッチ）
     const t = element.itemType;
     if (t === "organization" && element.organization) {
       const org = element.organization as string;
-      try {
-        const projects = await this.fetchProjects(org);
+      // 既にロード済みのプロジェクトがあればそれを返す
+      const cached = this.projectsByOrg[org];
+      if (cached && Array.isArray(cached)) {
         const items: AdoTreeItem[] = [];
-        for (const p of projects) {
+        for (const p of cached) {
           const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.None);
           it.itemType = "project";
           it.organization = org;
           it.projectId = p.id;
-          it.description = p.description || "";
           it.id = `proj:${org}:${p.id}`;
           it.contextValue = "project";
           it.iconPath = new vscode.ThemeIcon("repo");
@@ -145,9 +145,32 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
         if (items.length === 0) return [new AdoTreeItem("(no projects)")];
         return items;
-      } catch (e) {
-        return [new AdoTreeItem("(failed to load projects)")];
       }
+
+      // フェッチが進行中であればプレースホルダを返す
+      if (this.projectsFetchPromises[org]) {
+        const placeholder = new AdoTreeItem("Loading projects...", vscode.TreeItemCollapsibleState.None);
+        placeholder.iconPath = new vscode.ThemeIcon("sync~spin");
+        return [placeholder];
+      }
+
+      // 未ロードなら非同期で fetch を開始してプレースホルダを返す（getChildren は即時に子要素を返すべき）
+      // fetch 完了後にツリーを更新する
+      this.fetchProjects(org)
+        .then(() => {
+          try {
+            this._onDidChangeTreeData.fire(element);
+          } catch (e) {}
+        })
+        .catch(() => {
+          try {
+            this._onDidChangeTreeData.fire(element);
+          } catch (e) {}
+        });
+
+      const placeholder = new AdoTreeItem("Loading projects...", vscode.TreeItemCollapsibleState.None);
+      placeholder.iconPath = new vscode.ThemeIcon("sync~spin");
+      return [placeholder];
     }
     return [];
   }
