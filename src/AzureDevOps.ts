@@ -43,6 +43,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private branchesFetchPromises: { [key: string]: Promise<AdoTreeItem[]> } = {};
   private workItemsFetchPromises: { [key: string]: Promise<AdoTreeItem[]> } = {};
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
+  private loadingLabelBackup: { [id: string]: string } = {};
+  private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
 
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
@@ -144,19 +146,15 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     // element-specific children
     // if this node is currently loading due to a refresh, show loading indicator only
     if (element && element.id && this.loadingNodes[element.id]) {
-      const it = new AdoTreeItem("(loading...)", vscode.TreeItemCollapsibleState.None);
-      it.itemType = "loading";
-      it.iconPath = new vscode.ThemeIcon("sync~spin");
-      return [it];
+      // Loading indicated via inline label spinner; do not show a '(loading...)' child
+      return [];
     }
     if (element.itemType === "organization") {
       const org = element.organization as string;
       // if this org is loading, show loading indicator
       if (this.loadingOrg === org) {
-        const it = new AdoTreeItem("(loading...)", vscode.TreeItemCollapsibleState.None);
-        it.itemType = "loading";
-        it.iconPath = new vscode.ThemeIcon("sync~spin");
-        return [it];
+        // Organization loading shown via inline label spinner; hide children until ready
+        return [];
       }
       // if this org had an error, show it
       if (this.errorsByOrg[org]) {
@@ -438,6 +436,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         this.loadingTimers[element.id] = setTimeout(() => {
           try {
             if (this.loadingNodes[element.id]) {
+              try {
+                if (this.loadingIconBackup[element.id] !== undefined) {
+                  element.iconPath = this.loadingIconBackup[element.id];
+                  delete this.loadingIconBackup[element.id];
+                }
+              } catch (e) {}
               delete this.loadingNodes[element.id];
               delete this.loadingTimers[element.id];
               this._onDidChangeTreeData.fire(element);
@@ -446,6 +450,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }, 10000);
         // collapse the node so children are hidden during refresh
         element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+        // show spinner icon on the item to indicate loading (backup original icon)
+        try {
+          if (!this.loadingIconBackup[element.id]) {
+            this.loadingIconBackup[element.id] = element.iconPath;
+            element.iconPath = new vscode.ThemeIcon("sync~spin");
+          }
+        } catch (e) {}
         // clear caches relevant to this node so children disappear immediately
         const t = element.itemType;
         if (t === "organization" && element.organization) {
@@ -490,6 +501,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
               if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
             } catch (e) {}
             delete this.loadingTimers[element.id];
+            try {
+              if (this.loadingIconBackup[element.id] !== undefined) {
+                element.iconPath = this.loadingIconBackup[element.id];
+                delete this.loadingIconBackup[element.id];
+              }
+            } catch (e) {}
             delete this.loadingNodes[element.id];
             this._onDidChangeTreeData.fire(element);
           }
@@ -504,6 +521,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         const proj = element.projectId as string | undefined;
         if (!org || !proj) {
           if (element.id) {
+            try {
+              if (this.loadingIconBackup[element.id] !== undefined) {
+                element.iconPath = this.loadingIconBackup[element.id];
+                delete this.loadingIconBackup[element.id];
+              }
+            } catch (e) {}
             delete this.loadingNodes[element.id];
             this._onDidChangeTreeData.fire(element);
           }
@@ -520,6 +543,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
           } catch (e) {}
           delete this.loadingTimers[element.id];
+          try {
+            if (this.loadingLabelBackup[element.id]) {
+              element.label = this.loadingLabelBackup[element.id];
+              delete this.loadingLabelBackup[element.id];
+            }
+          } catch (e) {}
           delete this.loadingNodes[element.id];
           this._onDidChangeTreeData.fire(element);
         }
@@ -527,12 +556,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       }
       // categories, repos, boards, etc. are dynamic -- trigger a re-render for the node
       if (element.id) {
-        try {
-          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-        } catch (e) {}
-        delete this.loadingTimers[element.id];
-        // clear loading state before re-render so getChildren will re-query endpoints
-        delete this.loadingNodes[element.id];
+          try {
+            if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+          } catch (e) {}
+          delete this.loadingTimers[element.id];
+          try {
+            if (this.loadingIconBackup[element.id] !== undefined) {
+              element.iconPath = this.loadingIconBackup[element.id];
+              delete this.loadingIconBackup[element.id];
+            }
+          } catch (e) {}
+          // clear loading state before re-render so getChildren will re-query endpoints
+          delete this.loadingNodes[element.id];
       }
       this._onDidChangeTreeData.fire(element);
       return;
@@ -543,6 +578,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
         } catch (e) {}
         delete this.loadingTimers[element.id];
+        try {
+          if (this.loadingIconBackup[element.id] !== undefined) {
+            element.iconPath = this.loadingIconBackup[element.id];
+            delete this.loadingIconBackup[element.id];
+          }
+        } catch (e) {}
         delete this.loadingNodes[element.id];
       }
       this.refresh();
@@ -669,7 +710,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const cacheKey = `${org}:${projectId}`;
     if (this.reposFetchPromises[cacheKey]) return this.reposFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:repositories`;
-    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -745,7 +786,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const cacheKey = `${org}:${projectId}:${repoIdentifier || ""}`;
     if (this.prsFetchPromises[cacheKey]) return this.prsFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:pullrequests:${repoIdentifier || ""}`;
-    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -808,7 +849,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const cacheKey = `${org}:${projectId}:${repoIdentifier}`;
     if (this.branchesFetchPromises[cacheKey]) return this.branchesFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:branches:${repoIdentifier}`;
-    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
@@ -870,7 +911,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const cacheKey = `${org}:${projectId}`;
     if (this.workItemsFetchPromises[cacheKey]) return this.workItemsFetchPromises[cacheKey];
     const id = `category:${org}:${projectId}:recentWorkItems`;
-    if (this.loadingNodes[id]) return [new AdoTreeItem("(loading...)")];
+    if (this.loadingNodes[id]) return [];
     const p = (async () => {
       this.loadingNodes[id] = true;
       try {
