@@ -30,42 +30,46 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    */
   readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   /**
-   * プロバイダ固有: 組織ごとのプロジェクト配列を保持します（永続化はしない）。
+   * プロバイダ固有メンバ: 組織ごとのプロジェクト配列を保持します（永続化はしない）。
    */
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   /**
-   * プロバイダ固有: 読み込み状態のノードを一時的にマークするためのフラグ（キーは `AdoTreeItem.id`）。
+   * プロバイダ固有メンバ: 読み込み状態のノードを一時的にマークするためのフラグ（キーは `AdoTreeItem.id`）。
    */
   private loadingNodes: { [id: string]: boolean } = {};
   /**
-   * プロバイダ固有: 拡張の `ExtensionContext`（VS Code 側提供）。workspaceState や secrets にアクセスするために保持。
+   * プロバイダ固有メンバ: 拡張の `ExtensionContext`（VS Code 側提供）。workspaceState や secrets にアクセスするために保持。
    */
   private context: vscode.ExtensionContext | undefined;
   /**
-   * プロバイダ固有: 現在ロード中の組織名（UI 表示のための補助）。
+   * プロバイダ固有メンバ: 現在ロード中の組織名（UI 表示のための補助）。
    */
   private loadingOrg?: string;
   /**
-   * プロバイダ固有: 組織ごとのエラー文字列を保持（workspaceState に保存される）。
+   * プロバイダ固有メンバ: 組織ごとのエラー文字列を保持（workspaceState に保存される）。
    */
   private errorsByOrg: { [org: string]: string } = {};
   /**
-   * プロバイダ固有: in-flight promise のマップ（同一リクエストの重複防止）。
+   * プロバイダ固有メンバ: in-flight promise のマップ（同一リクエストの重複防止）。
    */
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
   /**
-   * プロバイダ固有: ローディング時のタイマーを管理（視覚フィードバックのタイミング等）。
+   * プロバイダ固有メンバ: ローディング時のタイマーを管理（視覚フィードバックのタイミング等）。
    */
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
   /**
-   * プロバイダ固有: ノードの元々のアイコンを一時保存して、読み込み終了時に復元するために使用。
+   * プロバイダ固有メンバ: ノードの元々のアイコンを一時保存して、読み込み終了時に復元するために使用。
    */
   private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
   /**
-   * プロバイダ固有: 読み込み時に一時的に変更した `collapsibleState` を復元するためのバックアップ。
+   * プロバイダ固有メンバ: 読み込み時に一時的に変更した `collapsibleState` を復元するためのバックアップ。
    */
   private loadingCollapsibleBackup: { [id: string]: vscode.TreeItemCollapsibleState } = {};
 
+  /**
+   * コンストラクタ。
+   * @param context 拡張の `ExtensionContext`（省略可）。workspaceState や secrets にアクセスします。
+   */
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
     if (this.context) {
@@ -75,11 +79,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       if (errs) this.errorsByOrg = errs;
     }
   }
-
-  /**
-   * コンストラクタ。
-   * @param context 拡張の `ExtensionContext`（省略可）。workspaceState や secrets にアクセスします。
-   */
 
   private patKeyForOrg(org: string) {
     return `ado-assist.pat.${org}`;
@@ -110,10 +109,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * @param org 組織名
    * @returns 保存された PAT（保存されなかった場合は undefined）
    */
-
   private organizations: string[] = [];
 
-  // --- TreeDataProvider のメソッド（VS Code が要求） ---
   /**
    * 要素の TreeItem 表現を返します。
    * TreeDataProvider 必須メソッド: `getTreeItem`
