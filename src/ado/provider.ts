@@ -2,6 +2,15 @@ import * as vscode from "vscode";
 import { AdoTreeItem, AdoProject, AdoItemType } from "./types";
 import { httpRequest } from "./api";
 
+export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {
+  /**
+   * AdoTreeProvider のファクトリ。
+   * @param context 拡張の `ExtensionContext`（省略可）
+   * @returns `AdoTreeProvider` インスタンス
+   */
+  return new AdoTreeProvider(context);
+}
+
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // --- TreeDataProvider イベントと API（実装） ---
   /**
@@ -9,19 +18,47 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * VS Code は `onDidChangeTreeData` を監視してビューを更新します。
    */
   private _onDidChangeTreeData: vscode.EventEmitter<AdoTreeItem | undefined | null | void> = new vscode.EventEmitter();
+
   /**
    * VS Code API が要求する TreeDataProvider のイベント。
    * インターフェースを満たすために公開の読み取り専用プロパティとして実装しています。
    */
   readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+  /**
+   * プロバイダ固有: 組織ごとのプロジェクト配列を保持します（永続化はしない）。
+   */
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
+  /**
+   * プロバイダ固有: 読み込み状態のノードを一時的にマークするためのフラグ（キーは `AdoTreeItem.id`）。
+   */
   private loadingNodes: { [id: string]: boolean } = {};
+  /**
+   * プロバイダ固有: 拡張の `ExtensionContext`（VS Code 側提供）。workspaceState や secrets にアクセスするために保持。
+   */
   private context: vscode.ExtensionContext | undefined;
+  /**
+   * プロバイダ固有: 現在ロード中の組織名（UI 表示のための補助）。
+   */
   private loadingOrg?: string;
+  /**
+   * プロバイダ固有: 組織ごとのエラー文字列を保持（workspaceState に保存される）。
+   */
   private errorsByOrg: { [org: string]: string } = {};
+  /**
+   * プロバイダ固有: in-flight promise のマップ（同一リクエストの重複防止）。
+   */
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
+  /**
+   * プロバイダ固有: ローディング時のタイマーを管理（視覚フィードバックのタイミング等）。
+   */
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
+  /**
+   * プロバイダ固有: ノードの元々のアイコンを一時保存して、読み込み終了時に復元するために使用。
+   */
   private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
+  /**
+   * プロバイダ固有: 読み込み時に一時的に変更した `collapsibleState` を復元するためのバックアップ。
+   */
   private loadingCollapsibleBackup: { [id: string]: vscode.TreeItemCollapsibleState } = {};
 
   constructor(context?: vscode.ExtensionContext) {
@@ -353,13 +390,4 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * すべての組織情報と関連データをクリアします（workspaceState は空の配列に更新）。
    * @returns void
    */
-}
-
-export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {
-  /**
-   * AdoTreeProvider のファクトリ。
-   * @param context 拡張の `ExtensionContext`（省略可）
-   * @returns `AdoTreeProvider` インスタンス
-   */
-  return new AdoTreeProvider(context);
 }

@@ -1,6 +1,20 @@
 import * as vscode from "vscode";
 
 /**
+ * 注意: `AdoTreeItem` は `vscode.TreeItem` を継承しています。
+ * 継承される主なプロパティ（例）：
+ * - `label`: 表示ラベル (string | TreeItemLabel)
+ * - `collapsibleState`: 折りたたみ状態 (TreeItemCollapsibleState)
+ * - `iconPath`: アイコン (ThemeIcon | Uri | { light, dark })
+ * - `tooltip`: ツールチップ (string)
+ * - `contextValue`: コンテキスト値（コンテキストメニュー）(string)
+ * - `command`: クリック時のコマンド (Command)
+ * - `resourceUri`: リソース URI (Uri)
+ * - `description`: 追加の説明 (string)
+ * これらは `AdoTreeItem` 側で再宣言する必要はありません。固有プロパティのみ本クラスで定義します。
+ */
+
+/**
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
