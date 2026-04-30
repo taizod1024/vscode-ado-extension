@@ -38,8 +38,7 @@
         "command": "ado-assist.fetchOrganization",
         "title": "Azure DevOps: Fetch Organization",
         "icon": "$(refresh)"
-      }
-      ,
+      },
       {
         "command": "ado-assist.refreshNode",
         "title": "Azure DevOps: Refresh Node",
@@ -101,25 +100,21 @@
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
-        
         {
           "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
-        }
-        ,
+        },
         {
           "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == workitem",
           "group": "inline"
-        }
-        ,
+        },
         {
           "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
           "group": "inline"
-        }
-        ,
+        },
         {
           "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
