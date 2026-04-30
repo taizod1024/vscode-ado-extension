@@ -150,7 +150,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.organization = org;
             it.projectId = p.id;
             it.id = `proj:${org}:${p.id}`;
-            it.contextValue = "project";
+            it.contextValue = "adoProject";
             it.iconPath = new vscode.ThemeIcon("repo");
             it.url = p.url;
             it.tooltip = p.description || p.url;
@@ -195,12 +195,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         items =>
           items.map(w => {
             const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
-            it.itemType = "workItem";
-            it.organization = org;
-            it.id = `work:${org}:${w.id}`;
-            it.contextValue = "workItem";
-            it.url = w.url;
-            it.tooltip = w.url || w.title;
+              it.itemType = "workItem";
+              it.organization = org;
+              it.id = `work:${org}:${w.id}`;
+              it.contextValue = "workitem";
+              it.url = w.url;
+              it.tooltip = w.url || w.title;
             return it;
           }),
         "Loading work items...",
@@ -221,8 +221,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             const it = new AdoTreeItem(r.name, vscode.TreeItemCollapsibleState.Collapsed);
             it.itemType = "repository";
             it.organization = org;
+            it.repoId = r.id;
+            it.repoName = r.name;
             it.id = `repo:${org}:${r.id}`;
-            it.contextValue = "repository";
+            it.contextValue = "repo";
+            it.projectId = pid;
             it.iconPath = new vscode.ThemeIcon("repo");
             it.url = r.url;
             it.tooltip = r.url;
@@ -242,6 +245,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       branchesFolder.itemType = "branchesFolder";
       branchesFolder.organization = org;
       branchesFolder.projectId = element.projectId;
+      branchesFolder.repoId = element.repoId || repoId as string;
+      branchesFolder.repoName = element.repoName || "";
       branchesFolder.id = `branches:${org}:${repoId}`;
       branchesFolder.contextValue = "branchesFolder";
       branchesFolder.iconPath = new vscode.ThemeIcon("git-branch");
@@ -250,6 +255,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       prsFolder.itemType = "pullRequestsFolder";
       prsFolder.organization = org;
       prsFolder.projectId = element.projectId;
+      prsFolder.repoId = element.repoId || repoId as string;
+      prsFolder.repoName = element.repoName || "";
       prsFolder.id = `prs:${org}:${repoId}`;
       prsFolder.contextValue = "pullRequestsFolder";
       prsFolder.iconPath = new vscode.ThemeIcon("git-merge");
@@ -262,6 +269,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const org = element.organization as string;
       const parts = String(element.id).split(":");
       const repoId = parts.length >= 3 ? parts[2] : "";
+      const repoName = (element as any).repoName || "";
       const key = `branches:${org}:${repoId}`;
       return this.lazyLoadChildren<AdoBranch>(
         key,
@@ -276,6 +284,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.id = `branch:${org}:${repoId}:${name}`;
             it.contextValue = "branch";
             it.iconPath = new vscode.ThemeIcon("git-branch");
+            // construct branch web URL if possible
+            let projName = "";
+            if (element.projectId) {
+              const projs = this.projectsByOrg[org] || [];
+              const found = projs.find(pp => pp.id === element.projectId || pp.name === element.projectId);
+              if (found) projName = found.name;
+            }
+            const repoNameForUrl = repoName || repoId || "";
+            if (projName && repoNameForUrl) {
+              it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoNameForUrl)}?version=GB${encodeURIComponent(name)}`;
+            }
             return it;
           }),
         "Loading branches...",
@@ -296,13 +315,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           prs.map(pr => {
             const label = `!${pr.pullRequestId} ${pr.title}`;
             const it = new AdoTreeItem(label, vscode.TreeItemCollapsibleState.None);
-            it.itemType = "pullRequest";
-            it.organization = org;
-            it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
-            it.contextValue = "pullRequest";
-            it.iconPath = new vscode.ThemeIcon("git-merge");
-            it.url = pr.url;
-            it.tooltip = pr.title;
+              it.itemType = "pullRequest";
+              it.organization = org;
+              it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
+              it.contextValue = "pullrequest";
+              it.iconPath = new vscode.ThemeIcon("git-merge");
+              it.url = pr.url;
+              it.tooltip = pr.title;
             return it;
           }),
         "Loading pull requests...",
@@ -659,7 +678,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const items: AdoWorkItem[] = [];
     if (details && Array.isArray(details.value)) {
       for (const d of details.value) {
-        items.push({ id: Number(d.id), title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: d.url });
+        // construct web URL for work item
+        const wid = Number(d.id);
+        let webUrl = d.url || "";
+        if (projectName) {
+          webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
+        }
+        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl });
       }
     }
     return items;
