@@ -1,29 +1,43 @@
 import * as vscode from "vscode";
 
 /**
- * ADO ツリーで使うカスタム TreeItem。
- * 各フィールドはツリーのノード種別に応じて設定されます。
- */
-/**
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
 export type AdoItemType = "organization" | "project" | "placeholder";
 
+/**
+ * ADO ツリーで使うカスタム TreeItem。
+ * 各フィールドはツリーのノード種別に応じて設定されます。
+ */
 export class AdoTreeItem extends vscode.TreeItem {
-  /** 要素の一意 ID（例: `org:myorg`） */
+  /**
+   * 要素の一意 ID（例: `org:myorg`）。全ノード共通プロパティ。
+   */
   id?: string;
-  /** 要素の種別（リテラル型で制約） */
+  /**
+   * 要素の種別（リテラル型で制約）。全ノード共通プロパティ。
+   */
   itemType?: AdoItemType;
-  /** 組織名（organization ノード時に設定） */
+  /**
+   * 組織固有プロパティ：組織ノード時に設定されます（`organization`）。
+   */
   organization?: string;
-  /** プロジェクト ID（project ノード時に設定） */
+  /**
+   * プロジェクト固有プロパティ：プロジェクトノード時に設定されるプロジェクト ID（`projectId`）。
+   */
   projectId?: string;
-  /** リポジトリ ID（必要なら設定） */
+  /**
+   * リポジトリ固有プロパティ：リポジトリノードで使用する ID（`repoId`）。
+   */
   repoId?: string;
-  /** リポジトリ名（必要なら設定） */
+  /**
+   * リポジトリ固有プロパティ：表示用のリポジトリ名（`repoName`）。
+   */
   repoName?: string;
-  /** Web への URL（クリック時に開く等） */
+  /**
+   * Web への URL（任意）。ノード種別に依らずクリックで開けるリンクを保持できます。
+   */
   url?: string;
 
   /**
