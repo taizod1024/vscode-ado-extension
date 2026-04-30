@@ -11,8 +11,13 @@ export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreePr
   return new AdoTreeProvider(context);
 }
 
+/**
+ * ADO 用の TreeDataProvider 実装。
+ * - このクラスは `vscode.TreeDataProvider<AdoTreeItem>` を実装します。
+ * - 以下のメンバは TreeDataProvider インターフェースで必須/推奨されるものです（明示的にマークしています）。
+ * @implements {vscode.TreeDataProvider<AdoTreeItem>}
+ */
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
-  // --- TreeDataProvider イベントと API（実装） ---
   /**
    * ツリー変更用のイベントエミッタ。TreeDataProvider の契約の一部です。
    * VS Code は `onDidChangeTreeData` を監視してビューを更新します。
@@ -21,7 +26,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   /**
    * VS Code API が要求する TreeDataProvider のイベント。
-   * インターフェースを満たすために公開の読み取り専用プロパティとして実装しています。
+   * TreeDataProvider 必須メンバ: `onDidChangeTreeData`
    */
   readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   /**
@@ -110,7 +115,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   // --- TreeDataProvider のメソッド（VS Code が要求） ---
   /**
-   * 要素の TreeItem 表現を返します。（TreeDataProvider）
+   * 要素の TreeItem 表現を返します。
+   * TreeDataProvider 必須メソッド: `getTreeItem`
    * @param element 表示する `AdoTreeItem`
    * @returns `vscode.TreeItem`（ツリー表示用）
    */
@@ -120,7 +126,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   /**
    * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
-   * （TreeDataProvider）
+   * TreeDataProvider 必須メソッド: `getChildren`
    * @param element 親要素（未指定ならルート）
    * @returns 子要素の配列
    */
