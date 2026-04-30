@@ -11,8 +11,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private loadingOrg?: string;
   private errorsByOrg: { [org: string]: string } = {};
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
-  private projectsCache: { [org: string]: { ts: number; projects: AdoProject[] } } = {};
-  private projectsCacheExpiryMs = 5000;
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
   private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
   private loadingCollapsibleBackup: { [id: string]: vscode.TreeItemCollapsibleState } = {};
@@ -174,8 +172,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   async fetchProjects(organization: string, pat?: string): Promise<AdoProject[]> {
-    const cached = this.projectsCache[organization];
-    if (cached && Date.now() - cached.ts < this.projectsCacheExpiryMs) return cached.projects;
+    // caching disabled: always fetch fresh data (in-flight dedupe still applies)
 
     if (this.projectsFetchPromises[organization]) return this.projectsFetchPromises[organization];
     const p = (async () => {
@@ -239,7 +236,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           }
         }
 
-        this.projectsCache[organization] = { ts: Date.now(), projects };
         this.projectsByOrg[organization] = projects;
         delete this.errorsByOrg[organization];
         if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
@@ -285,7 +281,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     this.organizations = [];
     if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
     this.projectsByOrg = {};
-    this.projectsCache = {};
     this.projectsFetchPromises = {};
     this.refresh();
   }
