@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { createTreeProvider } from "./ado/provider";
+import { createTreeProvider } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("ado-assist: activate() start");
