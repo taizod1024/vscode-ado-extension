@@ -51,38 +51,23 @@
         {
           "command": "ado-assist.addOrganization",
           "when": "view == azureDevOps.sidePanel",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "ado-assist.removeOrganization",
           "when": "view == azureDevOps.sidePanel",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "ado-assist.clearOrganizations",
           "when": "view == azureDevOps.sidePanel",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
         {
           "command": "ado-assist.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == adoProject",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == category",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
         {

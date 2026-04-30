@@ -350,8 +350,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       this.refresh();
       return;
     }
+    // refresh は組織単位のみで行う（それ以外は無視）
     try {
       const t: AdoItemType | undefined = element.itemType;
+      if (t !== "organization") return;
+
+      const org = element.organization as string | undefined;
+      if (!org) {
+        this.refresh();
+        return;
+      }
+
       if (element.id) {
         this.loadingNodes[element.id] = true;
         try {
@@ -384,44 +393,61 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             element.iconPath = new vscode.ThemeIcon("sync~spin");
           }
         } catch (e) {}
-        const t2: AdoItemType | undefined = element.itemType;
-        if (t2 === "organization" && element.organization) {
-          delete this.projectsByOrg[element.organization];
-        }
-        this._onDidChangeTreeData.fire(element);
       }
-      if (t === "organization") {
-        const org = element.organization as string | undefined;
-        if (!org) {
-          this.refresh();
-          return;
+
+      // 組織のプロジェクトキャッシュと関連する children キャッシュ／in-flight を削除して再フェッチ
+      delete this.projectsByOrg[org];
+      const prefixes = [
+        `projects:${org}`,
+        `workitems:${org}:`,
+        `repos:${org}:`,
+        `branches:${org}:`,
+        `prs:${org}:`,
+      ];
+      try {
+        for (const k of Object.keys(this.childrenCache)) {
+          for (const p of prefixes) {
+            if (k === p || k.startsWith(p)) {
+              delete this.childrenCache[k];
+              break;
+            }
+          }
         }
-        delete this.projectsByOrg[org];
-        this._onDidChangeTreeData.fire(element);
+      } catch (e) {}
+      try {
+        for (const k of Object.keys(this.childrenFetchPromises)) {
+          for (const p of prefixes) {
+            if (k === p || k.startsWith(p)) {
+              delete this.childrenFetchPromises[k];
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+      this._onDidChangeTreeData.fire(element);
+      try {
+        await this.fetchProjects(org);
+      } catch (e) {}
+
+      if (element.id) {
         try {
-          await this.fetchProjects(org);
+          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
         } catch (e) {}
-        if (element.id) {
-          try {
-            if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-          } catch (e) {}
-          delete this.loadingTimers[element.id];
-          try {
-            if (this.loadingIconBackup[element.id] !== undefined) {
-              element.iconPath = this.loadingIconBackup[element.id];
-              delete this.loadingIconBackup[element.id];
-            }
-          } catch (e) {}
-          try {
-            if (this.loadingCollapsibleBackup[element.id] !== undefined) {
-              element.collapsibleState = this.loadingCollapsibleBackup[element.id];
-              delete this.loadingCollapsibleBackup[element.id];
-            }
-          } catch (e) {}
-          delete this.loadingNodes[element.id];
-          this._onDidChangeTreeData.fire(element);
-        }
-        return;
+        delete this.loadingTimers[element.id];
+        try {
+          if (this.loadingIconBackup[element.id] !== undefined) {
+            element.iconPath = this.loadingIconBackup[element.id];
+            delete this.loadingIconBackup[element.id];
+          }
+        } catch (e) {}
+        try {
+          if (this.loadingCollapsibleBackup[element.id] !== undefined) {
+            element.collapsibleState = this.loadingCollapsibleBackup[element.id];
+            delete this.loadingCollapsibleBackup[element.id];
+          }
+        } catch (e) {}
+        delete this.loadingNodes[element.id];
+        this._onDidChangeTreeData.fire(element);
       }
       return;
     } catch (err) {
