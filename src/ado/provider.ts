@@ -279,6 +279,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     delete this.projectsByOrg[org];
     this.refresh();
   }
+
+  clearOrganizations(): void {
+    // remove all organizations and cached data
+    this.organizations = [];
+    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+    this.projectsByOrg = {};
+    this.projectsCache = {};
+    this.projectsFetchPromises = {};
+    this.refresh();
+  }
 }
 
 export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {

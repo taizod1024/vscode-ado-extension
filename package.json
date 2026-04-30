@@ -32,7 +32,12 @@
       {
         "command": "ado-assist.removeOrganization",
         "title": "Azure DevOps: Remove Organization",
-        "icon": "$(trash)"
+        "icon": "$(remove)"
+      },
+      {
+        "command": "ado-assist.clearOrganizations",
+        "title": "Azure DevOps: Clear All Organizations",
+        "icon": "$(remove)"
       },
       {
         "command": "ado-assist.refreshNode",
@@ -50,6 +55,12 @@
         },
         {
           "command": "ado-assist.removeOrganization",
+          "when": "view == azureDevOps.sidePanel",
+          "group": "navigation"
+        }
+        ,
+        {
+          "command": "ado-assist.clearOrganizations",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation"
         }

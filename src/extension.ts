@@ -93,6 +93,35 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Clear all organizations + delete stored PATs
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.clearOrganizations", async () => {
+        try {
+          const orgs = context.workspaceState.get<string[]>("azuredevops.organizations") || [];
+          if (orgs.length === 0) {
+            vscode.window.showInformationMessage("No organizations to clear");
+            return;
+          }
+          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: `Confirm remove ALL organizations and stored PATs (${orgs.length})?` });
+          if (confirm !== "CLEAR") return;
+          // delete PATs
+          for (const o of orgs) {
+            try {
+              await context.secrets.delete(`ado-assist.pat.${o}`);
+            } catch (e) {
+              // ignore per-org deletion errors
+            }
+          }
+          // clear provider state
+          if (provider && provider.clearOrganizations) provider.clearOrganizations();
+          vscode.window.showInformationMessage(`Cleared ${orgs.length} organizations and their PATs`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to clear organizations: " + msg);
+        }
+      }),
+    );
+
     // Fetch organization command removed: org refresh no longer triggers fetch from UI
 
     // Refresh a specific node (organization/project/category/repo) or full tree
