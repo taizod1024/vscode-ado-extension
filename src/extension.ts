@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage("No organizations to clear");
             return;
           }
-          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: `Confirm remove ALL organizations and stored PATs (${orgs.length})?` });
+          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: "CLEAR ALL ORGANIZATIONS" });
           if (confirm !== "CLEAR") return;
           // delete PATs
           for (const o of orgs) {
