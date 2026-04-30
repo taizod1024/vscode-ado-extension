@@ -1,5 +1,13 @@
 import { URL } from "url";
 
+/**
+ * HTTP リクエストを行い、JSON レスポンスをパースして返します。
+ * @param method HTTP メソッド（"GET" | "POST"）
+ * @param urlStr 要求先の URL
+ * @param pat Personal Access Token（Basic 認証に利用）
+ * @param body POST 時のペイロード（省略可）
+ * @returns パース済みの JSON レスポンス（失敗時は例外を投げます）
+ */
 export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any): Promise<any> {
   const https = require("https");
   const u = new URL(urlStr);

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoTreeItem, AdoProject } from "./types";
+import { AdoTreeItem, AdoProject, AdoItemType } from "./types";
 import { httpRequest } from "./api";
 
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
@@ -82,10 +82,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
-    * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
-    * （TreeDataProvider）
-    * @param element 親要素（未指定ならルート）
-    * @returns 子要素の配列
+   * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
+   * （TreeDataProvider）
+   * @param element 親要素（未指定ならルート）
+   * @returns 子要素の配列
    */
   async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
     if (!element) {
@@ -116,10 +116,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   // --- 公開コマンド / ヘルパー（TreeDataProvider インターフェース外） ---
   /**
-    * 特定ノード（または element 未指定でツリー全体）を更新します。
-    * 登録されたコマンドから呼ばれる公開ヘルパーです。
-    * @param element 更新対象の `AdoTreeItem`（未指定で全体更新）
-    * @returns Promise<void>
+   * 特定ノード（または element 未指定でツリー全体）を更新します。
+   * 登録されたコマンドから呼ばれる公開ヘルパーです。
+   * @param element 更新対象の `AdoTreeItem`（未指定で全体更新）
+   * @returns Promise<void>
    */
   async refreshNode(element?: AdoTreeItem): Promise<void> {
     if (!element) {
@@ -127,7 +127,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return;
     }
     try {
-      const t = element.itemType;
+      const t: AdoItemType | undefined = element.itemType;
       if (element.id) {
         this.loadingNodes[element.id] = true;
         try {
@@ -160,7 +160,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             element.iconPath = new vscode.ThemeIcon("sync~spin");
           }
         } catch (e) {}
-        const t2 = element.itemType;
+        const t2: AdoItemType | undefined = element.itemType;
         if (t2 === "organization" && element.organization) {
           delete this.projectsByOrg[element.organization];
         }
