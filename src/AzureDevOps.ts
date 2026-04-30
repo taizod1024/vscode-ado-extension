@@ -582,11 +582,11 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             recent.id = `category:${org}:${proj}:recentWorkItems`;
             recent.iconPath = new vscode.ThemeIcon("list-unordered");
 
-            if (items.length === 0) return [recent, new AzureDevOpsTreeItem("(no boards)")];
+            if (items.length === 0) return [recent];
 
             return [recent, ...items];
           }
-          return [new AzureDevOpsTreeItem("(no boards)")];
+          return [recent];
         } catch (err) {
           return [new AzureDevOpsTreeItem("(failed to load boards)")];
         }
