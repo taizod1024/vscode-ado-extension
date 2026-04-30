@@ -80,16 +80,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
+  /**
+   * 指定した組織に対応する secrets のキーを返します。
+   * 内部ヘルパー（プロバイダ固有）。
+   * @param org 組織名
+   * @returns secrets に保存するためのキー文字列（例: `ado-assist.pat.myorg`）
+   */
   private patKeyForOrg(org: string) {
     return `ado-assist.pat.${org}`;
   }
-
-  /**
-   * 指定した組織に対応する secrets のキーを返します。
-   * @param org 組織名
-   * @returns secrets に保存するためのキー文字列
-   */
-
+  
   private async promptAndStorePat(org: string): Promise<string | undefined> {
     const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
     if (!pat || !this.context) return undefined;
