@@ -319,7 +319,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         } catch (err) {
           return [new AzureDevOpsTreeItem("(failed to load repositories)")];
         }
-        }
+      }
       if (label === "Recent Work Items") {
         try {
           const org = element.organization;
@@ -428,58 +428,58 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         }
       }
 
-        if (label === "Branches") {
-          try {
-            const org = element.organization as string;
-            const proj = element.projectId as string;
-            const repoIdentifier = (element.repoId as string) || (element.repoName as string) || "";
-            let pat: string | undefined;
-            if (this.context && org) {
-              pat = await this.context.secrets.get(this.patKeyForOrg(org));
-              if (!pat) {
-                const entered = await this.promptAndStorePat(org);
-                if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
-                pat = entered;
-              }
-            }
+      if (label === "Branches") {
+        try {
+          const org = element.organization as string;
+          const proj = element.projectId as string;
+          const repoIdentifier = (element.repoId as string) || (element.repoName as string) || "";
+          let pat: string | undefined;
+          if (this.context && org) {
+            pat = await this.context.secrets.get(this.patKeyForOrg(org));
             if (!pat) {
-              const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
-              ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
-              ask.iconPath = new vscode.ThemeIcon("key");
-              return [ask];
+              const entered = await this.promptAndStorePat(org);
+              if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              pat = entered;
             }
-            // need project name for canonical branch URL
-            let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
-            if (!projectEntry) {
-              try {
-                if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
-              } catch (e) {}
-              projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
-            }
-            const projectName = projectEntry?.name || String(proj);
-            const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/repositories/${encodeURIComponent(repoIdentifier)}/refs?filter=heads/&api-version=6.0`;
-            const data = await getJson(url, pat);
-            if (data && Array.isArray(data.value)) {
-              const items = data.value.map((r: any) => {
-                const fullName = String(r.name || r.name);
-                const parts = fullName.split("/");
-                const branchName = parts.slice(2).join("/") || fullName;
-                const it = new AzureDevOpsTreeItem(branchName, vscode.TreeItemCollapsibleState.None);
-                it.itemType = "branch";
-                it.contextValue = "branch";
-                it.id = `branch:${org}:${proj}:${repoIdentifier}:${branchName}`;
-                it.url = `https://dev.azure.com/${org}/${projectName}/_git/${encodeURIComponent(element.repoName || repoIdentifier)}?version=GB${encodeURIComponent(branchName)}`;
-                it.tooltip = it.url;
-                it.iconPath = new vscode.ThemeIcon("git-branch");
-                return it;
-              });
-              return items.length ? items : [new AzureDevOpsTreeItem("(no branches)")];
-            }
-            return [new AzureDevOpsTreeItem("(no branches)")];
-          } catch (err) {
-            return [new AzureDevOpsTreeItem("(failed to load branches)")];
           }
+          if (!pat) {
+            const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.iconPath = new vscode.ThemeIcon("key");
+            return [ask];
+          }
+          // need project name for canonical branch URL
+          let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+          if (!projectEntry) {
+            try {
+              if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
+            } catch (e) {}
+            projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+          }
+          const projectName = projectEntry?.name || String(proj);
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/repositories/${encodeURIComponent(repoIdentifier)}/refs?filter=heads/&api-version=6.0`;
+          const data = await getJson(url, pat);
+          if (data && Array.isArray(data.value)) {
+            const items = data.value.map((r: any) => {
+              const fullName = String(r.name || r.name);
+              const parts = fullName.split("/");
+              const branchName = parts.slice(2).join("/") || fullName;
+              const it = new AzureDevOpsTreeItem(branchName, vscode.TreeItemCollapsibleState.None);
+              it.itemType = "branch";
+              it.contextValue = "branch";
+              it.id = `branch:${org}:${proj}:${repoIdentifier}:${branchName}`;
+              it.url = `https://dev.azure.com/${org}/${projectName}/_git/${encodeURIComponent(element.repoName || repoIdentifier)}?version=GB${encodeURIComponent(branchName)}`;
+              it.tooltip = it.url;
+              it.iconPath = new vscode.ThemeIcon("git-branch");
+              return it;
+            });
+            return items.length ? items : [new AzureDevOpsTreeItem("(no branches)")];
+          }
+          return [new AzureDevOpsTreeItem("(no branches)")];
+        } catch (err) {
+          return [new AzureDevOpsTreeItem("(failed to load branches)")];
         }
+      }
 
       if (label === "Boards") {
         try {
@@ -624,8 +624,8 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       return;
     } catch (err) {
       // fallback to full refresh on error
-        if (element?.id) delete this.loadingNodes[element.id];
-        this.refresh();
+      if (element?.id) delete this.loadingNodes[element.id];
+      this.refresh();
     }
   }
 
