@@ -57,8 +57,7 @@
           "command": "ado-assist.removeOrganization",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation"
-        }
-        ,
+        },
         {
           "command": "ado-assist.clearOrganizations",
           "when": "view == azureDevOps.sidePanel",
