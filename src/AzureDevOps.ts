@@ -4,8 +4,10 @@ export class AzureDevOpsTreeItem extends vscode.TreeItem {
   // custom metadata
   id?: string;
   itemType?: string; // 'project' | 'category' | 'repo' | 'pipeline' | 'error' | 'loading'
-  projectId?: string;
   organization?: string;
+  projectId?: string;
+  repoId?: string;
+  repoName?: string;
   url?: string;
 
   constructor(label: string, collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None) {
@@ -206,7 +208,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       repos.organization = element.organization;
       repos.contextValue = "category";
       repos.id = `category:${element.organization}:${element.projectId}:repositories`;
-      repos.iconPath = new vscode.ThemeIcon("database");
+      repos.iconPath = new vscode.ThemeIcon("files");
 
       const boards = new AzureDevOpsTreeItem("Boards", vscode.TreeItemCollapsibleState.Collapsed);
       boards.itemType = "category";
@@ -223,8 +225,15 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       pipelines.contextValue = "category";
       pipelines.id = `category:${element.organization}:${element.projectId}:pipelines`;
       pipelines.iconPath = new vscode.ThemeIcon("git-branch");
+      const pullrequests = new AzureDevOpsTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
+      pullrequests.itemType = "category";
+      pullrequests.projectId = element.projectId;
+      pullrequests.organization = element.organization;
+      pullrequests.contextValue = "category";
+      pullrequests.id = `category:${element.organization}:${element.projectId}:pullrequests`;
+      pullrequests.iconPath = new vscode.ThemeIcon("git-pull-request");
 
-      return [repos, boards, pipelines];
+      return [repos, boards, pipelines, pullrequests];
     }
 
     if (element.itemType === "category") {
@@ -265,7 +274,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             const projectNameForUrl = projectEntry?.name || String(proj);
             const repoItems = data.value.map((r: any) => {
               const repoName = String(r.name);
-              const it = new AzureDevOpsTreeItem(repoName, vscode.TreeItemCollapsibleState.None);
+              const it = new AzureDevOpsTreeItem(repoName, vscode.TreeItemCollapsibleState.Collapsed);
               it.itemType = "repo";
               // prefer API-provided web link, otherwise construct canonical repo URL
               const apiUrl = r._links?.web?.href;
@@ -274,10 +283,12 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
               it.contextValue = "repo";
               // Use projectId for stability rather than project name
               it.id = `repo:${org}:${proj}:${repoName}`;
+              it.repoId = r.id || repoName;
+              it.repoName = repoName;
               // opening web page handled by inline/context action; do not attach to item click
               // tooltip: prefer repo description or project description, fallback to URL
               it.tooltip = r.description || projectEntry?.description || it.url;
-              it.iconPath = new vscode.ThemeIcon("database");
+              it.iconPath = new vscode.ThemeIcon("files");
               return it;
             });
 
@@ -286,6 +297,166 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           return [new AzureDevOpsTreeItem("(no repositories)")];
         } catch (err) {
           return [new AzureDevOpsTreeItem("(failed to load repositories)")];
+        }
+      }
+
+      if (String(element.itemType) === "repo") {
+        try {
+          const org = element.organization as string;
+          const proj = element.projectId as string;
+          const repoId = element.repoId as string | undefined;
+          const repoName = element.repoName || String(element.label);
+          let pat: string | undefined;
+          if (this.context && org) {
+            pat = await this.context.secrets.get(this.patKeyForOrg(org));
+            if (!pat) {
+              const entered = await this.promptAndStorePat(org);
+              if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              pat = entered;
+            }
+          }
+          if (!pat) {
+            const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.iconPath = new vscode.ThemeIcon("key");
+            return [ask];
+          }
+          // need project name for canonical branch URL
+          let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+          if (!projectEntry) {
+            try {
+              if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
+            } catch (e) {}
+            projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+          }
+          const projectName = projectEntry?.name || String(proj);
+          const repoIdentifier = repoId || repoName;
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/repositories/${encodeURIComponent(repoIdentifier)}/refs?filter=heads/&api-version=6.0`;
+          const data = await getJson(url, pat);
+          if (data && Array.isArray(data.value)) {
+            const items = data.value.map((r: any) => {
+              // ref name like refs/heads/feature -> take after last '/'
+              const fullName = String(r.name || r.name);
+              const parts = fullName.split("/");
+              const branchName = parts.slice(2).join("/") || fullName;
+              const it = new AzureDevOpsTreeItem(branchName, vscode.TreeItemCollapsibleState.None);
+              it.itemType = "branch";
+              it.contextValue = "branch";
+              it.id = `branch:${org}:${proj}:${repoIdentifier}:${branchName}`;
+              it.url = `https://dev.azure.com/${org}/${projectName}/_git/${encodeURIComponent(repoName)}?version=GB${encodeURIComponent(branchName)}`;
+              it.tooltip = it.url;
+              it.iconPath = new vscode.ThemeIcon("git-branch");
+              return it;
+            });
+            return items.length ? items : [new AzureDevOpsTreeItem("(no branches)")];
+          }
+          return [new AzureDevOpsTreeItem("(no branches)")];
+        } catch (err) {
+          return [new AzureDevOpsTreeItem("(failed to load branches)")];
+        }
+      }
+      if (label === "Recent Work Items") {
+        try {
+          const org = element.organization;
+          const proj = element.projectId;
+          let pat: string | undefined;
+          if (this.context && org) {
+            pat = await this.context.secrets.get(this.patKeyForOrg(org));
+            if (!pat) {
+              const entered = await this.promptAndStorePat(org);
+              if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              pat = entered;
+            }
+          }
+          if (!pat) {
+            const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.iconPath = new vscode.ThemeIcon("key");
+            return [ask];
+          }
+          // need project name for WIQL project filter
+          const projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
+          const projectName = projectEntry?.name || String(proj);
+          const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/wit/wiql?api-version=6.0`;
+          const wiqlBody = { query: `Select [System.Id] From WorkItems Where [System.TeamProject] = '${projectName}' ORDER BY [System.ChangedDate] DESC` };
+          const wiqlRes = await postJson(wiqlUrl, pat, wiqlBody);
+          const ids = Array.isArray(wiqlRes?.workItems) ? wiqlRes.workItems.slice(0, 50).map((w: any) => w.id) : [];
+          if (ids.length === 0) return [new AzureDevOpsTreeItem("(no work items)")];
+          const fields = encodeURIComponent("System.Title,System.State,System.AssignedTo");
+          const idsParam = ids.join(",");
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/wit/workitems?ids=${idsParam}&fields=${fields}&api-version=6.0`;
+          const data = await getJson(url, pat);
+          if (data && Array.isArray(data.value)) {
+            const items = data.value.map((w: any) => {
+              const id = String(w.id);
+              const title = w.fields?.["System.Title"] || "(no title)";
+              const state = w.fields?.["System.State"] || "";
+              const assigned = (w.fields?.["System.AssignedTo"] && w.fields["System.AssignedTo"].displayName) || "";
+              const it = new AzureDevOpsTreeItem(`#${id} ${title}`, vscode.TreeItemCollapsibleState.None);
+              it.itemType = "workitem";
+              it.url = w._links?.html?.href || `https://dev.azure.com/${org}/${projectName}/_workitems?id=${id}`;
+              it.contextValue = "workitem";
+              it.id = `workitem:${org}:${proj}:${id}`;
+              it.tooltip = `${state}${assigned ? " — " + assigned : ""}` || it.url;
+              it.iconPath = new vscode.ThemeIcon("issue-opened");
+              return it;
+            });
+            return items;
+          }
+          return [new AzureDevOpsTreeItem("(no work items)")];
+        } catch (err) {
+          return [new AzureDevOpsTreeItem("(failed to load work items)")];
+        }
+      }
+      if (label === "Pull Requests") {
+        try {
+          const org = element.organization;
+          const proj = element.projectId;
+          let pat: string | undefined;
+          if (this.context && org) {
+            pat = await this.context.secrets.get(this.patKeyForOrg(org));
+            if (!pat) {
+              const entered = await this.promptAndStorePat(org);
+              if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
+              pat = entered;
+            }
+          }
+          if (!pat) {
+            const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
+            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+            ask.iconPath = new vscode.ThemeIcon("key");
+            return [ask];
+          }
+          // find project name
+          let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+          if (!projectEntry) {
+            try {
+              if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
+            } catch (e) {}
+            projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
+          }
+          const projectName = projectEntry?.name || String(proj);
+          const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/pullrequests?api-version=6.0&searchCriteria.status=active`;
+          const data = await getJson(prUrl, pat);
+          if (data && Array.isArray(data.value)) {
+            const prItems = data.value.map((p: any) => {
+              const title = p.title || `PR ${p.pullRequestId}`;
+              const it = new AzureDevOpsTreeItem(title, vscode.TreeItemCollapsibleState.None);
+              it.itemType = "pullrequest";
+              it.url = p._links?.web?.href || `https://dev.azure.com/${org}/${projectName}/_git/${p.repository?.name}/pullrequest/${p.pullRequestId}`;
+              it.contextValue = "pullrequest";
+              it.id = `pr:${org}:${proj}:${p.pullRequestId}`;
+              const src = p.sourceRefName || "";
+              const tgt = p.targetRefName || "";
+              it.tooltip = `${src} → ${tgt}`;
+              it.iconPath = new vscode.ThemeIcon("git-pull-request");
+              return it;
+            });
+            return prItems.length ? prItems : [new AzureDevOpsTreeItem("(no pull requests)")];
+          }
+          return [new AzureDevOpsTreeItem("(no pull requests)")];
+        } catch (err) {
+          return [new AzureDevOpsTreeItem("(failed to load pull requests)")];
         }
       }
       if (label === "Pipelines") {
@@ -403,9 +574,18 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
                 items.push(it);
               }
             }
-            if (items.length === 0) return [new AzureDevOpsTreeItem("(no boards)")];
+            // prepend a Recent Work Items category under Boards
+            const recent = new AzureDevOpsTreeItem("Recent Work Items", vscode.TreeItemCollapsibleState.Collapsed);
+            recent.itemType = "category";
+            recent.projectId = proj;
+            recent.organization = org;
+            recent.contextValue = "category";
+            recent.id = `category:${org}:${proj}:recentWorkItems`;
+            recent.iconPath = new vscode.ThemeIcon("list-unordered");
 
-            return items;
+            if (items.length === 0) return [recent, new AzureDevOpsTreeItem("(no boards)")];
+
+            return [recent, ...items];
           }
           return [new AzureDevOpsTreeItem("(no boards)")];
         } catch (err) {
@@ -419,6 +599,40 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * Refresh a specific node or organization. If no element provided, refresh entire tree.
+   * - organization: re-fetch projects for the organization
+   * - project: re-fetch projects for the parent organization
+   * - category/repo/other: trigger a tree refresh so getChildren re-queries dynamic endpoints
+   */
+  async refreshNode(element?: AzureDevOpsTreeItem): Promise<void> {
+    if (!element) {
+      this.refresh();
+      return;
+    }
+    try {
+      const t = element.itemType;
+      if (t === "organization") {
+        const org = element.organization;
+        if (org) await this.fetchProjects(org);
+        else this.refresh();
+        return;
+      }
+      if (t === "project") {
+        const org = element.organization;
+        if (org) await this.fetchProjects(org);
+        else this.refresh();
+        return;
+      }
+      // categories, repos, pipelines, boards, etc. are dynamic -- just refresh the view
+      this.refresh();
+      return;
+    } catch (err) {
+      // fallback to full refresh on error
+      this.refresh();
+    }
   }
 
   setProjects(projects: AdoProject[], org: string) {
@@ -575,6 +789,46 @@ function getJson(urlStr: string, pat: string): Promise<any> {
         });
       });
       req.on("error", (e: any) => reject(e));
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function postJson(urlStr: string, pat: string, body: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    try {
+      const https = require("https");
+      const u = new URL(urlStr);
+      const auth = Buffer.from(":" + pat).toString("base64");
+      const payload = JSON.stringify(body || {});
+      const options = {
+        hostname: u.hostname,
+        path: u.pathname + u.search,
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + auth,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      } as any;
+      const req = https.request(options, (res: any) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk: string) => (body += chunk));
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(body);
+            resolve(parsed);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+      req.on("error", (e: any) => reject(e));
+      req.write(payload);
       req.end();
     } catch (err) {
       reject(err);

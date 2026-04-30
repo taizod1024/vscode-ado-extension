@@ -109,6 +109,23 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Refresh a specific node (organization/project/category/repo) or full tree
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.refreshNode", async (element?: any) => {
+        try {
+          if (!provider || !provider.refreshNode) {
+            vscode.window.showInformationMessage("Provider refresh not available");
+            return;
+          }
+          await provider.refreshNode(element);
+          vscode.window.showInformationMessage("Refreshed");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to refresh: " + msg);
+        }
+      }),
+    );
+
     // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
     console.error("ado-assist: error registering provider", err);
