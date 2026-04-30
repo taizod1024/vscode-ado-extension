@@ -4,11 +4,17 @@ import * as vscode from "vscode";
  * ADO ツリーで使うカスタム TreeItem。
  * 各フィールドはツリーのノード種別に応じて設定されます。
  */
+/**
+ * Ado のツリー要素で許容される種別のリテラル型。
+ * 必要に応じて値を追加してください。
+ */
+export type AdoItemType = "organization" | "project" | "placeholder";
+
 export class AdoTreeItem extends vscode.TreeItem {
   /** 要素の一意 ID（例: `org:myorg`） */
   id?: string;
-  /** 要素の種別（例: 'organization' / 'project'） */
-  itemType?: string;
+  /** 要素の種別（リテラル型で制約） */
+  itemType?: AdoItemType;
   /** 組織名（organization ノード時に設定） */
   organization?: string;
   /** プロジェクト ID（project ノード時に設定） */
