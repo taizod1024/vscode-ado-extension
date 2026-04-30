@@ -218,13 +218,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       boards.id = `category:${element.organization}:${element.projectId}:boards`;
       boards.iconPath = new vscode.ThemeIcon("layout");
 
-      const pipelines = new AzureDevOpsTreeItem("Pipelines", vscode.TreeItemCollapsibleState.Collapsed);
-      pipelines.itemType = "category";
-      pipelines.projectId = element.projectId;
-      pipelines.organization = element.organization;
-      pipelines.contextValue = "category";
-      pipelines.id = `category:${element.organization}:${element.projectId}:pipelines`;
-      pipelines.iconPath = new vscode.ThemeIcon("git-branch");
+      
       const pullrequests = new AzureDevOpsTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
       pullrequests.itemType = "category";
       pullrequests.projectId = element.projectId;
@@ -233,7 +227,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
       pullrequests.id = `category:${element.organization}:${element.projectId}:pullrequests`;
       pullrequests.iconPath = new vscode.ThemeIcon("git-pull-request");
 
-      return [repos, boards, pipelines, pullrequests];
+      return [repos, boards, pullrequests];
     }
 
     if (element.itemType === "category") {
@@ -459,56 +453,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
           return [new AzureDevOpsTreeItem("(failed to load pull requests)")];
         }
       }
-      if (label === "Pipelines") {
-        try {
-          const org = element.organization;
-          const proj = element.projectId;
-          let pat: string | undefined;
-          if (this.context && org) {
-            pat = await this.context.secrets.get(this.patKeyForOrg(org));
-            if (!pat) {
-              const entered = await this.promptAndStorePat(org);
-              if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
-              pat = entered;
-            }
-          }
-          if (!pat) {
-            const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
-            ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
-            ask.iconPath = new vscode.ThemeIcon("key");
-            return [ask];
-          }
-          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_apis/pipelines?api-version=6.0-preview.1`;
-          const data = await getJson(url, pat);
-          if (data && Array.isArray(data.value)) {
-            // try to refresh project descriptions if missing before building pipeline items
-            let projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            if (!projectEntry) {
-              try {
-                if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
-              } catch (e) {}
-              projectEntry = this.projectsByOrg[org]?.find(x => x.id === (proj as any));
-            }
-            const pipelineItems = data.value.map((p: any) => {
-              const it = new AzureDevOpsTreeItem(p.name || `Pipeline ${p.id}`, vscode.TreeItemCollapsibleState.None);
-              it.itemType = "pipeline";
-              it.url = p._links?.web?.href || "";
-              it.contextValue = "pipeline";
-              it.id = `pipeline:${org}:${proj}:${p.id}`;
-              // opening web page handled by inline/context action; do not attach to item click
-              // tooltip: pipeline description or URL
-              it.tooltip = p.description || it.url;
-              it.iconPath = new vscode.ThemeIcon("git-branch");
-              return it;
-            });
-
-            return pipelineItems;
-          }
-          return [new AzureDevOpsTreeItem("(no pipelines)")];
-        } catch (err) {
-          return [new AzureDevOpsTreeItem("(failed to load pipelines)")];
-        }
-      }
+      
       if (label === "Boards") {
         try {
           const org = element.organization;

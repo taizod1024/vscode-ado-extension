@@ -101,11 +101,7 @@
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
-        {
-          "command": "ado-assist.openProject",
-          "when": "view == azureDevOps.sidePanel && viewItem == pipeline",
-          "group": "inline"
-        },
+        
         {
           "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
