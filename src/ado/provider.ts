@@ -86,7 +86,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /**
    * 読み込み時に変更した collapsibleState を復元するためのバックアップ。
    */
-  private loadingCollapsibleBackup: { [id: string]: vscode.TreeItemCollapsibleState } = {};
+  
 
   /**
    * コンストラクタ。
@@ -199,6 +199,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.organization = org;
             it.id = `work:${org}:${w.id}`;
             it.contextValue = "workitem";
+            it.iconPath = new vscode.ThemeIcon("issue-opened");
             it.url = w.url;
             it.tooltip = w.url || w.title;
             return it;
@@ -362,37 +363,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       }
 
       if (element.id) {
-        this.loadingNodes[element.id] = true;
-        try {
-          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-        } catch (e) {}
-        this.loadingTimers[element.id] = setTimeout(() => {
-          try {
-            if (this.loadingNodes[element.id]) {
-              try {
-                if (this.loadingIconBackup[element.id] !== undefined) {
-                  element.iconPath = this.loadingIconBackup[element.id];
-                  delete this.loadingIconBackup[element.id];
-                }
-              } catch (e) {}
-              delete this.loadingNodes[element.id];
-              delete this.loadingTimers[element.id];
-              this._onDidChangeTreeData.fire(element);
-            }
-          } catch (e) {}
-        }, 10000);
-        try {
-          if (!this.loadingCollapsibleBackup[element.id]) {
-            this.loadingCollapsibleBackup[element.id] = element.collapsibleState;
-          }
-          element.collapsibleState = vscode.TreeItemCollapsibleState.None;
-        } catch (e) {}
-        try {
-          if (!this.loadingIconBackup[element.id]) {
-            this.loadingIconBackup[element.id] = element.iconPath;
-            element.iconPath = new vscode.ThemeIcon("sync~spin");
-          }
-        } catch (e) {}
+        this.beginLoading(element);
       }
 
       // 組織のプロジェクトキャッシュと関連する children キャッシュ／in-flight を削除して再フェッチ
@@ -424,42 +395,69 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       } catch (e) {}
 
       if (element.id) {
-        try {
-          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-        } catch (e) {}
-        delete this.loadingTimers[element.id];
-        try {
-          if (this.loadingIconBackup[element.id] !== undefined) {
-            element.iconPath = this.loadingIconBackup[element.id];
-            delete this.loadingIconBackup[element.id];
-          }
-        } catch (e) {}
-        try {
-          if (this.loadingCollapsibleBackup[element.id] !== undefined) {
-            element.collapsibleState = this.loadingCollapsibleBackup[element.id];
-            delete this.loadingCollapsibleBackup[element.id];
-          }
-        } catch (e) {}
-        delete this.loadingNodes[element.id];
-        this._onDidChangeTreeData.fire(element);
+        this.endLoading(element);
       }
       return;
     } catch (err) {
-      if (element?.id) {
-        try {
-          if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-        } catch (e) {}
-        delete this.loadingTimers[element.id];
-        try {
-          if (this.loadingIconBackup[element.id] !== undefined) {
-            element.iconPath = this.loadingIconBackup[element.id];
-            delete this.loadingIconBackup[element.id];
-          }
-        } catch (e) {}
-        delete this.loadingNodes[element.id];
-      }
+      if (element?.id) this.endLoading(element);
       this.refresh();
     }
+  }
+
+  /**
+   * 共通: ノードのロード開始処理（アイコン差し替え・タイマー設定）
+   */
+  private beginLoading(element: AdoTreeItem) {
+    if (!element.id) return;
+    try {
+      this.loadingNodes[element.id] = true;
+      try {
+        if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+      } catch (e) {}
+      this.loadingTimers[element.id] = setTimeout(() => {
+        try {
+          if (this.loadingNodes[element.id]) {
+            try {
+              if (this.loadingIconBackup[element.id] !== undefined) {
+                element.iconPath = this.loadingIconBackup[element.id];
+                delete this.loadingIconBackup[element.id];
+              }
+            } catch (e) {}
+            delete this.loadingNodes[element.id];
+            delete this.loadingTimers[element.id];
+            this._onDidChangeTreeData.fire(element);
+          }
+        } catch (e) {}
+      }, 10000);
+      try {
+        if (!this.loadingIconBackup[element.id]) {
+          this.loadingIconBackup[element.id] = element.iconPath;
+          element.iconPath = new vscode.ThemeIcon("sync~spin");
+        }
+      } catch (e) {}
+      this._onDidChangeTreeData.fire(element);
+    } catch (e) {}
+  }
+
+  /**
+   * 共通: ノードのロード終了処理（タイマー・アイコン復元）
+   */
+  private endLoading(element: AdoTreeItem) {
+    if (!element.id) return;
+    try {
+      try {
+        if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
+      } catch (e) {}
+      delete this.loadingTimers[element.id];
+      try {
+        if (this.loadingIconBackup[element.id] !== undefined) {
+          element.iconPath = this.loadingIconBackup[element.id];
+          delete this.loadingIconBackup[element.id];
+        }
+      } catch (e) {}
+      delete this.loadingNodes[element.id];
+      this._onDidChangeTreeData.fire(element);
+    } catch (e) {}
   }
 
   // -----------------------
