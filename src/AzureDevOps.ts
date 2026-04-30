@@ -227,66 +227,33 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
 
     if (element.itemType === "repo") {
-      try {
-        const org = element.organization as string;
-        const proj = element.projectId as string;
-        const repoId = element.repoId as string | undefined;
-        const repoName = element.repoName || String(element.label);
-        let pat: string | undefined;
-        if (this.context && org) {
-          pat = await this.context.secrets.get(this.patKeyForOrg(org));
-          if (!pat) {
-            const entered = await this.promptAndStorePat(org);
-            if (!entered) return [new AzureDevOpsTreeItem("(no PAT provided)")];
-            pat = entered;
-          }
-        }
-        if (!pat) {
-          const ask = new AzureDevOpsTreeItem(`Enter PAT for ${org}`, vscode.TreeItemCollapsibleState.None);
-          ask.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
-          ask.iconPath = new vscode.ThemeIcon("key");
-          return [ask];
-        }
-        // need project name for canonical branch URL
-        let projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
-        if (!projectEntry) {
-          try {
-            if (this.loadingOrg !== org) this.fetchProjects(org).catch(() => {});
-          } catch (e) {}
-          projectEntry = this.projectsByOrg[org]?.find(p => p.id === (proj as any));
-        }
-        const projectName = projectEntry?.name || String(proj);
-        const repoIdentifier = repoId || repoName;
-        const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_apis/git/repositories/${encodeURIComponent(repoIdentifier)}/refs?filter=heads/&api-version=6.0`;
-        const data = await getJson(url, pat);
-        if (data && Array.isArray(data.value)) {
-          // add a Pull Requests category node for this repository
-          const prCategory = new AzureDevOpsTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
-          prCategory.itemType = "category";
-          prCategory.projectId = proj;
-          prCategory.organization = org;
-          prCategory.repoId = repoIdentifier;
-          prCategory.repoName = repoName;
-          prCategory.contextValue = "category";
-          prCategory.id = `category:${org}:${proj}:pullrequests:${repoIdentifier}`;
-          prCategory.iconPath = new vscode.ThemeIcon("git-pull-request");
+      // Do not call refs API when expanding a repo; always expose categories.
+      const org = element.organization as string;
+      const proj = element.projectId as string;
+      const repoName = element.repoName || String(element.label);
+      const repoIdentifier = element.repoId || repoName;
 
-          const branchesCategory = new AzureDevOpsTreeItem("Branches", vscode.TreeItemCollapsibleState.Collapsed);
-          branchesCategory.itemType = "category";
-          branchesCategory.projectId = proj;
-          branchesCategory.organization = org;
-          branchesCategory.repoId = repoIdentifier;
-          branchesCategory.repoName = repoName;
-          branchesCategory.contextValue = "category";
-          branchesCategory.id = `category:${org}:${proj}:branches:${repoIdentifier}`;
-          branchesCategory.iconPath = new vscode.ThemeIcon("git-branch");
+      const prCategory = new AzureDevOpsTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
+      prCategory.itemType = "category";
+      prCategory.projectId = proj;
+      prCategory.organization = org;
+      prCategory.repoId = repoIdentifier;
+      prCategory.repoName = repoName;
+      prCategory.contextValue = "category";
+      prCategory.id = `category:${org}:${proj}:pullrequests:${repoIdentifier}`;
+      prCategory.iconPath = new vscode.ThemeIcon("git-pull-request");
 
-          return [prCategory, branchesCategory];
-        }
-        return [new AzureDevOpsTreeItem("(no branches)")];
-      } catch (err) {
-        return [new AzureDevOpsTreeItem("(failed to load branches)")];
-      }
+      const branchesCategory = new AzureDevOpsTreeItem("Branches", vscode.TreeItemCollapsibleState.Collapsed);
+      branchesCategory.itemType = "category";
+      branchesCategory.projectId = proj;
+      branchesCategory.organization = org;
+      branchesCategory.repoId = repoIdentifier;
+      branchesCategory.repoName = repoName;
+      branchesCategory.contextValue = "category";
+      branchesCategory.id = `category:${org}:${proj}:branches:${repoIdentifier}`;
+      branchesCategory.iconPath = new vscode.ThemeIcon("git-branch");
+
+      return [prCategory, branchesCategory];
     }
 
     if (element.itemType === "category") {
@@ -348,9 +315,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
             });
 
             return repoItems;
-          } catch (err) {
-            return [new AzureDevOpsTreeItem("(failed to load repositories)")];
           }
+        } catch (err) {
+          return [new AzureDevOpsTreeItem("(failed to load repositories)")];
+        }
         }
       if (label === "Recent Work Items") {
         try {
@@ -591,7 +559,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
 
             return [recent, ...items];
           }
-          return [recent];
+          return [new AzureDevOpsTreeItem("(no boards)")];
         } catch (err) {
           return [new AzureDevOpsTreeItem("(failed to load boards)")];
         }
@@ -787,7 +755,6 @@ export function createTreeProvider(context?: vscode.ExtensionContext): AzureDevO
 function getJson(urlStr: string, pat: string): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
-      console.log("ado-assist: GET", urlStr);
       const https = require("https");
       const u = new URL(urlStr);
       const auth = Buffer.from(":" + pat).toString("base64");
@@ -810,7 +777,7 @@ function getJson(urlStr: string, pat: string): Promise<any> {
           try {
             const parsed = JSON.parse(body);
             try {
-              console.log("ado-assist: GET result", urlStr, parsed);
+              console.log(`ado-assist: request=GET ${urlStr} status=${res.statusCode} ${res.statusMessage}`);
             } catch (e) {
               // ignore logging errors
             }
@@ -831,7 +798,6 @@ function getJson(urlStr: string, pat: string): Promise<any> {
 function postJson(urlStr: string, pat: string, body: any): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
-      console.log("ado-assist: POST", urlStr);
       const https = require("https");
       const u = new URL(urlStr);
       const auth = Buffer.from(":" + pat).toString("base64");
@@ -855,7 +821,7 @@ function postJson(urlStr: string, pat: string, body: any): Promise<any> {
           try {
             const parsed = JSON.parse(body);
             try {
-              console.log("ado-assist: POST result", urlStr, parsed);
+              console.log(`ado-assist: request=POST ${urlStr} status=${res.statusCode} ${res.statusMessage}`);
             } catch (e) {
               // ignore logging errors
             }
