@@ -18,7 +18,18 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "placeholder";
+export type AdoItemType =
+  | "organization"
+  | "project"
+  | "workItemsFolder"
+  | "branchesFolder"
+  | "pullRequestsFolder"
+  | "workItem"
+  | "repositoriesFolder"
+  | "repository"
+  | "branch"
+  | "pullRequest"
+  | "placeholder";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。
@@ -76,4 +87,32 @@ export interface AdoProject {
   url: string;
   /** 任意の説明 */
   description?: string;
+}
+
+/** Git リポジトリ情報 */
+export interface AdoRepository {
+  id: string;
+  name: string;
+  url: string;
+  defaultBranch?: string;
+}
+
+/** Work item の簡易表現 */
+export interface AdoWorkItem {
+  id: number;
+  title: string;
+  url?: string;
+}
+
+/** ブランチ情報の簡易表現 */
+export interface AdoBranch {
+  name: string; // ブランチ名（例: refs/heads/main または main）
+}
+
+/** プルリクエストの簡易表現 */
+export interface AdoPullRequest {
+  pullRequestId: number;
+  title: string;
+  url?: string;
+  status?: string;
 }
