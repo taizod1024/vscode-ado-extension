@@ -91,6 +91,8 @@ export interface AdoWorkItem {
   id: number;
   title: string;
   url?: string;
+  /** 状態ラベル（例: "New", "Active", "Closed"） */
+  status?: string;
 }
 
 /** ブランチ情報の簡易表現 */

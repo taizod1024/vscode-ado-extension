@@ -169,7 +169,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       workFolder.projectId = projectId;
       workFolder.id = `workitems:${org}:${projectId}`;
       workFolder.contextValue = "workItemsFolder";
-      workFolder.iconPath = new vscode.ThemeIcon("list-unordered");
 
       const repoFolder = new AdoTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
       repoFolder.itemType = "repositoriesFolder";
@@ -177,7 +176,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       repoFolder.projectId = projectId;
       repoFolder.id = `repos:${org}:${projectId}`;
       repoFolder.contextValue = "repositoriesFolder";
-      repoFolder.iconPath = new vscode.ThemeIcon("repo");
 
       return [workFolder, repoFolder];
     }
@@ -198,7 +196,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.organization = org;
             it.id = `work:${org}:${w.id}`;
             it.contextValue = "workitem";
-            it.iconPath = new vscode.ThemeIcon("issue-opened");
+            // set icon based on work item status: todo/doing/done
+            try {
+              const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
+              if (st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete")) {
+                it.iconPath = new vscode.ThemeIcon("check");
+              } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
+                it.iconPath = new vscode.ThemeIcon("run");
+              } else {
+                it.iconPath = new vscode.ThemeIcon("issues");
+              }
+            } catch (e) {}
             it.url = w.url;
             it.tooltip = w.url || w.title;
             return it;
@@ -249,7 +257,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       branchesFolder.repoName = element.repoName || "";
       branchesFolder.id = `branches:${org}:${repoId}`;
       branchesFolder.contextValue = "branchesFolder";
-      branchesFolder.iconPath = new vscode.ThemeIcon("git-branch");
 
       const prsFolder = new AdoTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
       prsFolder.itemType = "pullRequestsFolder";
@@ -259,7 +266,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       prsFolder.repoName = element.repoName || "";
       prsFolder.id = `prs:${org}:${repoId}`;
       prsFolder.contextValue = "pullRequestsFolder";
-      prsFolder.iconPath = new vscode.ThemeIcon("git-merge");
 
       return [branchesFolder, prsFolder];
     }
@@ -712,7 +718,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         if (projectName) {
           webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
         }
-        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl });
+        const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
+        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state });
       }
     }
     return items;
