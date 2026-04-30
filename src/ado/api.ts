@@ -1,6 +1,6 @@
 import { URL } from "url";
 
-async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any): Promise<any> {
+export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any): Promise<any> {
   const https = require("https");
   const u = new URL(urlStr);
   const auth = Buffer.from(":" + pat).toString("base64");
@@ -46,10 +46,4 @@ async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, 
   });
 }
 
-export async function getJson(urlStr: string, pat: string): Promise<any> {
-  return await httpRequest("GET", urlStr, pat);
-}
-
-export async function postJson(urlStr: string, pat: string, body: any): Promise<any> {
-  return await httpRequest("POST", urlStr, pat, body);
-}
+// Deprecated: callers should use `httpRequest` directly

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AdoTreeItem, AdoProject } from "./types";
-import { getJson } from "./api";
+import { httpRequest } from "./api";
 
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<AdoTreeItem | undefined | null | void> = new vscode.EventEmitter();
@@ -193,19 +193,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         let data: any;
         if (usePat) {
           try {
-            data = await getJson(url, usePat);
+            data = await httpRequest("GET", url, usePat);
           } catch (err) {
             const entered = await this.promptAndStorePat(organization);
             if (!entered) throw new Error("PAT not provided");
             usePat = entered;
-            data = await getJson(url, usePat);
+            data = await httpRequest("GET", url, usePat);
           }
         } else {
           while (true) {
             const entered = await this.promptAndStorePat(organization);
             if (!entered) throw new Error("PAT not provided");
             try {
-              data = await getJson(url, entered);
+              data = await httpRequest("GET", url, entered);
               usePat = entered;
               break;
             } catch (err) {
