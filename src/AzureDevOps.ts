@@ -26,6 +26,7 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   private _onDidChangeTreeData: vscode.EventEmitter<AzureDevOpsTreeItem | undefined | null | void> = new vscode.EventEmitter();
   readonly onDidChangeTreeData: vscode.Event<AzureDevOpsTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
+  private loadingNodes: { [id: string]: boolean } = {};
   private context: vscode.ExtensionContext | undefined;
   private loadingOrg?: string;
   private errorsByOrg: { [org: string]: string } = {};
@@ -64,6 +65,10 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
   private organizations: string[] = [];
 
   getTreeItem(element: AzureDevOpsTreeItem): vscode.TreeItem {
+    // if this node is marked loading, show spinner icon
+    if (element && element.id && this.loadingNodes[element.id]) {
+      element.iconPath = new vscode.ThemeIcon("sync~spin");
+    }
     return element;
   }
 
@@ -613,25 +618,45 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
     }
     try {
       const t = element.itemType;
+      // mark node as loading and clear its children visually
+      if (element.id) {
+        this.loadingNodes[element.id] = true;
+        // force update so UI shows spinner and empty children
+        this._onDidChangeTreeData.fire(element);
+      }
       if (t === "organization") {
         const org = element.organization;
         if (org) {
           // do not re-fetch projects on org refresh; only refresh the org node
-          this._onDidChangeTreeData.fire(element);
+          // children were already cleared above; now just end and let user expand
         } else this.refresh();
+        // clear loading state and refresh node to update children when ready
+        if (element.id) {
+          delete this.loadingNodes[element.id];
+          this._onDidChangeTreeData.fire(element);
+        }
         return;
       }
       if (t === "project") {
         const org = element.organization;
         if (org) await this.fetchProjects(org);
         else this.refresh();
+        if (element.id) {
+          delete this.loadingNodes[element.id];
+          this._onDidChangeTreeData.fire(element);
+        }
         return;
       }
-      // categories, repos, pipelines, boards, etc. are dynamic -- refresh only the given node
-        this._onDidChangeTreeData.fire(element);
-        return;
+      // categories, repos, boards, etc. are dynamic -- trigger a re-render for the node
+      if (element.id) {
+        // clear loading state before re-render so getChildren will re-query endpoints
+        delete this.loadingNodes[element.id];
+      }
+      this._onDidChangeTreeData.fire(element);
+      return;
     } catch (err) {
       // fallback to full refresh on error
+        if (element?.id) delete this.loadingNodes[element.id];
         this.refresh();
     }
   }
@@ -762,6 +787,7 @@ export function createTreeProvider(context?: vscode.ExtensionContext): AzureDevO
 function getJson(urlStr: string, pat: string): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
+      console.log("ado-assist: GET", urlStr);
       const https = require("https");
       const u = new URL(urlStr);
       const auth = Buffer.from(":" + pat).toString("base64");
@@ -783,6 +809,11 @@ function getJson(urlStr: string, pat: string): Promise<any> {
         res.on("end", () => {
           try {
             const parsed = JSON.parse(body);
+            try {
+              console.log("ado-assist: GET result", urlStr, parsed);
+            } catch (e) {
+              // ignore logging errors
+            }
             resolve(parsed);
           } catch (err) {
             reject(err);
@@ -800,6 +831,7 @@ function getJson(urlStr: string, pat: string): Promise<any> {
 function postJson(urlStr: string, pat: string, body: any): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
+      console.log("ado-assist: POST", urlStr);
       const https = require("https");
       const u = new URL(urlStr);
       const auth = Buffer.from(":" + pat).toString("base64");
@@ -822,6 +854,11 @@ function postJson(urlStr: string, pat: string, body: any): Promise<any> {
         res.on("end", () => {
           try {
             const parsed = JSON.parse(body);
+            try {
+              console.log("ado-assist: POST result", urlStr, parsed);
+            } catch (e) {
+              // ignore logging errors
+            }
             resolve(parsed);
           } catch (err) {
             reject(err);
