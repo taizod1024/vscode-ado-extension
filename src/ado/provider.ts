@@ -195,12 +195,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         items =>
           items.map(w => {
             const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
-              it.itemType = "workItem";
-              it.organization = org;
-              it.id = `work:${org}:${w.id}`;
-              it.contextValue = "workitem";
-              it.url = w.url;
-              it.tooltip = w.url || w.title;
+            it.itemType = "workItem";
+            it.organization = org;
+            it.id = `work:${org}:${w.id}`;
+            it.contextValue = "workitem";
+            it.url = w.url;
+            it.tooltip = w.url || w.title;
             return it;
           }),
         "Loading work items...",
@@ -245,7 +245,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       branchesFolder.itemType = "branchesFolder";
       branchesFolder.organization = org;
       branchesFolder.projectId = element.projectId;
-      branchesFolder.repoId = element.repoId || repoId as string;
+      branchesFolder.repoId = element.repoId || (repoId as string);
       branchesFolder.repoName = element.repoName || "";
       branchesFolder.id = `branches:${org}:${repoId}`;
       branchesFolder.contextValue = "branchesFolder";
@@ -255,7 +255,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       prsFolder.itemType = "pullRequestsFolder";
       prsFolder.organization = org;
       prsFolder.projectId = element.projectId;
-      prsFolder.repoId = element.repoId || repoId as string;
+      prsFolder.repoId = element.repoId || (repoId as string);
       prsFolder.repoName = element.repoName || "";
       prsFolder.id = `prs:${org}:${repoId}`;
       prsFolder.contextValue = "pullRequestsFolder";
@@ -315,13 +315,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           prs.map(pr => {
             const label = `!${pr.pullRequestId} ${pr.title}`;
             const it = new AdoTreeItem(label, vscode.TreeItemCollapsibleState.None);
-              it.itemType = "pullRequest";
-              it.organization = org;
-              it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
-              it.contextValue = "pullrequest";
-              it.iconPath = new vscode.ThemeIcon("git-merge");
-              it.url = pr.url;
-              it.tooltip = pr.title;
+            it.itemType = "pullRequest";
+            it.organization = org;
+            it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
+            it.contextValue = "pullrequest";
+            it.iconPath = new vscode.ThemeIcon("git-merge");
+            it.url = pr.url;
+            it.tooltip = pr.title;
             return it;
           }),
         "Loading pull requests...",
