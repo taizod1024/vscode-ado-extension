@@ -143,19 +143,20 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchProjects(org),
-        (projects) => projects.map(p => {
-          const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
-          it.itemType = "project";
-          it.organization = org;
-          it.projectId = p.id;
-          it.id = `proj:${org}:${p.id}`;
-          it.contextValue = "project";
-          it.iconPath = new vscode.ThemeIcon("repo");
-          it.url = p.url;
-          it.tooltip = p.description || p.url;
-          return it;
-        }),
-        "Loading projects..."
+        projects =>
+          projects.map(p => {
+            const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
+            it.itemType = "project";
+            it.organization = org;
+            it.projectId = p.id;
+            it.id = `proj:${org}:${p.id}`;
+            it.contextValue = "project";
+            it.iconPath = new vscode.ThemeIcon("repo");
+            it.url = p.url;
+            it.tooltip = p.description || p.url;
+            return it;
+          }),
+        "Loading projects...",
       );
     }
 
@@ -191,17 +192,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchWorkItems(org, pid),
-        (items) => items.map(w => {
-          const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
-          it.itemType = "workItem";
-          it.organization = org;
-          it.id = `work:${org}:${w.id}`;
-          it.contextValue = "workItem";
-          it.url = w.url;
-          it.tooltip = w.url || w.title;
-          return it;
-        }),
-        "Loading work items..."
+        items =>
+          items.map(w => {
+            const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
+            it.itemType = "workItem";
+            it.organization = org;
+            it.id = `work:${org}:${w.id}`;
+            it.contextValue = "workItem";
+            it.url = w.url;
+            it.tooltip = w.url || w.title;
+            return it;
+          }),
+        "Loading work items...",
       );
     }
 
@@ -214,18 +216,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchRepositories(org, pid),
-        (repos) => repos.map(r => {
-          const it = new AdoTreeItem(r.name, vscode.TreeItemCollapsibleState.Collapsed);
-          it.itemType = "repository";
-          it.organization = org;
-          it.id = `repo:${org}:${r.id}`;
-          it.contextValue = "repository";
-          it.iconPath = new vscode.ThemeIcon("repo");
-          it.url = r.url;
-          it.tooltip = r.url;
-          return it;
-        }),
-        "Loading repositories..."
+        repos =>
+          repos.map(r => {
+            const it = new AdoTreeItem(r.name, vscode.TreeItemCollapsibleState.Collapsed);
+            it.itemType = "repository";
+            it.organization = org;
+            it.id = `repo:${org}:${r.id}`;
+            it.contextValue = "repository";
+            it.iconPath = new vscode.ThemeIcon("repo");
+            it.url = r.url;
+            it.tooltip = r.url;
+            return it;
+          }),
+        "Loading repositories...",
       );
     }
 
@@ -264,17 +267,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchBranches(org, repoId),
-        (branches) => branches.map(b => {
-          const name = String(b.name).replace(/^refs\/heads\//, "");
-          const it = new AdoTreeItem(name, vscode.TreeItemCollapsibleState.None);
-          it.itemType = "branch";
-          it.organization = org;
-          it.id = `branch:${org}:${repoId}:${name}`;
-          it.contextValue = "branch";
-          it.iconPath = new vscode.ThemeIcon("git-branch");
-          return it;
-        }),
-        "Loading branches..."
+        branches =>
+          branches.map(b => {
+            const name = String(b.name).replace(/^refs\/heads\//, "");
+            const it = new AdoTreeItem(name, vscode.TreeItemCollapsibleState.None);
+            it.itemType = "branch";
+            it.organization = org;
+            it.id = `branch:${org}:${repoId}:${name}`;
+            it.contextValue = "branch";
+            it.iconPath = new vscode.ThemeIcon("git-branch");
+            return it;
+          }),
+        "Loading branches...",
       );
     }
 
@@ -288,19 +292,20 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchPullRequests(org, repoId),
-        (prs) => prs.map(pr => {
-          const label = `!${pr.pullRequestId} ${pr.title}`;
-          const it = new AdoTreeItem(label, vscode.TreeItemCollapsibleState.None);
-          it.itemType = "pullRequest";
-          it.organization = org;
-          it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
-          it.contextValue = "pullRequest";
-          it.iconPath = new vscode.ThemeIcon("git-merge");
-          it.url = pr.url;
-          it.tooltip = pr.title;
-          return it;
-        }),
-        "Loading pull requests..."
+        prs =>
+          prs.map(pr => {
+            const label = `!${pr.pullRequestId} ${pr.title}`;
+            const it = new AdoTreeItem(label, vscode.TreeItemCollapsibleState.None);
+            it.itemType = "pullRequest";
+            it.organization = org;
+            it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
+            it.contextValue = "pullRequest";
+            it.iconPath = new vscode.ThemeIcon("git-merge");
+            it.url = pr.url;
+            it.tooltip = pr.title;
+            return it;
+          }),
+        "Loading pull requests...",
       );
     }
 
@@ -549,13 +554,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 汎用遅延ローダー。
    * - キャッシュ確認、in-flight 合流、未ロード時は非同期 fetch を開始してプレースホルダを返す。
    */
-  private lazyLoadChildren<T>(
-    key: string,
-    element: AdoTreeItem,
-    fetchFn: () => Promise<T[]>,
-    toItems: (arr: T[]) => AdoTreeItem[],
-    placeholderLabel: string = "Loading..."
-  ): AdoTreeItem[] {
+  private lazyLoadChildren<T>(key: string, element: AdoTreeItem, fetchFn: () => Promise<T[]>, toItems: (arr: T[]) => AdoTreeItem[], placeholderLabel: string = "Loading..."): AdoTreeItem[] {
     const cached = this.childrenCache[key];
     if (cached && Array.isArray(cached)) {
       return toItems(cached as T[]);
@@ -649,7 +648,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       usePat = entered;
       wiqlResult = await httpRequest("POST", wiqlUrl, usePat, query);
     }
-    const ids = (wiqlResult?.workItems || []).slice(0, 20).map((w: any) => w.id).filter(Boolean);
+    const ids = (wiqlResult?.workItems || [])
+      .slice(0, 20)
+      .map((w: any) => w.id)
+      .filter(Boolean);
     if (ids.length === 0) return [];
     const idsStr = ids.join(",");
     const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
