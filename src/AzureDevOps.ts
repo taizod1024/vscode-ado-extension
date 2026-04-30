@@ -625,12 +625,12 @@ export class AzureDevOpsTreeProvider implements vscode.TreeDataProvider<AzureDev
         else this.refresh();
         return;
       }
-      // categories, repos, pipelines, boards, etc. are dynamic -- just refresh the view
-      this.refresh();
-      return;
+      // categories, repos, pipelines, boards, etc. are dynamic -- refresh only the given node
+        this._onDidChangeTreeData.fire(element);
+        return;
     } catch (err) {
       // fallback to full refresh on error
-      this.refresh();
+        this.refresh();
     }
   }
 
