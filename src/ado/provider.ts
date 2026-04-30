@@ -19,56 +19,68 @@ export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreePr
  */
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /**
-   * ツリー変更用のイベントエミッタ。TreeDataProvider の契約の一部です。
-   * VS Code は `onDidChangeTreeData` を監視してビューを更新します。
+   * TreeDataProvider 必須: ツリー変更用イベントエミッタ。
    */
   private _onDidChangeTreeData: vscode.EventEmitter<AdoTreeItem | undefined | null | void> = new vscode.EventEmitter();
 
   /**
-   * VS Code API が要求する TreeDataProvider のイベント。
-   * TreeDataProvider 必須メンバ: `onDidChangeTreeData`
+   * TreeDataProvider 必須メンバ: `onDidChangeTreeData`。
    */
   readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+
   /**
-   * プロバイダ固有メンバ: 組織ごとのプロジェクト配列を保持します（永続化はしない）。
-   */
-  private projectsByOrg: { [org: string]: AdoProject[] } = {};
-  /**
-   * プロバイダ固有メンバ: 読み込み状態のノードを一時的にマークするためのフラグ（キーは `AdoTreeItem.id`）。
-   */
-  private loadingNodes: { [id: string]: boolean } = {};
-  /**
-   * プロバイダ固有メンバ: 拡張の `ExtensionContext`（VS Code 側提供）。workspaceState や secrets にアクセスするために保持。
+   * 拡張の `ExtensionContext`（VS Code 提供）。重要度高：workspaceState / secrets 関連で使用。
    */
   private context: vscode.ExtensionContext | undefined;
+
   /**
-   * プロバイダ固有メンバ: 現在ロード中の組織名（UI 表示のための補助）。
+   * 重要: ツリーのルートに表示する組織名の配列（workspaceState に永続化）。
    */
-  private loadingOrg?: string;
+  private organizations: string[] = [];
+
   /**
-   * プロバイダ固有メンバ: 組織ごとのエラー文字列を保持（workspaceState に保存される）。
+   * 重要: 組織ごとのプロジェクト配列（メモリ内キャッシュ。永続化しない）。
    */
-  private errorsByOrg: { [org: string]: string } = {};
+  private projectsByOrg: { [org: string]: AdoProject[] } = {};
+
   /**
-   * プロバイダ固有メンバ: in-flight promise のマップ（同一リクエストの重複防止）。
+   * in-flight promise マップ：同一組織への重複リクエストを合流させる（重複防止）。
    */
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
+
   /**
-   * プロバイダ固有メンバ: ローディング時のタイマーを管理（視覚フィードバックのタイミング等）。
+   * 組織ごとのエラーメッセージを保持（workspaceState に保存）。
+   */
+  private errorsByOrg: { [org: string]: string } = {};
+
+  /**
+   * 読み込み中の組織名（UI 表示補助）。
+   */
+  private loadingOrg?: string;
+
+  /**
+   * 読み込み表示用フラグ（ノード単位）。キーは `AdoTreeItem.id`。
+   */
+  private loadingNodes: { [id: string]: boolean } = {};
+
+  /**
+   * 読み込みタイマー（視覚フィードバック管理）。
    */
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
+
   /**
-   * プロバイダ固有メンバ: ノードの元々のアイコンを一時保存して、読み込み終了時に復元するために使用。
+   * 読み込み開始時に一時保存するアイコン。
    */
   private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
+
   /**
-   * プロバイダ固有メンバ: 読み込み時に一時的に変更した `collapsibleState` を復元するためのバックアップ。
+   * 読み込み時に変更した collapsibleState を復元するためのバックアップ。
    */
   private loadingCollapsibleBackup: { [id: string]: vscode.TreeItemCollapsibleState } = {};
 
   /**
    * コンストラクタ。
-   * @param context 拡張の `ExtensionContext`（省略可）。workspaceState や secrets にアクセスします。
+   * @param context 拡張の `ExtensionContext`（省略可）
    */
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
@@ -80,52 +92,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
+  // -----------------------
+  // TreeDataProvider 必須実装（公開 API）
+  // -----------------------
   /**
-   * 指定した組織に対応する secrets のキーを返します。
-   * 内部ヘルパー（プロバイダ固有）。
-   * @param org 組織名
-   * @returns secrets に保存するためのキー文字列（例: `ado-assist.pat.myorg`）
-   */
-  private patKeyForOrg(org: string) {
-    return `ado-assist.pat.${org}`;
-  }
-  
-  private async promptAndStorePat(org: string): Promise<string | undefined> {
-    const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
-    if (!pat || !this.context) return undefined;
-    try {
-      await this.context.secrets.store(this.patKeyForOrg(org), pat);
-      vscode.window.showInformationMessage(`PAT saved for ${org}`);
-      return pat;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      vscode.window.showErrorMessage(`Failed to save PAT for ${org}: ${msg}`);
-      return undefined;
-    }
-  }
-
-  /**
-   * ユーザーに PAT 入力を促し、入力があれば secrets に保存します。
-   * @param org 組織名
-   * @returns 保存された PAT（保存されなかった場合は undefined）
-   */
-  private organizations: string[] = [];
-
-  /**
-   * 要素の TreeItem 表現を返します。
-   * TreeDataProvider 必須メソッド: `getTreeItem`
-   * @param element 表示する `AdoTreeItem`
-   * @returns `vscode.TreeItem`（ツリー表示用）
+   * TreeItem 表現を返す。TreeDataProvider 必須メソッド。
    */
   getTreeItem(element: AdoTreeItem): vscode.TreeItem {
     return element;
   }
 
   /**
-   * 指定された要素の子要素を返します。要素が未指定の場合はルートの子を返します。
-   * TreeDataProvider 必須メソッド: `getChildren`
-   * @param element 親要素（未指定ならルート）
-   * @returns 子要素の配列
+   * 指定要素の子要素を返す（ルート時に組織リストを返す）。TreeDataProvider 必須メソッド。
    */
   async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
     if (!element) {
@@ -148,18 +126,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     return [];
   }
 
+  // -----------------------
+  // 公開ヘルパー（拡張コマンドなどから利用される API）
+  // -----------------------
+  /**
+   * ツリー全体を更新するヘルパー。
+   */
   refresh(): void {
-    // 公開ヘルパー: ツリー全体を更新する
-    // @returns void
     this._onDidChangeTreeData.fire();
   }
 
-  // --- 公開コマンド / ヘルパー（TreeDataProvider インターフェース外） ---
   /**
-   * 特定ノード（または element 未指定でツリー全体）を更新します。
-   * 登録されたコマンドから呼ばれる公開ヘルパーです。
-   * @param element 更新対象の `AdoTreeItem`（未指定で全体更新）
-   * @returns Promise<void>
+   * 指定ノード（または全体）をリフレッシュする公開 API。
+   * @param element 更新対象のノード（未指定で全体）
    */
   async refreshNode(element?: AdoTreeItem): Promise<void> {
     if (!element) {
@@ -258,16 +237,50 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
-  // --- 内部ヘルパー（TreeDataProvider の一部ではない） ---
+  // -----------------------
+  // コマンド実装（組織管理）
+  // -----------------------
   /**
-   * 組織のプロジェクトを取得します。重複リクエストは in-flight promise によって合流されます。
-   * @param organization 組織名
-   * @param pat 任意の PAT（未指定時は secrets から取得／入力を促す）
-   * @returns 取得した `AdoProject` の配列
+   * 組織を追加します（重複無視）。workspaceState に永続化。
+   */
+  addOrganization(org: string) {
+    if (!org) return;
+    if (!this.organizations.includes(org)) {
+      this.organizations.push(org);
+      if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+      this.refresh();
+    }
+  }
+
+  /**
+   * 組織を削除します。workspaceState を更新し、関連データを消去。
+   */
+  removeOrganization(org: string) {
+    if (!org) return;
+    this.organizations = this.organizations.filter(o => o !== org);
+    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+    delete this.projectsByOrg[org];
+    this.refresh();
+  }
+
+  /**
+   * すべての組織情報と関連データをクリアします。
+   */
+  clearOrganizations(): void {
+    this.organizations = [];
+    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+    this.projectsByOrg = {};
+    this.projectsFetchPromises = {};
+    this.refresh();
+  }
+
+  // -----------------------
+  // 内部ヘルパー（ネットワーク / 認証）
+  // -----------------------
+  /**
+   * 組織のプロジェクトを取得します（in-flight dedupe 適用）。
    */
   async fetchProjects(organization: string, pat?: string): Promise<AdoProject[]> {
-    // キャッシュロジックは削除済み：常に最新を取得します（同時実行合流は維持）
-
     if (this.projectsFetchPromises[organization]) return this.projectsFetchPromises[organization];
     const p = (async () => {
       this.loadingOrg = organization;
@@ -317,8 +330,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           }
         }
 
-        // organization metadata not required for minimal provider; ignore
-
         const projects: AdoProject[] = [];
         if (data && Array.isArray(data.value)) {
           for (const p of data.value) {
@@ -353,44 +364,27 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
-  addOrganization(org: string) {
-    if (!org) return;
-    if (!this.organizations.includes(org)) {
-      this.organizations.push(org);
-      if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
-      this.refresh();
+  /**
+   * ユーザーに PAT 入力を促し、入力があれば secrets に保存します（内部ヘルパー）。
+   */
+  private async promptAndStorePat(org: string): Promise<string | undefined> {
+    const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
+    if (!pat || !this.context) return undefined;
+    try {
+      await this.context.secrets.store(this.patKeyForOrg(org), pat);
+      vscode.window.showInformationMessage(`PAT saved for ${org}`);
+      return pat;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Failed to save PAT for ${org}: ${msg}`);
+      return undefined;
     }
   }
 
   /**
-   * 組織を追加します（重複は無視）。workspaceState に永続化します。
-   * @param org 追加する組織名
+   * 指定した組織に対応する secrets のキーを返します（内部ヘルパー）。
    */
-
-  removeOrganization(org: string) {
-    if (!org) return;
-    this.organizations = this.organizations.filter(o => o !== org);
-    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
-    delete this.projectsByOrg[org];
-    this.refresh();
+  private patKeyForOrg(org: string) {
+    return `ado-assist.pat.${org}`;
   }
-
-  /**
-   * 組織を削除します。workspaceState を更新し、関連するプロジェクト情報を消去します。
-   * @param org 削除する組織名
-   */
-
-  clearOrganizations(): void {
-    // remove all organizations and cached data
-    this.organizations = [];
-    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
-    this.projectsByOrg = {};
-    this.projectsFetchPromises = {};
-    this.refresh();
-  }
-
-  /**
-   * すべての組織情報と関連データをクリアします（workspaceState は空の配列に更新）。
-   * @returns void
-   */
 }
