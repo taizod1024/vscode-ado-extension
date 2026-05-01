@@ -353,6 +353,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             } catch (e) {}
             it.url = w.url;
             it.tooltip = w.url || w.title;
+            // show work item description faintly after title when available
+            try {
+              it.description = (w as any).assignee || "";
+            } catch (e) {}
             return it;
           }),
         "Loading work items...",
@@ -560,6 +564,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
               it.url = candidate;
             }
             it.tooltip = pr.title;
+            try {
+              const created = (pr as any).createdBy || {};
+              let author = "";
+              if (created) {
+                if (typeof created === "string") author = created;
+                else if ((created as any).displayName) author = String((created as any).displayName);
+                else if ((created as any).uniqueName) author = String((created as any).uniqueName);
+                else author = String(created);
+              }
+              it.description = author || "";
+            } catch (e) {}
             return it;
           }),
         "Loading pull requests...",
@@ -951,7 +966,20 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
         }
         const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
-        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state });
+        // extract assignee
+        let assignedField = d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "";
+        let assignee = "";
+        try {
+          if (assignedField) {
+            if (typeof assignedField === "string") assignee = assignedField;
+            else if ((assignedField as any).displayName) assignee = String((assignedField as any).displayName);
+            else if ((assignedField as any).uniqueName) assignee = String((assignedField as any).uniqueName);
+            else assignee = String(assignedField);
+          }
+        } catch (e) {
+          assignee = "";
+        }
+        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state, assignee });
       }
     }
     return items;
@@ -1020,7 +1048,27 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
         }
         const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
-        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state });
+        let rawDesc = d.fields?.["System.Description"] || d.fields?.["Description"] || "";
+        if (rawDesc && typeof rawDesc === "string") {
+          rawDesc = rawDesc.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+        } else {
+          rawDesc = "";
+        }
+        const shortDesc = rawDesc.length > 200 ? rawDesc.slice(0, 197) + "..." : rawDesc;
+        // extract assignee
+        let assignedField = d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "";
+        let assignee = "";
+        try {
+          if (assignedField) {
+            if (typeof assignedField === "string") assignee = assignedField;
+            else if ((assignedField as any).displayName) assignee = String((assignedField as any).displayName);
+            else if ((assignedField as any).uniqueName) assignee = String((assignedField as any).uniqueName);
+            else assignee = String(assignedField);
+          }
+        } catch (e) {
+          assignee = "";
+        }
+        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state, assignee, description: shortDesc });
       }
     }
     return items;

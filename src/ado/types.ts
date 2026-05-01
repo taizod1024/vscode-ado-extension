@@ -93,6 +93,10 @@ export interface AdoWorkItem {
   url?: string;
   /** 状態ラベル（例: "New", "Active", "Closed"） */
   status?: string;
+  /** 表示用の担当者（短縮済み） */
+  assignee?: string;
+  /** 説明のプレーンテキスト（短縮済み） */
+  description?: string;
 }
 
 /** ブランチ情報の簡易表現 */
