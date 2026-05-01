@@ -178,7 +178,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const orgItems: AdoTreeItem[] = [];
       for (const o of this.organizations) {
         const it = new AdoTreeItem(o, vscode.TreeItemCollapsibleState.Collapsed);
-            it.itemType = "organization"; // Updated itemType to "organization"
+        it.itemType = "organization"; // Updated itemType to "organization"
         it.organization = o;
         it.id = `org:${o}`;
         it.contextValue = "organization";
@@ -361,19 +361,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.projectId = pid;
             it.iconPath = new vscode.ThemeIcon("repo");
             // prefer constructing a web URL with organization as username prefix and trailing '?' per user preference
-                 try {
-                   const url = this.buildWebUrl(org, resolvedProjForRepos || pid || "", r.name || "", "repo");
-                   if (url) {
-                     it.url = url;
-                     it.tooltip = url;
-                   } else {
-                     it.url = r.url || "";
-                     it.tooltip = r.url || "";
-                   }
-                 } catch (e) {
-                   it.url = r.url || "";
-                   it.tooltip = r.url || "";
-                 }
+            try {
+              const url = this.buildWebUrl(org, resolvedProjForRepos || pid || "", r.name || "", "repo");
+              if (url) {
+                it.url = url;
+                it.tooltip = url;
+              } else {
+                it.url = r.url || "";
+                it.tooltip = r.url || "";
+              }
+            } catch (e) {
+              it.url = r.url || "";
+              it.tooltip = r.url || "";
+            }
             return it;
           }),
         "Loading repositories...",
@@ -447,10 +447,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
               if (found) projName = found.name;
             }
             const repoNameForUrl = repoName || repoId || "";
-                 try {
-                   const url = this.buildWebUrl(org, resolvedProjForBranches || projName, repoNameForUrl, "branch", name);
-                   if (url) it.url = url;
-                 } catch (e) {}
+            try {
+              const url = this.buildWebUrl(org, resolvedProjForBranches || projName, repoNameForUrl, "branch", name);
+              if (url) it.url = url;
+            } catch (e) {}
             return it;
           }),
         "Loading branches...",
@@ -536,16 +536,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
                 }
               } catch (e) {}
               const repoName = (element as any).repoName || "";
-                   if (projName && repoName) {
-                     try {
-                       const url = this.buildWebUrl(org, resolvedProjForPrs || projName, repoName, "pr", pr.pullRequestId);
-                       it.url = url || candidate;
-                     } catch (e) {
-                       it.url = candidate;
-                     }
-                   } else {
-                     it.url = candidate;
-                   }
+              if (projName && repoName) {
+                try {
+                  const url = this.buildWebUrl(org, resolvedProjForPrs || projName, repoName, "pr", pr.pullRequestId);
+                  it.url = url || candidate;
+                } catch (e) {
+                  it.url = candidate;
+                }
+              } else {
+                it.url = candidate;
+              }
             } else {
               it.url = candidate;
             }
