@@ -178,7 +178,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const orgItems: AdoTreeItem[] = [];
       for (const o of this.organizations) {
         const it = new AdoTreeItem(o, vscode.TreeItemCollapsibleState.Collapsed);
-        it.itemType = "organization";
+            it.itemType = "organization"; // Updated itemType to "organization"
         it.organization = o;
         it.id = `org:${o}`;
         it.contextValue = "organization";
@@ -344,6 +344,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const org = element.organization as string;
       const pid = element.projectId as string;
       const key = `repos:${org}:${pid}`;
+      const resolvedProjForRepos = await this.resolveProjectName(org, pid);
       return this.lazyLoadChildren<AdoRepository>(
         key,
         element,
@@ -360,20 +361,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.projectId = pid;
             it.iconPath = new vscode.ThemeIcon("repo");
             // prefer constructing a web URL with organization as username prefix and trailing '?' per user preference
-            try {
-              const projName = pid || "";
-              const repoName = r.name || "";
-              if (projName && repoName) {
-                it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoName)}`;
-                it.tooltip = it.url;
-              } else {
-                it.url = r.url || "";
-                it.tooltip = r.url;
-              }
-            } catch (e) {
-              it.url = r.url || "";
-              it.tooltip = r.url;
-            }
+                 try {
+                   const url = this.buildWebUrl(org, resolvedProjForRepos || pid || "", r.name || "", "repo");
+                   if (url) {
+                     it.url = url;
+                     it.tooltip = url;
+                   } else {
+                     it.url = r.url || "";
+                     it.tooltip = r.url || "";
+                   }
+                 } catch (e) {
+                   it.url = r.url || "";
+                   it.tooltip = r.url || "";
+                 }
             return it;
           }),
         "Loading repositories...",
@@ -408,9 +408,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       try {
         const projNameForUrl = element.projectId || "";
         const repoNameForUrl = prsFolder.repoName || (repoId as string) || "";
-        if (projNameForUrl && repoNameForUrl) {
-          prsFolder.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projNameForUrl)}/_git/${encodeURIComponent(repoNameForUrl)}/pullrequests?_a=mine`;
-        }
+        try {
+          const resolved = await this.resolveProjectName(org, projNameForUrl);
+          const url = this.buildWebUrl(org, resolved || projNameForUrl, repoNameForUrl, "prsFolder");
+          if (url) prsFolder.url = url;
+        } catch (e) {}
       } catch (e) {}
 
       return [branchesFolder, prsFolder];
@@ -423,6 +425,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const repoId = parts.length >= 3 ? parts[2] : "";
       const repoName = (element as any).repoName || "";
       const key = `branches:${org}:${repoId}`;
+      const resolvedProjForBranches = await this.resolveProjectName(org, element.projectId as string | undefined);
       return this.lazyLoadChildren<AdoBranch>(
         key,
         element,
@@ -444,9 +447,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
               if (found) projName = found.name;
             }
             const repoNameForUrl = repoName || repoId || "";
-            if (projName && repoNameForUrl) {
-              it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoNameForUrl)}?version=GB${encodeURIComponent(name)}`;
-            }
+                 try {
+                   const url = this.buildWebUrl(org, resolvedProjForBranches || projName, repoNameForUrl, "branch", name);
+                   if (url) it.url = url;
+                 } catch (e) {}
             return it;
           }),
         "Loading branches...",
@@ -505,6 +509,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           fetchFn = async () => [];
       }
 
+      const resolvedProjForPrs = await this.resolveProjectName(org, pid);
       return this.lazyLoadChildren<AdoPullRequest>(
         cacheKey,
         element,
@@ -531,11 +536,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
                 }
               } catch (e) {}
               const repoName = (element as any).repoName || "";
-              if (projName && repoName) {
-                it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${encodeURIComponent(String(pr.pullRequestId))}`;
-              } else {
-                it.url = candidate;
-              }
+                   if (projName && repoName) {
+                     try {
+                       const url = this.buildWebUrl(org, resolvedProjForPrs || projName, repoName, "pr", pr.pullRequestId);
+                       it.url = url || candidate;
+                     } catch (e) {
+                       it.url = candidate;
+                     }
+                   } else {
+                     it.url = candidate;
+                   }
             } else {
               it.url = candidate;
             }
@@ -751,7 +761,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           for (const p of data.value) {
             const projectName = String(p.name);
             const apiUrl = p._links?.web?.href;
-            const canonical = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}`;
+            const canonical = this.buildWebUrl(organization, projectName, undefined, "project");
             const desc = p.description || p.properties?.description || "";
             projects.push({ id: String(p.id), name: projectName, url: String(apiUrl || canonical), description: String(desc) });
           }
@@ -1160,6 +1170,52 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
     const entered = await this.promptAndStorePat(org);
     return entered;
+  }
+
+  /**
+   * プロジェクト ID/名前から表示用プロジェクト名を解決する。
+   * 解決できない（GUID 等）場合は空文字を返す。
+   */
+  private async resolveProjectName(org: string, idOrName?: string): Promise<string> {
+    if (!idOrName) return "";
+    const findProj = () => (this.projectsByOrg[org] || []).find(p => p.id === idOrName || p.name === idOrName);
+    let proj = findProj();
+    if (!proj) {
+      try {
+        await this.fetchProjects(org);
+      } catch (e) {}
+      proj = findProj();
+    }
+    if (proj && proj.name) return proj.name;
+    // if looks like GUID, return empty so callers omit project-scoped URLs
+    if (/^[0-9a-fA-F-]{32,36}$/.test(String(idOrName))) return "";
+    // otherwise assume provided name is usable as-is
+    return String(idOrName);
+  }
+
+  /**
+   * 共通 Web URL ビルダー。
+   * type: 'project'|'workitemsRoot'|'repo'|'branch'|'pr'|'workitem'|'prsFolder'
+   */
+  private buildWebUrl(org: string, projectName?: string, repoName?: string, type?: string, id?: string | number): string {
+    switch (type) {
+      case "project":
+        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}` : `https://dev.azure.com/${encodeURIComponent(org)}`;
+      case "workitemsRoot":
+        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/recentlyupdated/` : `https://dev.azure.com/${encodeURIComponent(org)}/_workitems`;
+      case "repo":
+        return projectName && repoName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}` : "";
+      case "branch":
+        return projectName && repoName && id ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}?version=GB${encodeURIComponent(String(id))}` : "";
+      case "pr":
+        return projectName && repoName && id ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${encodeURIComponent(String(id))}` : "";
+      case "workitem":
+        return projectName && id ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(id))}` : "";
+      case "prsFolder":
+        return projectName && repoName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequests?_a=mine` : "";
+      default:
+        return "";
+    }
   }
 
   /**
