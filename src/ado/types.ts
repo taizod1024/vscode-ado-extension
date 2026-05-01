@@ -18,7 +18,7 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "workItemsFolder" | "branchesFolder" | "pullRequestsFolder" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder";
+export type AdoItemType = "organization" | "project" | "workItemsFolder" | "workItemsCategory" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。
@@ -106,4 +106,6 @@ export interface AdoPullRequest {
   title: string;
   url?: string;
   status?: string;
+  createdBy?: any;
+  webUrl?: string;
 }
