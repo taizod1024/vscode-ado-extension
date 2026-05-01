@@ -20,9 +20,24 @@
   "contributes": {
     "commands": [
       {
-        "command": "ado-assist.openProject",
-        "title": "Azure DevOps: Open Web Page",
+        "command": "ado-assist.openUrl",
+        "title": "Azure DevOps: Open URL",
         "icon": "$(globe)"
+      },
+      {
+        "command": "ado-assist.createEpic",
+        "title": "Azure DevOps: Create Epic",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createIssue",
+        "title": "Azure DevOps: Create Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createTask",
+        "title": "Azure DevOps: Create Task",
+        "icon": "$(add)"
       },
       {
         "command": "ado-assist.addOrganization",
@@ -71,47 +86,62 @@
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == adoProject",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == workitem",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.createEpic",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createIssue",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createTask",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline"
         }

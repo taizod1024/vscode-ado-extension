@@ -42,12 +42,80 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Open project/repo/pipeline URL
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.openProject", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-assist.openUrl", async (arg?: any) => {
         try {
           const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
           if (!url) return;
-          console.log(`ado-assist: open web page url=${url}`);
+          console.log(`ado-assist: open url - url=${url}`);
+          // Try to open with Live Server extension if installed (user requested ms-vscode.live-server)
+          try {
+            const tryExtIds = ["ms-vscode.live-server", "ritwickdey.LiveServer", "ritwickdey.liveserver"];
+            const ext = tryExtIds.map(id => vscode.extensions.getExtension(id)).find(x => !!x);
+            if (ext) {
+              const cmds = [
+                "liveServer.openBrowser",
+                "liveServer.open",
+                "extension.liveServer.goOnline",
+                "liveServer.goOnline",
+                "openInLiveServer",
+                "openInBrowser",
+              ];
+              for (const c of cmds) {
+                try {
+                  // many live-server commands accept a URL or will open the last served page
+                  await vscode.commands.executeCommand(c, url);
+                  console.log(`ado-assist: opened with extension command=${c}`);
+                  return;
+                } catch (e) {
+                  // try next
+                }
+              }
+            }
+          } catch (e) {
+            // ignore and fallback
+          }
+
+          // fallback to external browser
           await vscode.env.openExternal(vscode.Uri.parse(url));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Create Epic (open Azure DevOps create-Epic URL)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.createEpic", async (arg?: any) => {
+        try {
+          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Epic";
+          await vscode.commands.executeCommand("ado-assist.openUrl", url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Create Issue
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.createIssue", async (arg?: any) => {
+        try {
+          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Issue";
+          await vscode.commands.executeCommand("ado-assist.openUrl", url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Create Task
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.createTask", async (arg?: any) => {
+        try {
+          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Task";
+          await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to open URL: " + msg);

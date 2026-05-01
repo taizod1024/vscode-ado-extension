@@ -37,7 +37,7 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
           try {
             const parsed = bodyStr ? JSON.parse(bodyStr) : {};
             try {
-              console.log(`ado-assist: request=${method} ${urlStr} status=${res.statusCode} ${res.statusMessage}`);
+              console.log(`ado-assist: call api - request=${method} ${urlStr} status=${res.statusCode} ${res.statusMessage}`);
             } catch (e) {}
             resolve(parsed);
           } catch (err) {
