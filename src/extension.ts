@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Epic (open Azure DevOps create-Epic URL)
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createEpic", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-assist.createEpic", async () => {
         try {
           const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Epic";
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Issue
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createIssue", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-assist.createIssue", async () => {
         try {
           const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Issue";
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
@@ -105,7 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Task
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createTask", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-assist.createTask", async () => {
         try {
           const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Task";
           await vscode.commands.executeCommand("ado-assist.openUrl", url);

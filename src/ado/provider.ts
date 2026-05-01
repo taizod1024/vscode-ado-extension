@@ -117,14 +117,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private currentProfileCache: any | undefined;
   private async fetchCurrentProfile(organization: string, pat?: string): Promise<any> {
     if (this.currentProfileCache) return this.currentProfileCache;
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
-    if (!usePat) {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return undefined;
-      usePat = entered;
-    }
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return undefined;
     // profile API (global)
     const url = `https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0`;
     try {
@@ -137,19 +131,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   private async fetchPullRequestsByStatus(organization: string, repoIdOrName: string, status: string, pat?: string): Promise<AdoPullRequest[]> {
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&searchCriteria.status=${encodeURIComponent(status)}&api-version=6.0`;
-    let data: any;
-    if (usePat) {
-      data = await httpRequest("GET", url, usePat);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      data = await httpRequest("GET", url, usePat);
-    }
+    const data: any = await httpRequest("GET", url, usePat);
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
@@ -163,19 +148,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   private async fetchPullRequestsMine(organization: string, repoIdOrName: string, pat?: string): Promise<AdoPullRequest[]> {
     // fetch all PRs for the repo (may be limited by API) and filter by createdBy == me
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    let data: any;
-    if (usePat) {
-      data = await httpRequest("GET", url, usePat);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      data = await httpRequest("GET", url, usePat);
-    }
+    const data: any = await httpRequest("GET", url, usePat);
     const profile = await this.fetchCurrentProfile(organization, usePat);
     const myId = profile?.id || profile?.identifier || profile?.displayName || profile?.uniqueName;
     const out: AdoPullRequest[] = [];
@@ -565,15 +541,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             }
             it.tooltip = pr.title;
             try {
-              const created = (pr as any).createdBy || {};
-              let author = "";
-              if (created) {
-                if (typeof created === "string") author = created;
-                else if ((created as any).displayName) author = String((created as any).displayName);
-                else if ((created as any).uniqueName) author = String((created as any).uniqueName);
-                else author = String(created);
-              }
-              it.description = author || "";
+              it.description = this.extractPerson((pr as any).createdBy || {});
             } catch (e) {}
             return it;
           }),
@@ -774,48 +742,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
       this.refresh();
       try {
-        const key = this.patKeyForOrg(organization);
-        let usePat = pat;
-        if (!usePat && this.context) {
-          usePat = (await this.context.secrets.get(key)) || undefined;
-        }
+        const usePat = await this.resolvePat(organization, pat);
+        if (!usePat) throw new Error("PAT not provided");
         const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=6.0`;
-        let data: any;
-        if (usePat) {
-          try {
-            data = await httpRequest("GET", url, usePat);
-          } catch (err) {
-            const entered = await this.promptAndStorePat(organization);
-            if (!entered) throw new Error("PAT not provided");
-            usePat = entered;
-            data = await httpRequest("GET", url, usePat);
-          }
-        } else {
-          while (true) {
-            const entered = await this.promptAndStorePat(organization);
-            if (!entered) throw new Error("PAT not provided");
-            try {
-              data = await httpRequest("GET", url, entered);
-              usePat = entered;
-              break;
-            } catch (err) {
-              const retry = await vscode.window.showQuickPick(["Retry", "Cancel"], { placeHolder: "Failed to authenticate with provided PAT. Retry?" });
-              if (retry !== "Retry") throw new Error("Authentication failed");
-            }
-          }
-        }
-
-        if (usePat && this.context) {
-          try {
-            await this.context.secrets.store(key, usePat);
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            this.errorsByOrg[organization] = `Failed to save PAT: ${msg}`;
-            if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-            throw new Error(`Failed to save PAT for ${organization}: ${msg}`);
-          }
-        }
-
+        const data: any = await httpRequest("GET", url, usePat);
         const projects: AdoProject[] = [];
         if (data && Array.isArray(data.value)) {
           for (const p of data.value) {
@@ -892,20 +822,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 指定プロジェクトのリポジトリ一覧を取得します。
    */
   private async fetchRepositories(organization: string, projectIdOrName: string, pat?: string): Promise<AdoRepository[]> {
-    // 既存の fetchProjects と同様に PAT を解決して httpRequest を利用する
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectIdOrName)}/_apis/git/repositories?api-version=6.0`;
-    let data: any;
-    if (usePat) {
-      data = await httpRequest("GET", url, usePat);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      data = await httpRequest("GET", url, usePat);
-    }
+    const data: any = await httpRequest("GET", url, usePat);
     const repos: AdoRepository[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
@@ -923,9 +843,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 指定プロジェクトの Recent work items を取得します（簡易実装）。
    */
   private async fetchWorkItems(organization: string, projectIdOrName: string, pat?: string): Promise<AdoWorkItem[]> {
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
     // WIQL を使って recent work items を取得（最大 20 件）
     // projectIdOrName が ID の場合はプロジェクト名を解決して WHERE 句で絞る
     let projectName = projectIdOrName;
@@ -939,15 +858,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
     const safeName = String(projectName).replace(/'/g, "''");
     const query = { query: `Select [System.Id], [System.Title] From WorkItems Where [System.TeamProject] = '${safeName}' Order By [System.ChangedDate] Desc` };
-    let wiqlResult: any;
-    if (usePat) {
-      wiqlResult = await httpRequest("POST", wiqlUrl, usePat, query);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      wiqlResult = await httpRequest("POST", wiqlUrl, usePat, query);
-    }
+    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, query);
     const ids = (wiqlResult?.workItems || [])
       .slice(0, 20)
       .map((w: any) => w.id)
@@ -967,18 +878,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
         const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
         // extract assignee
-        let assignedField = d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "";
-        let assignee = "";
-        try {
-          if (assignedField) {
-            if (typeof assignedField === "string") assignee = assignedField;
-            else if ((assignedField as any).displayName) assignee = String((assignedField as any).displayName);
-            else if ((assignedField as any).uniqueName) assignee = String((assignedField as any).uniqueName);
-            else assignee = String(assignedField);
-          }
-        } catch (e) {
-          assignee = "";
-        }
+        const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
         items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state, assignee });
       }
     }
@@ -992,9 +892,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * @param projectIdOrName プロジェクト名または ID（省略可）
    */
   private async fetchWorkItemsByWiql(organization: string, wiql: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
 
     // Resolve project name if possible. If given id is a GUID and resolution fails,
     // omit TeamProject filter because WIQL expects project name.
@@ -1021,15 +920,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
     const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
     const queryBody = { query: wiql };
-    let wiqlResult: any;
-    if (usePat) {
-      wiqlResult = await httpRequest("POST", wiqlUrl, usePat, queryBody);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      wiqlResult = await httpRequest("POST", wiqlUrl, usePat, queryBody);
-    }
+    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, queryBody);
 
     const ids = (wiqlResult?.workItems || [])
       .slice(0, 50)
@@ -1059,18 +950,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
         const shortDesc = rawDesc.length > 200 ? rawDesc.slice(0, 197) + "..." : rawDesc;
         // extract assignee
-        let assignedField = d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "";
-        let assignee = "";
-        try {
-          if (assignedField) {
-            if (typeof assignedField === "string") assignee = assignedField;
-            else if ((assignedField as any).displayName) assignee = String((assignedField as any).displayName);
-            else if ((assignedField as any).uniqueName) assignee = String((assignedField as any).uniqueName);
-            else assignee = String(assignedField);
-          }
-        } catch (e) {
-          assignee = "";
-        }
+        const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
         items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state, assignee, description: shortDesc });
       }
     }
@@ -1217,20 +1097,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 指定リポジトリのブランチ一覧を取得します。
    */
   private async fetchBranches(organization: string, repoIdOrName: string, pat?: string): Promise<AdoBranch[]> {
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
     // refs API を使って heads を取得
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/repositories/${encodeURIComponent(repoIdOrName)}/refs?filter=heads&api-version=6.0`;
-    let data: any;
-    if (usePat) {
-      data = await httpRequest("GET", url, usePat);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      data = await httpRequest("GET", url, usePat);
-    }
+    const data: any = await httpRequest("GET", url, usePat);
     const out: AdoBranch[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
@@ -1246,27 +1117,49 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 指定リポジトリのプルリクエスト一覧を取得します。
    */
   private async fetchPullRequests(organization: string, repoIdOrName: string, pat?: string): Promise<AdoPullRequest[]> {
-    const key = this.patKeyForOrg(organization);
-    let usePat = pat;
-    if (!usePat && this.context) usePat = (await this.context.secrets.get(key)) || undefined;
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
     // Pull Requests API: filter by repositoryId if provided
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    let data: any;
-    if (usePat) {
-      data = await httpRequest("GET", url, usePat);
-    } else {
-      const entered = await this.promptAndStorePat(organization);
-      if (!entered) return [];
-      usePat = entered;
-      data = await httpRequest("GET", url, usePat);
-    }
+    const data: any = await httpRequest("GET", url, usePat);
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
-        out.push({ pullRequestId: Number(pr.pullRequestId || pr.id), title: String(pr.title || ""), url: pr._links?.web?.href || pr.url || "", status: pr.status });
+        out.push({ pullRequestId: Number(pr.pullRequestId || pr.id), title: String(pr.title || ""), url: pr._links?.web?.href || pr.url || "", status: pr.status, createdBy: pr.createdBy });
       }
     }
     return out;
+  }
+
+  /**
+   * 指定フィールド（AssignedTo / createdBy など）から表示用の人名を取り出す
+   */
+  private extractPerson(field: any): string {
+    try {
+      if (!field) return "";
+      if (typeof field === "string") return field;
+      if ((field as any).displayName) return String((field as any).displayName);
+      if ((field as any).uniqueName) return String((field as any).uniqueName);
+      if ((field as any).id) return String((field as any).id);
+      return String(field);
+    } catch (e) {
+      return "";
+    }
+  }
+
+  /**
+   * 組織の PAT を解決する。引数の `pat` を優先し、次に secrets、最後にプロンプトで取得する。
+   */
+  private async resolvePat(org: string, pat?: string): Promise<string | undefined> {
+    if (pat) return pat;
+    if (this.context) {
+      try {
+        const stored = await this.context.secrets.get(this.patKeyForOrg(org));
+        if (stored) return stored;
+      } catch (e) {}
+    }
+    const entered = await this.promptAndStorePat(org);
+    return entered;
   }
 
   /**
