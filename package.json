@@ -40,6 +40,16 @@
         "icon": "$(add)"
       },
       {
+        "command": "ado-assist.createPullRequest",
+        "title": "Azure DevOps: Create Pull Request",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.cloneRepo",
+        "title": "Azure DevOps: Clone Repository",
+        "icon": "$(repo-clone)"
+      },
+      {
         "command": "ado-assist.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
@@ -101,6 +111,11 @@
           "group": "inline"
         },
         {
+          "command": "ado-assist.cloneRepo",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
+          "group": "inline"
+        },
+        {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
@@ -137,6 +152,11 @@
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createPullRequest",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline"
         },

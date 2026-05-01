@@ -384,7 +384,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
               const projName = pid || "";
               const repoName = r.name || "";
               if (projName && repoName) {
-                it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoName)}?`;
+                it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoName)}`;
                 it.tooltip = it.url;
               } else {
                 it.url = r.url || "";
