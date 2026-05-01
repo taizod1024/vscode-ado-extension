@@ -8,10 +8,16 @@ import { URL } from "url";
  * @param body POST 時のペイロード（省略可）
  * @returns パース済みの JSON レスポンス（失敗時は例外を投げます）
  */
-export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any): Promise<any> {
+export type HttpRequestOptions = {};
+
+export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any, _opts?: HttpRequestOptions): Promise<any> {
   const https = require("https");
+  const http = require("http");
   const u = new URL(urlStr);
-  const auth = Buffer.from(":" + pat).toString("base64");
+
+  const maskUrl = (s: string) => s.replace(/(^https?:\/\/)(?:[^@/]+@)?/, `$1`);
+
+  const auth = Buffer.from(":" + (pat || "")).toString("base64");
   const payload = body ? JSON.stringify(body) : undefined;
   const options: any = {
     hostname: u.hostname,
@@ -29,26 +35,46 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
 
   return new Promise((resolve, reject) => {
     try {
-      const req = https.request(options, (res: any) => {
+      const lib = u.protocol === "https:" ? https : http;
+      const req = lib.request(options, (res: any) => {
         let bodyStr = "";
         res.setEncoding("utf8");
         res.on("data", (chunk: string) => (bodyStr += chunk));
         res.on("end", () => {
+          const status = res.statusCode;
+          const masked = maskUrl(urlStr);
           try {
-            const parsed = bodyStr ? JSON.parse(bodyStr) : {};
-            try {
-              console.log(`ado-assist: call api - request=${method} ${urlStr} status=${res.statusCode} ${res.statusMessage}`);
-            } catch (e) {}
-            resolve(parsed);
+            let parsed: any = {};
+            if (bodyStr) {
+              parsed = JSON.parse(bodyStr);
+            }
+            console.log(`ado-assist: call api - request=${method} ${masked} status=${status} ${res.statusMessage || ""}`);
+            if (status >= 200 && status < 300) {
+              resolve(parsed);
+              return;
+            }
+            const err = new Error(`HTTP ${status} ${res.statusMessage || ""}`);
+            (err as any).status = status;
+            (err as any).body = parsed;
+            console.log(`ado-assist: call api - request=${method} ${masked} error=${String(err.message)}`);
+            reject(err);
           } catch (err) {
+            const masked2 = maskUrl(urlStr);
+            console.log(`ado-assist: call api - request=${method} ${masked2} error=${String(err)}`);
             reject(err);
           }
         });
       });
-      req.on("error", (e: any) => reject(e));
+      req.on("error", (e: any) => {
+        const masked = maskUrl(urlStr);
+        console.log(`ado-assist: call api - request=${method} ${masked} error=${String(e && e.message ? e.message : e)}`);
+        reject(e);
+      });
       if (payload) req.write(payload);
       req.end();
     } catch (err) {
+      const masked = maskUrl(urlStr);
+      console.log(`ado-assist: call api - request=${method} ${masked} error=${String(err)}`);
       reject(err);
     }
   });
