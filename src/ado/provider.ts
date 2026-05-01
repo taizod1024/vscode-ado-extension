@@ -252,6 +252,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       workFolder.projectId = projectId;
       workFolder.id = `workitems:${org}:${projectId}`;
       workFolder.contextValue = "workItemsFolder";
+      // set Work Items web page for this project (recently updated view)
+      try {
+        const projNameForUrl = projectId || "";
+        if (projNameForUrl) {
+          workFolder.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projNameForUrl)}/_workitems/recentlyupdated/`;
+        }
+      } catch (e) {}
 
       const repoFolder = new AdoTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
       repoFolder.itemType = "repositoriesFolder";

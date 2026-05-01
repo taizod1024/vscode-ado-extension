@@ -102,6 +102,16 @@
         },
         {
           "command": "ado-assist.openProject",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openProject",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openProject",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline"
         }
