@@ -248,7 +248,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.removeOrganization", async () => {
         try {
-          const orgs = context.workspaceState.get<string[]>("azuredevops.organizations") || [];
+          const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
           if (orgs.length === 0) {
             vscode.window.showInformationMessage("No organizations to remove");
             return;
@@ -272,7 +272,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.clearOrganizations", async () => {
         try {
-          const orgs = context.workspaceState.get<string[]>("azuredevops.organizations") || [];
+          const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
           if (orgs.length === 0) {
             vscode.window.showInformationMessage("No organizations to clear");
             return;

@@ -94,9 +94,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
     if (this.context) {
-      const orgs = this.context.workspaceState.get<string[]>("azuredevops.organizations");
+      const orgs = this.context.globalState.get<string[]>("azuredevops.organizations");
       if (orgs) this.organizations = orgs;
-      const errs = this.context.workspaceState.get<{ [org: string]: string }>("azuredevops.errorsByOrg");
+      const errs = this.context.globalState.get<{ [org: string]: string }>("azuredevops.errorsByOrg");
       if (errs) this.errorsByOrg = errs;
     }
   }
@@ -576,7 +576,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (!org) return;
     if (!this.organizations.includes(org)) {
       this.organizations.push(org);
-      if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+      if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
       this.refresh();
     }
   }
@@ -587,7 +587,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   removeOrganization(org: string) {
     if (!org) return;
     this.organizations = this.organizations.filter(o => o !== org);
-    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+    if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
     delete this.projectsByOrg[org];
     this.refresh();
   }
@@ -606,7 +606,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       }
     }
     this.organizations = [];
-    if (this.context) this.context.workspaceState.update("azuredevops.organizations", this.organizations);
+    if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
     this.projectsByOrg = {};
     this.projectsFetchPromises = {};
     this.childrenCache = {};
@@ -625,7 +625,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const p = (async () => {
       this.loadingOrg = organization;
       delete this.errorsByOrg[organization];
-      if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+      if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
       this.refresh();
       try {
         const usePat = await this.resolvePat(organization, pat);
@@ -645,7 +645,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
         this.projectsByOrg[organization] = projects;
         delete this.errorsByOrg[organization];
-        if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+        if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
         return projects;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
