@@ -372,8 +372,21 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.contextValue = "repo";
             it.projectId = pid;
             it.iconPath = new vscode.ThemeIcon("repo");
-            it.url = r.url;
-            it.tooltip = r.url;
+            // prefer constructing a web URL with organization as username prefix and trailing '?' per user preference
+            try {
+              const projName = pid || "";
+              const repoName = r.name || "";
+              if (projName && repoName) {
+                it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projName)}/_git/${encodeURIComponent(repoName)}?`;
+                it.tooltip = it.url;
+              } else {
+                it.url = r.url || "";
+                it.tooltip = r.url;
+              }
+            } catch (e) {
+              it.url = r.url || "";
+              it.tooltip = r.url;
+            }
             return it;
           }),
         "Loading repositories...",
@@ -403,6 +416,15 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       prsFolder.repoName = element.repoName || "";
       prsFolder.id = `prs:${org}:${repoId}`;
       prsFolder.contextValue = "pullRequestsFolder";
+
+      // set Pull Requests web page URL (showing 'mine' by default)
+      try {
+        const projNameForUrl = element.projectId || "";
+        const repoNameForUrl = prsFolder.repoName || (repoId as string) || "";
+        if (projNameForUrl && repoNameForUrl) {
+          prsFolder.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projNameForUrl)}/_git/${encodeURIComponent(repoNameForUrl)}/pullrequests?_a=mine`;
+        }
+      } catch (e) {}
 
       return [branchesFolder, prsFolder];
     }
@@ -974,7 +996,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       wiqlResult = await httpRequest("POST", wiqlUrl, usePat, queryBody);
     }
 
-    const ids = (wiqlResult?.workItems || []).slice(0, 50).map((w: any) => w.id).filter(Boolean);
+    const ids = (wiqlResult?.workItems || [])
+      .slice(0, 50)
+      .map((w: any) => w.id)
+      .filter(Boolean);
     if (ids.length === 0) return [];
     const idsStr = ids.join(",");
     const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;

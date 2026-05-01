@@ -46,6 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
           const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
           if (!url) return;
+          console.log(`ado-assist: open web page url=${url}`);
           await vscode.env.openExternal(vscode.Uri.parse(url));
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
