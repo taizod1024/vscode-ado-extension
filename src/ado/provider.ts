@@ -306,37 +306,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           fetchFn = async () => [];
       }
 
-      return this.lazyLoadChildren<AdoWorkItem>(
-        cacheKey,
-        element,
-        fetchFn,
-        items =>
-          items.map(w => {
-            const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
-            it.itemType = "workItem";
-            it.organization = org;
-            it.id = `work:${org}:${w.id}`;
-            it.contextValue = "workitem";
-            try {
-              const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
-              if (st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete")) {
-                it.iconPath = new vscode.ThemeIcon("check");
-              } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-                it.iconPath = new vscode.ThemeIcon("run");
-              } else {
-                it.iconPath = new vscode.ThemeIcon("issues");
-              }
-            } catch (e) {}
-            it.url = w.url;
-            it.tooltip = w.url || w.title;
-            // show work item description faintly after title when available
-            try {
-              it.description = (w as any).assignee || "";
-            } catch (e) {}
-            return it;
-          }),
-        "Loading work items...",
-      );
+      return this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, items => items.map(w => this.makeWorkItemTreeItem(w, org)), "Loading work items...");
     }
 
     // repositoriesFolder の子: repositories
@@ -349,33 +319,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchRepositories(org, pid),
-        repos =>
-          repos.map(r => {
-            const it = new AdoTreeItem(r.name, vscode.TreeItemCollapsibleState.Collapsed);
-            it.itemType = "repository";
-            it.organization = org;
-            it.repoId = r.id;
-            it.repoName = r.name;
-            it.id = `repo:${org}:${r.id}`;
-            it.contextValue = "repo";
-            it.projectId = pid;
-            it.iconPath = new vscode.ThemeIcon("repo");
-            // prefer constructing a web URL with organization as username prefix and trailing '?' per user preference
-            try {
-              const url = this.buildWebUrl(org, resolvedProjForRepos || pid || "", r.name || "", "repo");
-              if (url) {
-                it.url = url;
-                it.tooltip = url;
-              } else {
-                it.url = r.url || "";
-                it.tooltip = r.url || "";
-              }
-            } catch (e) {
-              it.url = r.url || "";
-              it.tooltip = r.url || "";
-            }
-            return it;
-          }),
+        repos => repos.map(r => this.makeRepositoryTreeItem(r, org, pid, resolvedProjForRepos)),
         "Loading repositories...",
       );
     }
@@ -430,29 +374,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.fetchBranches(org, repoId),
-        branches =>
-          branches.map(b => {
-            const name = String(b.name).replace(/^refs\/heads\//, "");
-            const it = new AdoTreeItem(name, vscode.TreeItemCollapsibleState.None);
-            it.itemType = "branch";
-            it.organization = org;
-            it.id = `branch:${org}:${repoId}:${name}`;
-            it.contextValue = "branch";
-            it.iconPath = new vscode.ThemeIcon("git-branch");
-            // construct branch web URL if possible
-            let projName = "";
-            if (element.projectId) {
-              const projs = this.projectsByOrg[org] || [];
-              const found = projs.find(pp => pp.id === element.projectId || pp.name === element.projectId);
-              if (found) projName = found.name;
-            }
-            const repoNameForUrl = repoName || repoId || "";
-            try {
-              const url = this.buildWebUrl(org, resolvedProjForBranches || projName, repoNameForUrl, "branch", name);
-              if (url) it.url = url;
-            } catch (e) {}
-            return it;
-          }),
+        branches => branches.map(b => this.makeBranchTreeItem(b, org, repoId, repoName, resolvedProjForBranches, element.projectId as string | undefined)),
         "Loading branches...",
       );
     }
@@ -510,53 +432,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       }
 
       const resolvedProjForPrs = await this.resolveProjectName(org, pid);
-      return this.lazyLoadChildren<AdoPullRequest>(
-        cacheKey,
-        element,
-        fetchFn,
-        prs =>
-          prs.map(pr => {
-            const label = `!${pr.pullRequestId} ${pr.title}`;
-            const it = new AdoTreeItem(label, vscode.TreeItemCollapsibleState.None);
-            it.itemType = "pullRequest";
-            it.organization = org;
-            it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
-            it.contextValue = "pullrequest";
-            it.iconPath = new vscode.ThemeIcon("git-merge");
-            // Prefer webUrl from API; if absent and the stored url looks like an API endpoint, try to construct a web URL
-            const candidate = pr.webUrl || pr.url || "";
-            if (candidate && candidate.includes("/_apis/")) {
-              // attempt to construct web link using project and repo name when available
-              let projName = "";
-              try {
-                if (pid) {
-                  const projs = this.projectsByOrg[org] || [];
-                  const found = projs.find(pp => pp.id === pid || pp.name === pid || pp.name === String(pid));
-                  if (found) projName = found.name;
-                }
-              } catch (e) {}
-              const repoName = (element as any).repoName || "";
-              if (projName && repoName) {
-                try {
-                  const url = this.buildWebUrl(org, resolvedProjForPrs || projName, repoName, "pr", pr.pullRequestId);
-                  it.url = url || candidate;
-                } catch (e) {
-                  it.url = candidate;
-                }
-              } else {
-                it.url = candidate;
-              }
-            } else {
-              it.url = candidate;
-            }
-            it.tooltip = pr.title;
-            try {
-              it.description = this.extractPerson((pr as any).createdBy || {});
-            } catch (e) {}
-            return it;
-          }),
-        "Loading pull requests...",
-      );
+      return this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
     }
 
     return [];
@@ -1216,6 +1092,105 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       default:
         return "";
     }
+  }
+
+  // -----------------------
+  // TreeItem factory helpers
+  // -----------------------
+  private makeWorkItemTreeItem(w: AdoWorkItem, org: string): AdoTreeItem {
+    const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
+    it.itemType = "workItem";
+    it.organization = org;
+    it.id = `work:${org}:${w.id}`;
+    it.contextValue = "workitem";
+    try {
+      const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
+      if (st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete")) {
+        it.iconPath = new vscode.ThemeIcon("check");
+      } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
+        it.iconPath = new vscode.ThemeIcon("run");
+      } else {
+        it.iconPath = new vscode.ThemeIcon("issues");
+      }
+    } catch (e) {}
+    it.url = w.url;
+    it.tooltip = w.url || w.title;
+    try {
+      it.description = (w as any).assignee || "";
+    } catch (e) {}
+    return it;
+  }
+
+  private makeRepositoryTreeItem(r: AdoRepository, org: string, pid: string | undefined, resolvedProj: string | undefined): AdoTreeItem {
+    const it = new AdoTreeItem(r.name, vscode.TreeItemCollapsibleState.Collapsed);
+    it.itemType = "repository";
+    it.organization = org;
+    it.repoId = r.id;
+    it.repoName = r.name;
+    it.id = `repo:${org}:${r.id}`;
+    it.contextValue = "repo";
+    it.projectId = pid;
+    it.iconPath = new vscode.ThemeIcon("repo");
+    try {
+      const url = this.buildWebUrl(org, resolvedProj || pid || "", r.name || "", "repo");
+      if (url) {
+        it.url = url;
+        it.tooltip = url;
+      } else {
+        it.url = r.url || "";
+        it.tooltip = r.url || "";
+      }
+    } catch (e) {
+      it.url = r.url || "";
+      it.tooltip = r.url || "";
+    }
+    return it;
+  }
+
+  private makeBranchTreeItem(b: AdoBranch, org: string, repoId: string, repoName: string, resolvedProj: string | undefined, pid?: string): AdoTreeItem {
+    const name = String(b.name).replace(/^refs\/heads\//, "");
+    const it = new AdoTreeItem(name, vscode.TreeItemCollapsibleState.None);
+    it.itemType = "branch";
+    it.organization = org;
+    it.id = `branch:${org}:${repoId}:${name}`;
+    it.contextValue = "branch";
+    it.iconPath = new vscode.ThemeIcon("git-branch");
+    try {
+      const projNameFallback = pid && typeof pid === "string" ? pid : resolvedProj || "";
+      const url = this.buildWebUrl(org, resolvedProj || projNameFallback, repoName || repoId || "", "branch", name);
+      if (url) it.url = url;
+    } catch (e) {}
+    return it;
+  }
+
+  private makePullRequestTreeItem(pr: AdoPullRequest, org: string, repoId: string, repoName: string, resolvedProj: string | undefined): AdoTreeItem {
+    const label = `!${pr.pullRequestId} ${pr.title}`;
+    const it = new AdoTreeItem(label, vscode.TreeItemCollapsibleState.None);
+    it.itemType = "pullRequest";
+    it.organization = org;
+    it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
+    it.contextValue = "pullrequest";
+    it.iconPath = new vscode.ThemeIcon("git-merge");
+    const candidate = pr.webUrl || pr.url || "";
+    if (candidate && candidate.includes("/_apis/")) {
+      if (resolvedProj && repoName) {
+        try {
+          const url = this.buildWebUrl(org, resolvedProj, repoName, "pr", pr.pullRequestId);
+          it.url = url || candidate;
+        } catch (e) {
+          it.url = candidate;
+        }
+      } else {
+        it.url = candidate;
+      }
+    } else {
+      it.url = candidate;
+    }
+    it.tooltip = pr.title;
+    try {
+      it.description = this.extractPerson((pr as any).createdBy || {});
+    } catch (e) {}
+    return it;
   }
 
   /**
