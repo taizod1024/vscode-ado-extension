@@ -1050,7 +1050,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
         let rawDesc = d.fields?.["System.Description"] || d.fields?.["Description"] || "";
         if (rawDesc && typeof rawDesc === "string") {
-          rawDesc = rawDesc.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+          rawDesc = rawDesc
+            .replace(/<[^>]*>/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
         } else {
           rawDesc = "";
         }
