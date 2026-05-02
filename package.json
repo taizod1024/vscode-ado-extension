@@ -150,8 +150,6 @@
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
           "group": "inline"
         },
-        
-        
         {
           "command": "ado-assist.createEpic",
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",

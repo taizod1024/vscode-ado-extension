@@ -52,6 +52,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 汎用 in-flight promise マップ（重複リクエスト合流用）。
    */
   private childrenFetchPromises: { [key: string]: Promise<any[]> } = {};
+  /**
+   * Fetch token map to invalidate stale in-flight fetch results when cache is cleared.
+   */
+  private childrenFetchTokens: { [key: string]: number } = {};
+  /**
+   * Short-term suppression map to avoid immediate re-fetches after cache invalidation.
+   * Keyed by prefix, value is expiry timestamp (ms).
+   */
+  private childrenFetchSuppressions: { [prefix: string]: number } = {};
+
+  /** Generation counter for node IDs per prefix to force new IDs after refresh (makes UI treat as new/collapsed) */
+  private nodeIdGen: { [prefix: string]: number } = {};
 
   /**
    * in-flight promise マップ：同一組織への重複リクエストを合流させる（重複防止）。
@@ -83,6 +95,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    */
   private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
 
+  /** Optional TreeView instance (set from extension activate) to programmatically reveal/collapse nodes */
+  private treeView?: vscode.TreeView<AdoTreeItem>;
+
   /**
    * 読み込み時に変更した collapsibleState を復元するためのバックアップ。
    */
@@ -99,6 +114,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const errs = this.context.globalState.get<{ [org: string]: string }>("azuredevops.errorsByOrg");
       if (errs) this.errorsByOrg = errs;
     }
+  }
+
+  /** Called from extension activation to provide the TreeView instance */
+  setTreeView(tv: vscode.TreeView<AdoTreeItem>) {
+    this.treeView = tv;
   }
 
   // -----------------------
@@ -222,11 +242,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (t === "project") {
       const org = element.organization as string | undefined;
       const projectId = element.projectId;
-      const workFolder = new AdoTreeItem("Work items", vscode.TreeItemCollapsibleState.Collapsed);
+      const workGenKey = `workitems:${org}:${projectId}:category:`;
+      const workGen = this.nodeIdGen[workGenKey] || 0;
+      const workFolder = new AdoTreeItem("Work items", vscode.TreeItemCollapsibleState.Expanded);
       workFolder.itemType = "workItemsFolder";
       workFolder.organization = org;
       workFolder.projectId = projectId;
-      workFolder.id = `workitems:${org}:${projectId}`;
+      workFolder.id = `workitems:${org}:${projectId}:gen:${workGen}`;
       workFolder.contextValue = "workItemsFolder";
       // set Work Items web page for this project (recently updated view)
       try {
@@ -236,11 +258,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
       } catch (e) {}
 
+      const repoGenKey = `repos:${org}:${projectId}`;
+      const repoGen = this.nodeIdGen[repoGenKey] || 0;
       const repoFolder = new AdoTreeItem("Repositories", vscode.TreeItemCollapsibleState.Collapsed);
       repoFolder.itemType = "repositoriesFolder";
       repoFolder.organization = org;
       repoFolder.projectId = projectId;
-      repoFolder.id = `repos:${org}:${projectId}`;
+      repoFolder.id = `repos:${org}:${projectId}:gen:${repoGen}`;
       repoFolder.contextValue = "repositoriesFolder";
 
       return [workFolder, repoFolder];
@@ -330,13 +354,15 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       // repo id は element.id の一部ではあるが、リポジトリIDを識別子として利用
       const repoIdMatch = String(element.id || "").split(":");
       const repoId = repoIdMatch.length >= 3 ? repoIdMatch[2] : undefined;
+      const branchesGenKey = `branches:${org}:${repoId}`;
+      const branchesGen = this.nodeIdGen[branchesGenKey] || 0;
       const branchesFolder = new AdoTreeItem("Branches", vscode.TreeItemCollapsibleState.Collapsed);
       branchesFolder.itemType = "branchesFolder";
       branchesFolder.organization = org;
       branchesFolder.projectId = element.projectId;
       branchesFolder.repoId = element.repoId || (repoId as string);
       branchesFolder.repoName = element.repoName || "";
-      branchesFolder.id = `branches:${org}:${repoId}`;
+      branchesFolder.id = `branches:${org}:${repoId}:gen:${branchesGen}`;
       branchesFolder.contextValue = "branchesFolder";
 
       const prsFolder = new AdoTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
@@ -345,7 +371,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       prsFolder.projectId = element.projectId;
       prsFolder.repoId = element.repoId || (repoId as string);
       prsFolder.repoName = element.repoName || "";
-      prsFolder.id = `prs:${org}:${repoId}`;
+      const prsGenKey = `prs:${org}:${repoId}:category:`;
+      const prsGen = this.nodeIdGen[prsGenKey] || 0;
+      prsFolder.id = `prs:${org}:${repoId}:gen:${prsGen}`;
       prsFolder.contextValue = "pullRequestsFolder";
 
       // set Pull Requests web page URL (showing 'mine' by default)
@@ -483,9 +511,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           // Work Items フォルダ: 配下カテゴリのキャッシュのみ削除して折りたたむ
           if (org && element.projectId) {
             prefixes.push(`workitems:${org}:${element.projectId}:category:`);
-            try {
-              element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-            } catch (e) {}
           }
           break;
         }
@@ -494,7 +519,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           return;
         case "repositoriesFolder":
           // Repositories フォルダ: リポジトリ一覧を再取得
-          if (org && element.projectId) prefixes.push(`repos:${org}:${element.projectId}`);
+          if (org && element.projectId) {
+            prefixes.push(`repos:${org}:${element.projectId}`);
+            try {
+              element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+              if (this.treeView) {
+                try {
+                  await this.treeView.reveal(element, { expand: 0 });
+                } catch (e) {}
+              }
+            } catch (e) {}
+          }
           break;
         case "branchesFolder": {
           // Branches フォルダ: ブランチ一覧を再取得
@@ -504,6 +539,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             prefixes.push(`branches:${org}:${repoId}`);
             try {
               element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+              if (this.treeView) {
+                try {
+                  await this.treeView.reveal(element, { expand: 0 });
+                } catch (e) {}
+              }
             } catch (e) {}
           }
           break;
@@ -516,6 +556,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             prefixes.push(`prs:${org}:${repoId}:category:`);
             try {
               element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+              if (this.treeView) {
+                try {
+                  await this.treeView.reveal(element, { expand: 0 });
+                } catch (e) {}
+              }
             } catch (e) {}
           }
           break;
@@ -528,10 +573,31 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       }
 
       try {
+        // debug: log cache/promise keys matched for workItemsFolder prefixes (detailed)
+        try {
+          for (const p of prefixes) {
+            if (p.startsWith(`workitems:${org}:`)) {
+              const allCacheKeys = Object.keys(this.childrenCache);
+              const allPromiseKeys = Object.keys(this.childrenFetchPromises);
+              const cacheKeys = allCacheKeys.filter(k => k === p || k.startsWith(p));
+              const promiseKeys = allPromiseKeys.filter(k => k === p || k.startsWith(p));
+              console.log(`ado-assist: refreshNode workItemsFolder - prefix=${p} cacheKeys=${cacheKeys.length} promiseKeys=${promiseKeys.length}`);
+              console.log(`ado-assist: refreshNode workItemsFolder - cacheKeysList=${JSON.stringify(cacheKeys)}`);
+              console.log(`ado-assist: refreshNode workItemsFolder - promiseKeysList=${JSON.stringify(promiseKeys)}`);
+            }
+          }
+        } catch (e) {}
         for (const k of Object.keys(this.childrenCache)) {
           for (const p of prefixes) {
             if (k === p || k.startsWith(p)) {
               delete this.childrenCache[k];
+              // bump token to invalidate any in-flight fetches for this key
+              this.childrenFetchTokens[k] = (this.childrenFetchTokens[k] || 0) + 1;
+              // set short suppression for this prefix to avoid immediate re-fetch races
+              try {
+                const ttl = 500; // ms
+                this.childrenFetchSuppressions[p] = Date.now() + ttl;
+              } catch (e) {}
               break;
             }
           }
@@ -543,13 +609,38 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           for (const p of prefixes) {
             if (k === p || k.startsWith(p)) {
               delete this.childrenFetchPromises[k];
+              // bump token to invalidate any in-flight fetches for this key
+              this.childrenFetchTokens[k] = (this.childrenFetchTokens[k] || 0) + 1;
+              try {
+                const ttl = 500; // ms
+                this.childrenFetchSuppressions[p] = Date.now() + ttl;
+              } catch (e) {}
               break;
             }
           }
         }
       } catch (e) {}
 
-      this._onDidChangeTreeData.fire(element);
+      // bump generation for prefixes so newly created folder IDs differ from old ones
+      try {
+        for (const p of prefixes) {
+          this.nodeIdGen[p] = (this.nodeIdGen[p] || 0) + 1;
+        }
+      } catch (e) {}
+
+      // debug: log any remaining cache/promise keys that still match prefixes after deletion
+      try {
+        for (const p of prefixes) {
+          if (p.startsWith(`workitems:${org}:`)) {
+            const remainingCache = Object.keys(this.childrenCache).filter(k => k === p || k.startsWith(p));
+            const remainingPromises = Object.keys(this.childrenFetchPromises).filter(k => k === p || k.startsWith(p));
+            console.log(`ado-assist: refreshNode post-delete - prefix=${p} remainingCache=${JSON.stringify(remainingCache)} remainingPromises=${JSON.stringify(remainingPromises)}`);
+          }
+        }
+      } catch (e) {}
+
+      // force a full refresh so that updated `collapsibleState` is applied
+      this.refresh();
 
       // organization の場合は projects を先行フェッチして UI を早めに更新
       if (t === "organization" && org) {
@@ -738,19 +829,40 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return [ph];
     }
 
+    // if there's a recent suppression for this key/prefix, skip starting a fetch to avoid races
+    try {
+      const now = Date.now();
+      for (const s of Object.keys(this.childrenFetchSuppressions)) {
+        const exp = this.childrenFetchSuppressions[s] || 0;
+        if (exp <= now) {
+          delete this.childrenFetchSuppressions[s];
+          continue;
+        }
+        if (key === s || key.startsWith(s)) {
+          // During suppression, avoid showing a spinner placeholder to prevent "stuck loading" UI.
+          return [];
+        }
+      }
+    } catch (e) {}
+
     // 開始してプレースホルダを返す
+    // assign a token so that if refresh clears the cache we won't write stale results
+    const token = (this.childrenFetchTokens[key] || 0) + 1;
+    this.childrenFetchTokens[key] = token;
     this.childrenFetchPromises[key] = (async () => {
       try {
         const res = await fetchFn();
-        this.childrenCache[key] = res || [];
+        // only write cache if token still matches (no invalidate happened)
+        if (this.childrenFetchTokens[key] === token) this.childrenCache[key] = res || [];
         return res || [];
       } catch (err) {
-        this.childrenCache[key] = [];
+        if (this.childrenFetchTokens[key] === token) this.childrenCache[key] = [];
         return [];
       } finally {
         delete this.childrenFetchPromises[key];
         try {
-          this._onDidChangeTreeData.fire(element);
+          // only fire update if this fetch was not invalidated
+          if (this.childrenFetchTokens[key] === token) this._onDidChangeTreeData.fire(element);
         } catch (e) {}
       }
     })();
@@ -1154,7 +1266,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // TreeItem factory helpers
   // -----------------------
   private makeWorkItemTreeItem(w: AdoWorkItem, org: string): AdoTreeItem {
-    const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
+    const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.Collapsed);
     it.itemType = "workItem";
     it.organization = org;
     it.id = `work:${org}:${w.id}`;
