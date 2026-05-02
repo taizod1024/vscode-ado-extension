@@ -457,24 +457,76 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       this.refresh();
       return;
     }
-    // refresh は組織単位のみで行う（それ以外は無視）
+    // refresh は組織単位だけでなく、子ノード数が変化しうるノード種別でも行う
     try {
       const t: AdoItemType | undefined = element.itemType;
-      if (t !== "organization") return;
 
       const org = element.organization as string | undefined;
-      if (!org) {
-        this.refresh();
-        return;
+      const prefixes: string[] = [];
+
+      if (element.id) this.beginLoading(element);
+
+      switch (t) {
+        case "organization":
+          if (!org) {
+            this.refresh();
+            return;
+          }
+          // 組織単位は projects と関連キャッシュを再作成する
+          delete this.projectsByOrg[org];
+          prefixes.push(`projects:${org}`, `workitems:${org}:`, `repos:${org}:`, `branches:${org}:`, `prs:${org}:`);
+          break;
+        case "project":
+          // 個々の project は refresh 不要
+          return;
+        case "workItemsFolder": {
+          // Work Items フォルダ: 配下カテゴリのキャッシュのみ削除して折りたたむ
+          if (org && element.projectId) {
+            prefixes.push(`workitems:${org}:${element.projectId}:category:`);
+            try {
+              element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            } catch (e) {}
+          }
+          break;
+        }
+        case "workItemsCategory":
+          // 個々の Work Item カテゴリは refresh 不要
+          return;
+        case "repositoriesFolder":
+          // Repositories フォルダ: リポジトリ一覧を再取得
+          if (org && element.projectId) prefixes.push(`repos:${org}:${element.projectId}`);
+          break;
+        case "branchesFolder": {
+          // Branches フォルダ: ブランチ一覧を再取得
+          if (org) {
+            const parts = String(element.id || "").split(":");
+            const repoId = parts.length >= 3 ? parts[2] : "";
+            prefixes.push(`branches:${org}:${repoId}`);
+            try {
+              element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            } catch (e) {}
+          }
+          break;
+        }
+        case "pullRequestsFolder": {
+          // Pull Requests フォルダ: 配下カテゴリのキャッシュを削除して折りたたむ
+          if (org) {
+            const parts = String(element.id || "").split(":");
+            const repoId = parts.length >= 3 ? parts[2] : "";
+            prefixes.push(`prs:${org}:${repoId}:category:`);
+            try {
+              element.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            } catch (e) {}
+          }
+          break;
+        }
+        case "pullRequestsCategory":
+          // 個々の PR カテゴリは refresh 不要
+          return;
+        default:
+          if (element.id) prefixes.push(String(element.id));
       }
 
-      if (element.id) {
-        this.beginLoading(element);
-      }
-
-      // 組織のプロジェクトキャッシュと関連する children キャッシュ／in-flight を削除して再フェッチ
-      delete this.projectsByOrg[org];
-      const prefixes = [`projects:${org}`, `workitems:${org}:`, `repos:${org}:`, `branches:${org}:`, `prs:${org}:`];
       try {
         for (const k of Object.keys(this.childrenCache)) {
           for (const p of prefixes) {
@@ -485,6 +537,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           }
         }
       } catch (e) {}
+
       try {
         for (const k of Object.keys(this.childrenFetchPromises)) {
           for (const p of prefixes) {
@@ -495,14 +548,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           }
         }
       } catch (e) {}
-      this._onDidChangeTreeData.fire(element);
-      try {
-        await this.fetchProjects(org);
-      } catch (e) {}
 
-      if (element.id) {
-        this.endLoading(element);
+      this._onDidChangeTreeData.fire(element);
+
+      // organization の場合は projects を先行フェッチして UI を早めに更新
+      if (t === "organization" && org) {
+        try {
+          await this.fetchProjects(org);
+        } catch (e) {}
       }
+
+      if (element.id) this.endLoading(element);
       return;
     } catch (err) {
       if (element?.id) this.endLoading(element);
@@ -524,7 +580,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         try {
           if (this.loadingNodes[element.id]) {
             try {
-              if (this.loadingIconBackup[element.id] !== undefined) {
+              if (Object.prototype.hasOwnProperty.call(this.loadingIconBackup, element.id)) {
                 element.iconPath = this.loadingIconBackup[element.id];
                 delete this.loadingIconBackup[element.id];
               }
@@ -536,7 +592,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         } catch (e) {}
       }, 10000);
       try {
-        if (!this.loadingIconBackup[element.id]) {
+        if (!Object.prototype.hasOwnProperty.call(this.loadingIconBackup, element.id)) {
           this.loadingIconBackup[element.id] = element.iconPath;
           element.iconPath = new vscode.ThemeIcon("sync~spin");
         }
@@ -556,7 +612,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       } catch (e) {}
       delete this.loadingTimers[element.id];
       try {
-        if (this.loadingIconBackup[element.id] !== undefined) {
+        if (Object.prototype.hasOwnProperty.call(this.loadingIconBackup, element.id)) {
           element.iconPath = this.loadingIconBackup[element.id];
           delete this.loadingIconBackup[element.id];
         }

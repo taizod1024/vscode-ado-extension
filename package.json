@@ -116,6 +116,16 @@
           "group": "inline"
         },
         {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == branchesFolder",
+          "group": "inline"
+        },
+        {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
@@ -136,6 +146,13 @@
           "group": "inline"
         },
         {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        
+        
+        {
           "command": "ado-assist.createEpic",
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
           "group": "inline"
@@ -152,6 +169,11 @@
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline"
         },

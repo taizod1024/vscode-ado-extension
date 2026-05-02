@@ -4,9 +4,14 @@ import { createTreeProvider } from "./ado";
 export function activate(context: vscode.ExtensionContext) {
   console.log("ado-assist: activate() start");
   try {
-    // Register a TreeDataProvider for the side panel view id
+    // Create a TreeDataProvider and TreeView for the side panel so we can control reveal/collapse
     const provider = createTreeProvider(context);
-    context.subscriptions.push(vscode.window.registerTreeDataProvider("azureDevOps.sidePanel", provider));
+    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
+    context.subscriptions.push(treeView);
+    // registerTreeDataProvider is not needed when createTreeView is used, but keep provider available
+    try {
+      if ((provider as any).setTreeView) (provider as any).setTreeView(treeView);
+    } catch (e) {}
     console.log("ado-assist: registered TreeDataProvider for", "azureDevOps.sidePanel");
     console.log("ado-assist: extension path:", context.extensionPath);
 
