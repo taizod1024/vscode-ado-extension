@@ -96,7 +96,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
         // エラーがある場合は表示
         if (this.errorsByOrg[o]) {
-          const errItem = new AdoTreeItem(`⚠️ ${this.errorsByOrg[o]}`, vscode.TreeItemCollapsibleState.None);
+          const errItem = new AdoTreeItem(`${this.errorsByOrg[o]}`, vscode.TreeItemCollapsibleState.None);
           errItem.itemType = "error";
           errItem.id = `error:${o}`;
           errItem.contextValue = "error";
