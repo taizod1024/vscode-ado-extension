@@ -105,7 +105,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           orgItems.push(errItem);
         }
       }
-      if (orgItems.length === 0) return actions.concat([new AdoTreeItem("(no organizations)")]);
+      if (orgItems.length === 0) {
+        const noOrgItem = new AdoTreeItem("no organizations");
+        noOrgItem.itemType = "error";
+        noOrgItem.id = "no-organizations";
+        noOrgItem.contextValue = "error";
+        noOrgItem.iconPath = new vscode.ThemeIcon("stop", new vscode.ThemeColor("charts.red"));
+        return actions.concat([noOrgItem]);
+      }
       return actions.concat(orgItems);
     }
     const t = element.itemType;
