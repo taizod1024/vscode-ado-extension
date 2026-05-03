@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest } from "./types";
-import { httpRequest } from "./api";
+import { AdoApiClient } from "./adoApiClient";
 
 export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {
   /**
@@ -34,14 +34,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private context: vscode.ExtensionContext | undefined;
 
   /**
+   * ADO API クライアント（ツリーロジックから独立）。
+   */
+  private apiClient: AdoApiClient;
+
+  /**
    * 重要: ツリーのルートに表示する組織名の配列（workspaceState に永続化）。
    */
   private organizations: string[] = [];
-
-  /**
-   * 重要: 組織ごとのプロジェクト配列（メモリ内キャッシュ。永続化しない）。
-   */
-  private projectsByOrg: { [org: string]: AdoProject[] } = {};
 
   /**
    * 汎用キャッシュ: key ベースで任意の子配列を保持する。
@@ -52,11 +52,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 汎用 in-flight promise マップ（重複リクエスト合流用）。
    */
   private childrenFetchPromises: { [key: string]: Promise<any[]> } = {};
-
-  /**
-   * in-flight promise マップ：同一組織への重複リクエストを合流させる（重複防止）。
-   */
-  private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
 
   /**
    * 組織ごとのエラーメッセージを保持（workspaceState に保存）。
@@ -93,6 +88,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    */
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
+    this.apiClient = new AdoApiClient(context);
+    // PAT プロンプト用コールバックを設定
+    this.apiClient.setPatPromptCallback(org => this.promptAndStorePat(org));
     if (this.context) {
       const orgs = this.context.globalState.get<string[]>("azuredevops.organizations");
       if (orgs) this.organizations = orgs;
@@ -112,64 +110,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
-   * 現在のプロファイル情報を取得します（cache あり）。
-   */
-  private currentProfileCache: any | undefined;
-  private async fetchCurrentProfile(organization: string, pat?: string): Promise<any> {
-    if (this.currentProfileCache) return this.currentProfileCache;
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return undefined;
-    // profile API (global)
-    const url = `https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0`;
-    try {
-      const data = await httpRequest("GET", url, usePat);
-      this.currentProfileCache = data;
-      return data;
-    } catch (e) {
-      return undefined;
-    }
-  }
-
-  private async fetchPullRequestsByStatus(organization: string, repoIdOrName: string, status: string, pat?: string): Promise<AdoPullRequest[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&searchCriteria.status=${encodeURIComponent(status)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
-    const out: AdoPullRequest[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const pr of data.value) {
-        const web = pr._links?.web?.href || undefined;
-        const apiUrl = pr.url || pr._links?.self?.href || "";
-        out.push({ pullRequestId: Number(pr.pullRequestId || pr.id), title: String(pr.title || ""), url: apiUrl, webUrl: web, status: pr.status, createdBy: pr.createdBy });
-      }
-    }
-    return out;
-  }
-
-  private async fetchPullRequestsMine(organization: string, repoIdOrName: string, pat?: string): Promise<AdoPullRequest[]> {
-    // fetch all PRs for the repo (may be limited by API) and filter by createdBy == me
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
-    const profile = await this.fetchCurrentProfile(organization, usePat);
-    const myId = profile?.id || profile?.identifier || profile?.displayName || profile?.uniqueName;
-    const out: AdoPullRequest[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const pr of data.value) {
-        const createdBy = pr.createdBy || {};
-        const createdId = createdBy.id || createdBy.uniqueName || createdBy.displayName || createdBy.descriptor;
-        if (!myId || String(createdId) === String(myId) || String(createdBy.uniqueName || "").toLowerCase() === String(profile?.uniqueName || "").toLowerCase()) {
-          const web = pr._links?.web?.href || undefined;
-          const apiUrl = pr.url || pr._links?.self?.href || "";
-          out.push({ pullRequestId: Number(pr.pullRequestId || pr.id), title: String(pr.title || ""), url: apiUrl, webUrl: web, status: pr.status, createdBy });
-        }
-      }
-    }
-    return out;
-  }
-
-  /**
    * 指定要素の子要素を返す（ルート時に組織リストを返す）。TreeDataProvider 必須メソッド。
    */
   async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
@@ -186,6 +126,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         it.url = `https://dev.azure.com/${encodeURIComponent(o)}`;
         it.tooltip = it.url;
         orgItems.push(it);
+        
+        // エラーがある場合は表示
+        if (this.errorsByOrg[o]) {
+          const errItem = new AdoTreeItem(`⚠️ ${this.errorsByOrg[o]}`, vscode.TreeItemCollapsibleState.None);
+          errItem.itemType = "error";
+          errItem.id = `error:${o}`;
+          errItem.contextValue = "error";
+          errItem.tooltip = this.errorsByOrg[o];
+          orgItems.push(errItem);
+        }
       }
       if (orgItems.length === 0) return actions.concat([new AdoTreeItem("(no organizations)")]);
       return actions.concat(orgItems);
@@ -199,7 +149,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return this.lazyLoadChildren<AdoProject>(
         key,
         element,
-        async () => await this.fetchProjects(org),
+        async () => await this.apiClient.fetchProjects(org),
         projects =>
           projects.map(p => {
             const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
@@ -282,25 +232,25 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       let fetchFn: () => Promise<AdoWorkItem[]> = async () => [];
       switch (catKey) {
         case "assigned":
-          fetchFn = async () => await this.fetchAssignedToMe(org, pid);
+          fetchFn = async () => await this.apiClient.fetchAssignedToMe(org, pid);
           break;
         case "following":
-          fetchFn = async () => await this.fetchFollowing(org, pid);
+          fetchFn = async () => await this.apiClient.fetchFollowing(org, pid);
           break;
         case "mentioned":
-          fetchFn = async () => await this.fetchMentioned(org, pid);
+          fetchFn = async () => await this.apiClient.fetchMentioned(org, pid);
           break;
         case "myactivity":
-          fetchFn = async () => await this.fetchMyActivity(org, pid);
+          fetchFn = async () => await this.apiClient.fetchMyActivity(org, pid);
           break;
         case "recentlyUpdated":
-          fetchFn = async () => await this.fetchRecentlyUpdated(org, pid);
+          fetchFn = async () => await this.apiClient.fetchRecentlyUpdated(org, pid);
           break;
         case "recentlyCompleted":
-          fetchFn = async () => await this.fetchRecentlyCompleted(org, pid);
+          fetchFn = async () => await this.apiClient.fetchRecentlyCompleted(org, pid);
           break;
         case "recentlyCreated":
-          fetchFn = async () => await this.fetchRecentlyCreated(org, pid);
+          fetchFn = async () => await this.apiClient.fetchRecentlyCreated(org, pid);
           break;
         default:
           fetchFn = async () => [];
@@ -314,11 +264,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const org = element.organization as string;
       const pid = element.projectId as string;
       const key = `repos:${org}:${pid}`;
-      const resolvedProjForRepos = await this.resolveProjectName(org, pid);
+      const resolvedProjForRepos = await this.apiClient.resolveProjectName(org, pid);
       return this.lazyLoadChildren<AdoRepository>(
         key,
         element,
-        async () => await this.fetchRepositories(org, pid),
+        async () => await this.apiClient.fetchRepositories(org, pid),
         repos => repos.map(r => this.makeRepositoryTreeItem(r, org, pid, resolvedProjForRepos)),
         "Loading repositories...",
       );
@@ -353,8 +303,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         const projNameForUrl = element.projectId || "";
         const repoNameForUrl = prsFolder.repoName || (repoId as string) || "";
         try {
-          const resolved = await this.resolveProjectName(org, projNameForUrl);
-          const url = this.buildWebUrl(org, resolved || projNameForUrl, repoNameForUrl, "prsFolder");
+          const resolved = await this.apiClient.resolveProjectName(org, projNameForUrl);
+          const url = this.apiClient.buildWebUrl(org, resolved || projNameForUrl, repoNameForUrl, "prsFolder");
           if (url) prsFolder.url = url;
         } catch (e) {}
       } catch (e) {}
@@ -369,11 +319,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const repoId = parts.length >= 3 ? parts[2] : "";
       const repoName = (element as any).repoName || "";
       const key = `branches:${org}:${repoId}`;
-      const resolvedProjForBranches = await this.resolveProjectName(org, element.projectId as string | undefined);
+      const resolvedProjForBranches = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
       return this.lazyLoadChildren<AdoBranch>(
         key,
         element,
-        async () => await this.fetchBranches(org, repoId),
+        async () => await this.apiClient.fetchBranches(org, repoId),
         branches => branches.map(b => this.makeBranchTreeItem(b, org, repoId, repoName, resolvedProjForBranches, element.projectId as string | undefined)),
         "Loading branches...",
       );
@@ -416,22 +366,22 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       let fetchFn: () => Promise<AdoPullRequest[]> = async () => [];
       switch (catKey) {
         case "mine":
-          fetchFn = async () => await this.fetchPullRequestsMine(org, repoId);
+          fetchFn = async () => await this.apiClient.fetchPullRequestsMine(org, repoId);
           break;
         case "active":
-          fetchFn = async () => await this.fetchPullRequestsByStatus(org, repoId, "active");
+          fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "active");
           break;
         case "completed":
-          fetchFn = async () => await this.fetchPullRequestsByStatus(org, repoId, "completed");
+          fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "completed");
           break;
         case "abandoned":
-          fetchFn = async () => await this.fetchPullRequestsByStatus(org, repoId, "abandoned");
+          fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "abandoned");
           break;
         default:
           fetchFn = async () => [];
       }
 
-      const resolvedProjForPrs = await this.resolveProjectName(org, pid);
+      const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, pid);
       return this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
     }
 
@@ -472,8 +422,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         this.beginLoading(element);
       }
 
-      // 組織のプロジェクトキャッシュと関連する children キャッシュ／in-flight を削除して再フェッチ
-      delete this.projectsByOrg[org];
+      // 組織の children キャッシュ／in-flight を削除して再フェッチ
       const prefixes = [`projects:${org}`, `workitems:${org}:`, `repos:${org}:`, `branches:${org}:`, `prs:${org}:`];
       try {
         for (const k of Object.keys(this.childrenCache)) {
@@ -496,8 +445,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
       } catch (e) {}
       this._onDidChangeTreeData.fire(element);
+      
+      // エラーをクリア
+      delete this.errorsByOrg[org];
+      if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+      
       try {
-        await this.fetchProjects(org);
+        await this.apiClient.fetchProjects(org);
       } catch (e) {}
 
       if (element.id) {
@@ -588,7 +542,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (!org) return;
     this.organizations = this.organizations.filter(o => o !== org);
     if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
-    delete this.projectsByOrg[org];
     this.refresh();
   }
 
@@ -607,8 +560,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
     this.organizations = [];
     if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
-    this.projectsByOrg = {};
-    this.projectsFetchPromises = {};
     this.childrenCache = {};
     this.childrenFetchPromises = {};
     this.refresh();
@@ -617,54 +568,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   // 内部ヘルパー（ネットワーク / 認証）
   // -----------------------
-  /**
-   * 組織のプロジェクトを取得します（in-flight dedupe 適用）。
-   */
-  async fetchProjects(organization: string, pat?: string): Promise<AdoProject[]> {
-    if (this.projectsFetchPromises[organization]) return this.projectsFetchPromises[organization];
-    const p = (async () => {
-      this.loadingOrg = organization;
-      delete this.errorsByOrg[organization];
-      if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-      this.refresh();
-      try {
-        const usePat = await this.resolvePat(organization, pat);
-        if (!usePat) throw new Error("PAT not provided");
-        const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=6.0`;
-        const data: any = await httpRequest("GET", url, usePat);
-        const projects: AdoProject[] = [];
-        if (data && Array.isArray(data.value)) {
-          for (const p of data.value) {
-            const projectName = String(p.name);
-            const apiUrl = p._links?.web?.href;
-            const canonical = this.buildWebUrl(organization, projectName, undefined, "project");
-            const desc = p.description || p.properties?.description || "";
-            projects.push({ id: String(p.id), name: projectName, url: String(apiUrl || canonical), description: String(desc) });
-          }
-        }
-
-        this.projectsByOrg[organization] = projects;
-        delete this.errorsByOrg[organization];
-        if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-        return projects;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        this.errorsByOrg[organization] = msg;
-        if (this.context) this.context.workspaceState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-        return [];
-      } finally {
-        this.loadingOrg = undefined;
-        this.refresh();
-      }
-    })();
-    this.projectsFetchPromises[organization] = p;
-    try {
-      const res = await p;
-      return res;
-    } finally {
-      delete this.projectsFetchPromises[organization];
-    }
-  }
 
   /**
    * 汎用遅延ローダー。
@@ -687,9 +590,24 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       try {
         const res = await fetchFn();
         this.childrenCache[key] = res || [];
+        // エラーをクリア
+        const orgMatch = key.match(/^[^:]+:(.+?):/);
+        if (orgMatch) {
+          const org = orgMatch[1];
+          delete this.errorsByOrg[org];
+          if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+        }
         return res || [];
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         this.childrenCache[key] = [];
+        // エラーを記録
+        const orgMatch = key.match(/^[^:]+:(.+?):/);
+        if (orgMatch) {
+          const org = orgMatch[1];
+          this.errorsByOrg[org] = msg;
+          if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+        }
         return [];
       } finally {
         delete this.childrenFetchPromises[key];
@@ -702,396 +620,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const ph = new AdoTreeItem(placeholderLabel, vscode.TreeItemCollapsibleState.None);
     ph.iconPath = new vscode.ThemeIcon("sync~spin");
     return [ph];
-  }
-
-  /**
-   * 指定プロジェクトのリポジトリ一覧を取得します。
-   */
-  private async fetchRepositories(organization: string, projectIdOrName: string, pat?: string): Promise<AdoRepository[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectIdOrName)}/_apis/git/repositories?api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
-    const repos: AdoRepository[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const r of data.value) {
-        const name = String(r.name || r.repositoryName || "");
-        const id = String(r.id || r.repositoryId || "");
-        const web = r._links?.web?.href || r.remoteUrl || "";
-        const defaultBranch = r.defaultBranch || undefined;
-        repos.push({ id, name, url: String(web || ""), defaultBranch });
-      }
-    }
-    return repos;
-  }
-
-  /**
-   * 指定プロジェクトの Recent work items を取得します（簡易実装）。
-   */
-  private async fetchWorkItems(organization: string, projectIdOrName: string, pat?: string): Promise<AdoWorkItem[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    // WIQL を使って recent work items を取得（最大 20 件）
-    // projectIdOrName が ID の場合はプロジェクト名を解決して WHERE 句で絞る
-    let projectName = projectIdOrName;
-    if (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-    }
-    const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-    if (proj && proj.name) projectName = proj.name;
-    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
-    const safeName = String(projectName).replace(/'/g, "''");
-    const query = { query: `Select [System.Id], [System.Title] From WorkItems Where [System.TeamProject] = '${safeName}' Order By [System.ChangedDate] Desc` };
-    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, query);
-    const ids = (wiqlResult?.workItems || [])
-      .slice(0, 20)
-      .map((w: any) => w.id)
-      .filter(Boolean);
-    if (ids.length === 0) return [];
-    const idsStr = ids.join(",");
-    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
-    const details = await httpRequest("GET", detailsUrl, usePat || "");
-    const items: AdoWorkItem[] = [];
-    if (details && Array.isArray(details.value)) {
-      for (const d of details.value) {
-        // construct web URL for work item
-        const wid = Number(d.id);
-        let webUrl = d.url || "";
-        if (projectName) {
-          webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
-        }
-        const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
-        // extract assignee
-        const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
-        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state, assignee });
-      }
-    }
-    return items;
-  }
-
-  /**
-   * 汎用: WIQL を実行して Work Items の詳細を取得します。
-   * @param organization 組織名
-   * @param wiql WIQL クエリ文字列（SELECT .. WHERE ..）
-   * @param projectIdOrName プロジェクト名または ID（省略可）
-   */
-  private async fetchWorkItemsByWiql(organization: string, wiql: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-
-    // Resolve project name if possible. If given id is a GUID and resolution fails,
-    // omit TeamProject filter because WIQL expects project name.
-    let projectName = projectIdOrName || "";
-    if (projectIdOrName) {
-      const findProj = () => (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      let proj = findProj();
-      if (!proj) {
-        try {
-          await this.fetchProjects(organization);
-        } catch (e) {}
-        proj = findProj();
-      }
-      if (proj && proj.name) {
-        projectName = proj.name;
-      } else {
-        // if looks like GUID, log and clear projectName so caller omits TeamProject filter
-        if (/^[0-9a-fA-F-]{32,36}$/.test(String(projectIdOrName))) {
-          console.log(`ado-assist: provided project identifier appears to be GUID and could not be resolved to name: ${projectIdOrName}`);
-          projectName = "";
-        }
-      }
-    }
-
-    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
-    const queryBody = { query: wiql };
-    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, queryBody);
-
-    const ids = (wiqlResult?.workItems || [])
-      .slice(0, 50)
-      .map((w: any) => w.id)
-      .filter(Boolean);
-    if (ids.length === 0) return [];
-    const idsStr = ids.join(",");
-    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
-    const details = await httpRequest("GET", detailsUrl, usePat || "");
-    const items: AdoWorkItem[] = [];
-    if (details && Array.isArray(details.value)) {
-      for (const d of details.value) {
-        const wid = Number(d.id);
-        let webUrl = d.url || "";
-        if (projectName) {
-          webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
-        }
-        const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
-        let rawDesc = d.fields?.["System.Description"] || d.fields?.["Description"] || "";
-        if (rawDesc && typeof rawDesc === "string") {
-          rawDesc = rawDesc
-            .replace(/<[^>]*>/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
-        } else {
-          rawDesc = "";
-        }
-        const shortDesc = rawDesc.length > 200 ? rawDesc.slice(0, 197) + "..." : rawDesc;
-        // extract assignee
-        const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
-        items.push({ id: wid, title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"), url: webUrl, status: state, assignee, description: shortDesc });
-      }
-    }
-    return items;
-  }
-
-  // -----------------------
-  // 高レベル: ユーザーが求めるカテゴリ別 Work Item 抽出
-  // -----------------------
-  async fetchAssignedToMe(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.AssignedTo] = @Me`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL assigned result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  async fetchFollowing(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    // ADO には WIQL で「followed」を直接検索する明確なフィールドがないため、代替としてタグに "follow" を含むものを取得する試みを行う。
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.Tags] CONTAINS 'follow'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL following result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  async fetchMentioned(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    // コメントや履歴内で @mention を検索するには通常 Comments API を使うが、WIQL の History フィールドの CONTAINS を使って簡易検索する
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.History] CONTAINS '@'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL mentioned result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  async fetchMyActivity(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL myactivity result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  async fetchRecentlyUpdated(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL recentlyUpdated result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  async fetchRecentlyCompleted(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`([System.State] = 'Done' OR [System.State] = 'Closed' OR [System.State] = 'Resolved' OR [System.State] = 'Completed')`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL recentlyCompleted result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  async fetchRecentlyCreated(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.CreatedDate] Desc`;
-    const res = await this.fetchWorkItemsByWiql(organization, q, projName, pat);
-    if (!res || res.length === 0) console.log(`ado-assist: WIQL recentlyCreated result empty for org=${organization} proj=${projName} query=${q}`);
-    return res;
-  }
-
-  /**
-   * 指定リポジトリのブランチ一覧を取得します。
-   */
-  private async fetchBranches(organization: string, repoIdOrName: string, pat?: string): Promise<AdoBranch[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    // refs API を使って heads を取得
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/repositories/${encodeURIComponent(repoIdOrName)}/refs?filter=heads&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
-    const out: AdoBranch[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const r of data.value) {
-        // name may be refs/heads/main
-        const name = String(r.name || r.ref || "");
-        out.push({ name });
-      }
-    }
-    return out;
-  }
-
-  /**
-   * 指定リポジトリのプルリクエスト一覧を取得します。
-   */
-  private async fetchPullRequests(organization: string, repoIdOrName: string, pat?: string): Promise<AdoPullRequest[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    // Pull Requests API: filter by repositoryId if provided
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
-    const out: AdoPullRequest[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const pr of data.value) {
-        out.push({ pullRequestId: Number(pr.pullRequestId || pr.id), title: String(pr.title || ""), url: pr._links?.web?.href || pr.url || "", status: pr.status, createdBy: pr.createdBy });
-      }
-    }
-    return out;
-  }
-
-  /**
-   * 指定フィールド（AssignedTo / createdBy など）から表示用の人名を取り出す
-   */
-  private extractPerson(field: any): string {
-    try {
-      if (!field) return "";
-      if (typeof field === "string") return field;
-      if ((field as any).displayName) return String((field as any).displayName);
-      if ((field as any).uniqueName) return String((field as any).uniqueName);
-      if ((field as any).id) return String((field as any).id);
-      return String(field);
-    } catch (e) {
-      return "";
-    }
-  }
-
-  /**
-   * 組織の PAT を解決する。引数の `pat` を優先し、次に secrets、最後にプロンプトで取得する。
-   */
-  private async resolvePat(org: string, pat?: string): Promise<string | undefined> {
-    if (pat) return pat;
-    if (this.context) {
-      try {
-        const stored = await this.context.secrets.get(this.patKeyForOrg(org));
-        if (stored) return stored;
-      } catch (e) {}
-    }
-    const entered = await this.promptAndStorePat(org);
-    return entered;
-  }
-
-  /**
-   * プロジェクト ID/名前から表示用プロジェクト名を解決する。
-   * 解決できない（GUID 等）場合は空文字を返す。
-   */
-  private async resolveProjectName(org: string, idOrName?: string): Promise<string> {
-    if (!idOrName) return "";
-    const findProj = () => (this.projectsByOrg[org] || []).find(p => p.id === idOrName || p.name === idOrName);
-    let proj = findProj();
-    if (!proj) {
-      try {
-        await this.fetchProjects(org);
-      } catch (e) {}
-      proj = findProj();
-    }
-    if (proj && proj.name) return proj.name;
-    // if looks like GUID, return empty so callers omit project-scoped URLs
-    if (/^[0-9a-fA-F-]{32,36}$/.test(String(idOrName))) return "";
-    // otherwise assume provided name is usable as-is
-    return String(idOrName);
-  }
-
-  /**
-   * 共通 Web URL ビルダー。
-   * type: 'project'|'workitemsRoot'|'repo'|'branch'|'pr'|'workitem'|'prsFolder'
-   */
-  private buildWebUrl(org: string, projectName?: string, repoName?: string, type?: string, id?: string | number): string {
-    switch (type) {
-      case "project":
-        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}` : `https://dev.azure.com/${encodeURIComponent(org)}`;
-      case "workitemsRoot":
-        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/recentlyupdated/` : `https://dev.azure.com/${encodeURIComponent(org)}/_workitems`;
-      case "repo":
-        return projectName && repoName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}` : "";
-      case "branch":
-        return projectName && repoName && id ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}?version=GB${encodeURIComponent(String(id))}` : "";
-      case "pr":
-        return projectName && repoName && id ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${encodeURIComponent(String(id))}` : "";
-      case "workitem":
-        return projectName && id ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(id))}` : "";
-      case "prsFolder":
-        return projectName && repoName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequests?_a=mine` : "";
-      default:
-        return "";
-    }
   }
 
   // -----------------------
@@ -1132,7 +660,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.projectId = pid;
     it.iconPath = new vscode.ThemeIcon("repo");
     try {
-      const url = this.buildWebUrl(org, resolvedProj || pid || "", r.name || "", "repo");
+      const url = this.apiClient.buildWebUrl(org, resolvedProj || pid || "", r.name || "", "repo");
       if (url) {
         it.url = url;
         it.tooltip = url;
@@ -1157,7 +685,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.iconPath = new vscode.ThemeIcon("git-branch");
     try {
       const projNameFallback = pid && typeof pid === "string" ? pid : resolvedProj || "";
-      const url = this.buildWebUrl(org, resolvedProj || projNameFallback, repoName || repoId || "", "branch", name);
+      const url = this.apiClient.buildWebUrl(org, resolvedProj || projNameFallback, repoName || repoId || "", "branch", name);
       if (url) it.url = url;
     } catch (e) {}
     return it;
@@ -1175,7 +703,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (candidate && candidate.includes("/_apis/")) {
       if (resolvedProj && repoName) {
         try {
-          const url = this.buildWebUrl(org, resolvedProj, repoName, "pr", pr.pullRequestId);
+          const url = this.apiClient.buildWebUrl(org, resolvedProj, repoName, "pr", pr.pullRequestId);
           it.url = url || candidate;
         } catch (e) {
           it.url = candidate;
@@ -1188,7 +716,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
     it.tooltip = pr.title;
     try {
-      it.description = this.extractPerson((pr as any).createdBy || {});
+      it.description = this.apiClient.extractPerson((pr as any).createdBy || {});
     } catch (e) {}
     return it;
   }

@@ -23,11 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
           if (!pat) return;
           await context.secrets.store(`ado-assist.pat.${org}`, pat);
           vscode.window.showInformationMessage(`PAT saved for ${org}`);
-          // trigger a refresh/fetch for this org if provider is available
+          // Trigger a refresh of the tree since the PAT is now available
           try {
-            await provider.fetchProjects(org);
+            provider.refresh();
           } catch (e) {
-            // ignore fetch errors here
+            // ignore refresh errors here
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
