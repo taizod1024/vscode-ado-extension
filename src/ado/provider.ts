@@ -18,70 +18,37 @@ export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreePr
  * @implements {vscode.TreeDataProvider<AdoTreeItem>}
  */
 export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
-  /**
-   * TreeDataProvider 必須: ツリー変更用イベントエミッタ。
-   */
+  // -----------------------
+  // TreeDataProvider Required Members
+  // -----------------------
   private _onDidChangeTreeData: vscode.EventEmitter<AdoTreeItem | undefined | null | void> = new vscode.EventEmitter();
-
-  /**
-   * TreeDataProvider 必須メンバ: `onDidChangeTreeData`。
-   */
   readonly onDidChangeTreeData: vscode.Event<AdoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-  /**
-   * 拡張の `ExtensionContext`（VS Code 提供）。重要度高：workspaceState / secrets 関連で使用。
-   */
+  // -----------------------
+  // Core State
+  // -----------------------
   private context: vscode.ExtensionContext | undefined;
-
-  /**
-   * ADO API クライアント（ツリーロジックから独立）。
-   */
   private apiClient: AdoApiClient;
-
-  /**
-   * 重要: ツリーのルートに表示する組織名の配列（workspaceState に永続化）。
-   */
   private organizations: string[] = [];
 
-  /**
-   * 汎用キャッシュ: key ベースで任意の子配列を保持する。
-   */
+  // -----------------------
+  // Caching & Error Handling
+  // -----------------------
   private childrenCache: { [key: string]: any[] } = {};
-
-  /**
-   * 汎用 in-flight promise マップ（重複リクエスト合流用）。
-   */
   private childrenFetchPromises: { [key: string]: Promise<any[]> } = {};
-
-  /**
-   * 組織ごとのエラーメッセージを保持（workspaceState に保存）。
-   */
   private errorsByOrg: { [org: string]: string } = {};
 
-  /**
-   * 読み込み中の組織名（UI 表示補助）。
-   */
+  // -----------------------
+  // Loading UI State
+  // -----------------------
   private loadingOrg?: string;
-
-  /**
-   * 読み込み表示用フラグ（ノード単位）。キーは `AdoTreeItem.id`。
-   */
   private loadingNodes: { [id: string]: boolean } = {};
-
-  /**
-   * 読み込みタイマー（視覚フィードバック管理）。
-   */
   private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
-
-  /**
-   * 読み込み開始時に一時保存するアイコン。
-   */
   private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
 
-  /**
-   * 読み込み時に変更した collapsibleState を復元するためのバックアップ。
-   */
-
+  // -----------------------
+  // Constructor
+  // -----------------------
   /**
    * コンストラクタ。
    * @param context 拡張の `ExtensionContext`（省略可）
@@ -100,7 +67,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   // -----------------------
-  // TreeDataProvider 必須実装（公開 API）
+  // TreeDataProvider Implementation
   // -----------------------
   /**
    * TreeItem 表現を返す。TreeDataProvider 必須メソッド。
@@ -126,7 +93,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         it.url = `https://dev.azure.com/${encodeURIComponent(o)}`;
         it.tooltip = it.url;
         orgItems.push(it);
-        
+
         // エラーがある場合は表示
         if (this.errorsByOrg[o]) {
           const errItem = new AdoTreeItem(`⚠️ ${this.errorsByOrg[o]}`, vscode.TreeItemCollapsibleState.None);
@@ -389,7 +356,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   // -----------------------
-  // 公開ヘルパー（拡張コマンドなどから利用される API）
+  // Public API
   // -----------------------
   /**
    * ツリー全体を更新するヘルパー。
@@ -445,11 +412,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
       } catch (e) {}
       this._onDidChangeTreeData.fire(element);
-      
+
       // エラーをクリア
       delete this.errorsByOrg[org];
       if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-      
+
       try {
         await this.apiClient.fetchProjects(org);
       } catch (e) {}
@@ -464,9 +431,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
   }
 
-  /**
-   * 共通: ノードのロード開始処理（アイコン差し替え・タイマー設定）
-   */
   private beginLoading(element: AdoTreeItem) {
     if (!element.id) return;
     try {
@@ -499,9 +463,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     } catch (e) {}
   }
 
-  /**
-   * 共通: ノードのロード終了処理（タイマー・アイコン復元）
-   */
   private endLoading(element: AdoTreeItem) {
     if (!element.id) return;
     try {
@@ -521,7 +482,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   // -----------------------
-  // コマンド実装（組織管理）
+  // Organization Commands
   // -----------------------
   /**
    * 組織を追加します（重複無視）。workspaceState に永続化。
@@ -566,9 +527,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   // -----------------------
-  // 内部ヘルパー（ネットワーク / 認証）
+  // Private Utilities - Lazy Loading
   // -----------------------
-
   /**
    * 汎用遅延ローダー。
    * - キャッシュ確認、in-flight 合流、未ロード時は非同期 fetch を開始してプレースホルダを返す。
@@ -623,7 +583,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   // -----------------------
-  // TreeItem factory helpers
+  // Private Utilities - TreeItem Factories
   // -----------------------
   private makeWorkItemTreeItem(w: AdoWorkItem, org: string): AdoTreeItem {
     const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
@@ -721,8 +681,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     return it;
   }
 
+  // -----------------------
+  // Private Utilities - Authentication
+  // -----------------------
   /**
-   * ユーザーに PAT 入力を促し、入力があれば secrets に保存します（内部ヘルパー）。
+   * ユーザーに PAT 入力を促し、入力があれば secrets に保存します。
    */
   private async promptAndStorePat(org: string): Promise<string | undefined> {
     const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
@@ -739,7 +702,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
-   * 指定した組織に対応する secrets のキーを返します（内部ヘルパー）。
+   * 指定した組織に対応する secrets のキーを返します。
    */
   private patKeyForOrg(org: string) {
     return `ado-assist.pat.${org}`;

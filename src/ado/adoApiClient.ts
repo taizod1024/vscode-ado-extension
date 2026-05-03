@@ -7,17 +7,26 @@ import { httpRequest } from "./api";
  * TreeProvider と独立した責務を持ちます。
  */
 export class AdoApiClient {
+  // -----------------------
+  // Properties
+  // -----------------------
   private context: vscode.ExtensionContext | undefined;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
   private currentProfileCache: any | undefined;
-  private patPromptCallback?: (org: string) => Promise<string | undefined>;
   private patCache: { [org: string]: string } = {};
+  private patPromptCallback?: (org: string) => Promise<string | undefined>;
 
+  // -----------------------
+  // Constructor
+  // -----------------------
   constructor(context?: vscode.ExtensionContext) {
     this.context = context;
   }
 
+  // -----------------------
+  // Configuration
+  // -----------------------
   /**
    * PAT プロンプト用のコールバックを設定します。
    * @param callback PAT を要求する関数
@@ -69,28 +78,7 @@ export class AdoApiClient {
   }
 
   // -----------------------
-  // Repositories
-  // -----------------------
-  async fetchRepositories(organization: string, projectIdOrName: string, pat?: string): Promise<AdoRepository[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectIdOrName)}/_apis/git/repositories?api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
-    const repos: AdoRepository[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const r of data.value) {
-        const name = String(r.name || r.repositoryName || "");
-        const id = String(r.id || r.repositoryId || "");
-        const web = r._links?.web?.href || r.remoteUrl || "";
-        const defaultBranch = r.defaultBranch || undefined;
-        repos.push({ id, name, url: String(web || ""), defaultBranch });
-      }
-    }
-    return repos;
-  }
-
-  // -----------------------
-  // Work Items - Basic
+  // Work Items
   // -----------------------
   async fetchWorkItems(organization: string, projectIdOrName: string, pat?: string): Promise<AdoWorkItem[]> {
     const usePat = await this.resolvePat(organization, pat);
@@ -350,6 +338,24 @@ export class AdoApiClient {
     return out;
   }
 
+  async fetchRepositories(organization: string, projectIdOrName: string, pat?: string): Promise<AdoRepository[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectIdOrName)}/_apis/git/repositories?api-version=6.0`;
+    const data: any = await httpRequest("GET", url, usePat);
+    const repos: AdoRepository[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const r of data.value) {
+        const name = String(r.name || r.repositoryName || "");
+        const id = String(r.id || r.repositoryId || "");
+        const web = r._links?.web?.href || r.remoteUrl || "";
+        const defaultBranch = r.defaultBranch || undefined;
+        repos.push({ id, name, url: String(web || ""), defaultBranch });
+      }
+    }
+    return repos;
+  }
+
   // -----------------------
   // Pull Requests
   // -----------------------
@@ -426,7 +432,7 @@ export class AdoApiClient {
   }
 
   // -----------------------
-  // Profile
+  // Private Utilities
   // -----------------------
   private async fetchCurrentProfile(organization: string, pat?: string): Promise<any> {
     if (this.currentProfileCache) return this.currentProfileCache;
@@ -442,15 +448,12 @@ export class AdoApiClient {
     }
   }
 
-  // -----------------------
-  // Auth & Utilities
-  // -----------------------
   private async resolvePat(org: string, pat?: string): Promise<string | undefined> {
     if (pat) return pat;
-    
+
     // キャッシュをチェック
     if (this.patCache[org]) return this.patCache[org];
-    
+
     if (this.context) {
       try {
         const stored = await this.context.secrets.get(this.patKeyForOrg(org));
