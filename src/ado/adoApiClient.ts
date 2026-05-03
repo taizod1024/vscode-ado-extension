@@ -35,6 +35,13 @@ export class AdoApiClient {
     this.patPromptCallback = callback;
   }
 
+  /**
+   * PAT キャッシュをクリアします。
+   */
+  clearPatCache(): void {
+    this.patCache = {};
+  }
+
   // -----------------------
   // Projects
   // -----------------------

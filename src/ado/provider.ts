@@ -521,6 +521,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     }
     this.organizations = [];
     if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
+    this.apiClient.clearPatCache();
     this.childrenCache = {};
     this.childrenFetchPromises = {};
     this.refresh();
