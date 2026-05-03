@@ -11,6 +11,7 @@ export class AdoApiClient {
   // Properties
   // -----------------------
   private context: vscode.ExtensionContext | undefined;
+  private channel?: vscode.LogOutputChannel;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
   private currentProfileCache: any | undefined;
@@ -20,8 +21,9 @@ export class AdoApiClient {
   // -----------------------
   // Constructor
   // -----------------------
-  constructor(context?: vscode.ExtensionContext) {
+  constructor(context?: vscode.ExtensionContext, channel?: vscode.LogOutputChannel) {
     this.context = context;
+    this.channel = channel;
   }
 
   // -----------------------
@@ -55,7 +57,7 @@ export class AdoApiClient {
         const usePat = await this.resolvePat(organization, pat);
         if (!usePat) throw new Error("PAT not provided");
         const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=6.0`;
-        const data: any = await httpRequest("GET", url, usePat);
+        const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
         const projects: AdoProject[] = [];
         if (data && Array.isArray(data.value)) {
           for (const p of data.value) {
@@ -105,7 +107,7 @@ export class AdoApiClient {
     const query = {
       query: `Select [System.Id], [System.Title] From WorkItems Where [System.TeamProject] = '${safeName}' Order By [System.ChangedDate] Desc`,
     };
-    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, query);
+    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, query, { channel: this.channel });
     const ids = (wiqlResult?.workItems || [])
       .slice(0, 20)
       .map((w: any) => w.id)
@@ -114,7 +116,7 @@ export class AdoApiClient {
 
     const idsStr = ids.join(",");
     const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
-    const details = await httpRequest("GET", detailsUrl, usePat || "");
+    const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
     const items: AdoWorkItem[] = [];
     if (details && Array.isArray(details.value)) {
       for (const d of details.value) {
@@ -155,7 +157,9 @@ export class AdoApiClient {
         projectName = proj.name;
       } else {
         if (/^[0-9a-fA-F-]{32,36}$/.test(String(projectIdOrName))) {
-          console.log(`ado-assist: provided project identifier appears to be GUID and could not be resolved to name: ${projectIdOrName}`);
+          if (this.channel) {
+            this.channel.appendLine(`provided project identifier appears to be GUID and could not be resolved to name: ${projectIdOrName}`);
+          }
           projectName = "";
         }
       }
@@ -163,7 +167,7 @@ export class AdoApiClient {
 
     const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
     const queryBody = { query: wiql };
-    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, queryBody);
+    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, queryBody, { channel: this.channel });
 
     const ids = (wiqlResult?.workItems || [])
       .slice(0, 50)
@@ -173,7 +177,7 @@ export class AdoApiClient {
 
     const idsStr = ids.join(",");
     const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
-    const details = await httpRequest("GET", detailsUrl, usePat || "");
+    const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
     const items: AdoWorkItem[] = [];
     if (details && Array.isArray(details.value)) {
       for (const d of details.value) {
@@ -334,7 +338,7 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/repositories/${encodeURIComponent(repoIdOrName)}/refs?filter=heads&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
     const out: AdoBranch[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
@@ -349,7 +353,7 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectIdOrName)}/_apis/git/repositories?api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
     const repos: AdoRepository[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
@@ -370,7 +374,7 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
@@ -390,7 +394,7 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&searchCriteria.status=${encodeURIComponent(status)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
@@ -413,7 +417,7 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat);
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
     const profile = await this.fetchCurrentProfile(organization, usePat);
     const myId = profile?.id || profile?.identifier || profile?.displayName || profile?.uniqueName;
     const out: AdoPullRequest[] = [];
@@ -447,7 +451,7 @@ export class AdoApiClient {
     if (!usePat) return undefined;
     const url = `https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0`;
     try {
-      const data = await httpRequest("GET", url, usePat);
+      const data = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
       this.currentProfileCache = data;
       return data;
     } catch (e) {

@@ -2,13 +2,14 @@ import * as vscode from "vscode";
 import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest } from "./types";
 import { AdoApiClient } from "./adoApiClient";
 
-export function createTreeProvider(context?: vscode.ExtensionContext): AdoTreeProvider {
+export function createTreeProvider(context?: vscode.ExtensionContext, channel?: vscode.LogOutputChannel): AdoTreeProvider {
   /**
    * AdoTreeProvider のファクトリ。
    * @param context 拡張の `ExtensionContext`（省略可）
+   * @param channel ロギング用の OutputChannel（省略可）
    * @returns `AdoTreeProvider` インスタンス
    */
-  return new AdoTreeProvider(context);
+  return new AdoTreeProvider(context, channel);
 }
 
 /**
@@ -28,6 +29,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // Core State
   // -----------------------
   private context: vscode.ExtensionContext | undefined;
+  private channel?: vscode.LogOutputChannel;
   private apiClient: AdoApiClient;
   private organizations: string[] = [];
 
@@ -52,10 +54,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /**
    * コンストラクタ。
    * @param context 拡張の `ExtensionContext`（省略可）
+   * @param channel ロギング用の OutputChannel（省略可）
    */
-  constructor(context?: vscode.ExtensionContext) {
+  constructor(context?: vscode.ExtensionContext, channel?: vscode.LogOutputChannel) {
     this.context = context;
-    this.apiClient = new AdoApiClient(context);
+    this.channel = channel;
+    this.apiClient = new AdoApiClient(context, channel);
     // PAT プロンプト用コールバックを設定
     this.apiClient.setPatPromptCallback(org => this.promptAndStorePat(org));
     if (this.context) {

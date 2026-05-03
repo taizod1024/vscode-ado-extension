@@ -1,4 +1,5 @@
 import { URL } from "url";
+import * as vscode from "vscode";
 
 /**
  * HTTP リクエストを行い、JSON レスポンスをパースして返します。
@@ -6,14 +7,16 @@ import { URL } from "url";
  * @param urlStr 要求先の URL
  * @param pat Personal Access Token（Basic 認証に利用）
  * @param body POST 時のペイロード（省略可）
+ * @param _opts オプション設定（ロギング用 channel 含む）
  * @returns パース済みの JSON レスポンス（失敗時は例外を投げます）
  */
-export type HttpRequestOptions = {};
+export type HttpRequestOptions = { channel?: vscode.LogOutputChannel };
 
-export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any, _opts?: HttpRequestOptions): Promise<any> {
+export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any, opts?: HttpRequestOptions): Promise<any> {
   const https = require("https");
   const http = require("http");
   const u = new URL(urlStr);
+  const channel = opts?.channel;
 
   const maskUrl = (s: string) => s.replace(/(^https?:\/\/)(?:[^@/]+@)?/, `$1`);
 
@@ -48,7 +51,9 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
             if (bodyStr) {
               parsed = JSON.parse(bodyStr);
             }
-            console.log(`ado-assist: call api - request=${method} ${masked} status=${status} ${res.statusMessage || ""}`);
+            if (channel) {
+              channel.appendLine(`call api - request=${method} ${masked} status=${status} ${res.statusMessage || ""}`);
+            }
             if (status >= 200 && status < 300) {
               resolve(parsed);
               return;
@@ -56,25 +61,33 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
             const err = new Error(`HTTP ${status} ${res.statusMessage || ""}`);
             (err as any).status = status;
             (err as any).body = parsed;
-            console.log(`ado-assist: call api - request=${method} ${masked} error=${String(err.message)}`);
+            if (channel) {
+              channel.appendLine(`call api - request=${method} ${masked} error=${String(err.message)}`);
+            }
             reject(err);
           } catch (err) {
             const masked2 = maskUrl(urlStr);
-            console.log(`ado-assist: call api - request=${method} ${masked2} error=${String(err)}`);
+            if (channel) {
+              channel.appendLine(`call api - request=${method} ${masked2} error=${String(err)}`);
+            }
             reject(err);
           }
         });
       });
       req.on("error", (e: any) => {
         const masked = maskUrl(urlStr);
-        console.log(`ado-assist: call api - request=${method} ${masked} error=${String(e && e.message ? e.message : e)}`);
+        if (channel) {
+          channel.appendLine(`call api - request=${method} ${masked} error=${String(e && e.message ? e.message : e)}`);
+        }
         reject(e);
       });
       if (payload) req.write(payload);
       req.end();
     } catch (err) {
       const masked = maskUrl(urlStr);
-      console.log(`ado-assist: call api - request=${method} ${masked} error=${String(err)}`);
+      if (channel) {
+        channel.appendLine(`call api - request=${method} ${masked} error=${String(err)}`);
+      }
       reject(err);
     }
   });
