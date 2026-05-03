@@ -4,7 +4,7 @@ import { createTreeProvider } from "./ado";
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
   const channel = vscode.window.createOutputChannel("Azure DevOps Assist", { log: true });
-  
+
   channel.appendLine("Azure DevOps Assist activated");
   channel.appendLine("activate() start");
   try {
