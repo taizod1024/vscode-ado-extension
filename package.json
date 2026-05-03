@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
-  "name": "azure-devops",
+  "name": "ado-assist",
   "displayName": "Azure DevOps Extension",
   "description": "A VS Code extension for Azure DevOps",
   "engines": {
@@ -20,23 +20,53 @@
   "contributes": {
     "commands": [
       {
-        "command": "azure-devops.openProject",
-        "title": "Azure DevOps: Open Project",
-        "icon": "$(link)"
+        "command": "ado-assist.openUrl",
+        "title": "Azure DevOps: Open URL",
+        "icon": "$(globe)"
       },
       {
-        "command": "azure-devops.addOrganization",
+        "command": "ado-assist.createEpic",
+        "title": "Azure DevOps: Create Epic",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createIssue",
+        "title": "Azure DevOps: Create Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createTask",
+        "title": "Azure DevOps: Create Task",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createPullRequest",
+        "title": "Azure DevOps: Create Pull Request",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.cloneRepo",
+        "title": "Azure DevOps: Clone Repository",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "ado-assist.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
       },
       {
-        "command": "azure-devops.removeOrganization",
+        "command": "ado-assist.removeOrganization",
         "title": "Azure DevOps: Remove Organization",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "ado-assist.clearOrganizations",
+        "title": "Azure DevOps: Clear All Organizations",
         "icon": "$(trash)"
       },
       {
-        "command": "azure-devops.fetchOrganization",
-        "title": "Azure DevOps: Fetch Organization",
+        "command": "ado-assist.refreshNode",
+        "title": "Azure DevOps: Refresh Node",
         "icon": "$(refresh)"
       }
     ],
@@ -44,37 +74,95 @@
       "commandPalette": [],
       "view/title": [
         {
-          "command": "azure-devops.addOrganization",
+          "command": "ado-assist.addOrganization",
           "when": "view == azureDevOps.sidePanel",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
-          "command": "azure-devops.removeOrganization",
+          "command": "ado-assist.removeOrganization",
           "when": "view == azureDevOps.sidePanel",
-          "group": "navigation"
+          "group": "navigation@2"
+        },
+        {
+          "command": "ado-assist.clearOrganizations",
+          "when": "view == azureDevOps.sidePanel",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
         {
-          "command": "azure-devops.fetchOrganization",
+          "command": "ado-assist.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
-        }
-      ],
-      "view/item/toolbar": [
+        },
         {
-          "command": "azure-devops.openProject",
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == organization",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == adoProject",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
         {
-          "command": "azure-devops.openProject",
-          "when": "view == azureDevOps.sidePanel && viewItem == pipeline",
+          "command": "ado-assist.cloneRepo",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
         {
-          "command": "azure-devops.openProject",
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createEpic",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createIssue",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createTask",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createPullRequest",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline"
         }
       ]
@@ -83,7 +171,7 @@
       "activitybar": [
         {
           "id": "azureDevOps",
-          "title": "Azure DevOps",
+          "title": "Azure DevOps Assist",
           "icon": "$(azure-devops)"
         }
       ]
@@ -92,7 +180,7 @@
       "azureDevOps": [
         {
           "id": "azureDevOps.sidePanel",
-          "name": "Azure DevOps",
+          "name": "Azure DevOps Assist",
           "icon": "resources/icon.svg"
         }
       ]
@@ -135,6 +223,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/taizod1024/vscode-azure-devops-extension.git"
+    "url": "https://github.com/taizod1024/vscode-ado-assist-extension.git"
   }
 }

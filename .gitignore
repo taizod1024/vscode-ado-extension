@@ -5,5 +5,5 @@ node_modules
 build
 
 # root: no commit
-*.vsix
+# *.vsix
 *.zip
