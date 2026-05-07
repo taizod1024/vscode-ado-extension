@@ -68,6 +68,11 @@
         "command": "ado-assist.refreshNode",
         "title": "Azure DevOps: Refresh Node",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "ado-assist.sendWorkItemToCopilot",
+        "title": "Azure DevOps: Send Work Item to GitHub Copilot",
+        "icon": "$(copilot)"
       }
     ],
     "menus": {
@@ -132,6 +137,11 @@
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.sendWorkItemToCopilot",
           "when": "view == azureDevOps.sidePanel && viewItem == workitem",
           "group": "inline"
         },

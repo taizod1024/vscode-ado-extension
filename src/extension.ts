@@ -364,6 +364,32 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Send Work Item to GitHub Copilot Chat
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.sendWorkItemToCopilot", async (arg?: any) => {
+        try {
+          const getLabel = (item: any): string => {
+            if (typeof item?.label === "string") return item.label;
+            if (typeof item?.label?.label === "string") return item.label.label;
+            return String(item?.label ?? "");
+          };
+          const label = getLabel(arg);
+          const url = arg?.url || "";
+          const assignee = typeof arg?.description === "string" ? arg.description : "";
+          const lines: string[] = [];
+          if (label) lines.push(`Work Item: ${label}`);
+          if (assignee) lines.push(`Assignee: ${assignee}`);
+          if (url) lines.push(`URL: ${url}`);
+          const query = lines.join("\n");
+          channel.appendLine(`sendWorkItemToCopilot - label=${label}, assignee=${assignee}, url=${url}`);
+          await vscode.commands.executeCommand("workbench.action.chat.open", { query });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to send to GitHub Copilot: " + msg);
+        }
+      }),
+    );
+
     // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
     channel.appendLine("error registering provider: " + String(err));
