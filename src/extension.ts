@@ -410,13 +410,29 @@ export function activate(context: vscode.ExtensionContext) {
           // description
           let description = "";
           if (arg && typeof arg === "object") {
-            if (typeof arg.description === "string" && arg.description.trim()) description = arg.description;
-            else if (arg.fields && typeof arg.fields["System.Description"] === "string") description = arg.fields["System.Description"];
-            else if (typeof arg.body === "string") description = arg.body;
+            if (arg.fields && typeof arg.fields["System.Description"] === "string") {
+              description = arg.fields["System.Description"];
+            } else if (typeof arg.body === "string") {
+              description = arg.body;
+            } else if (workItemNum && arg.organization) {
+              // API から work item の詳細を取得
+              try {
+                const client = provider.getClient();
+                const pat = await context.secrets.get(`ado-assist.pat.${arg.organization}`);
+                const url = `https://dev.azure.com/${encodeURIComponent(arg.organization)}/_apis/wit/workitems/${workItemNum}?api-version=6.0`;
+                const response: any = await (await import("./ado/api")).httpRequest("GET", url, pat || "", undefined, { channel });
+                if (response && response.fields) {
+                  description = response.fields["System.Description"] || response.fields["Description"] || "";
+                }
+              } catch (e) {
+                channel.appendLine(`Failed to fetch work item details: ${e}`);
+              }
+            }
           }
+          // HTML タグを削除
+          description = description.replace(/<[^>]*>/g, "");
 
-          const parts = [`work item: #${workItemNum}`, `title: ${title}`, `description: ${description}`];
-          const query = parts.join("\n");
+          const query = `**work item**: #${workItemNum}\n**title**: ${title}\n**description**:\n${description}`;
           channel.appendLine(`sendWorkItemToCopilot - workItem=${workItemNum}, title=${title}`);
           await vscode.commands.executeCommand("workbench.action.chat.open", { query });
         } catch (err) {
