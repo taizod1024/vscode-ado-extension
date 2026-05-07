@@ -566,14 +566,6 @@ export function activate(context: vscode.ExtensionContext) {
     try {
       channel.appendLine("attempting automatic reveal of side panel");
       await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
-      try {
-        // try the newer openView command if available
-        // @ts-ignore
-        await vscode.commands.executeCommand("workbench.views.openView", "azureDevOps.sidePanel", true);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        channel.appendLine("optional openView failed: " + msg);
-      }
       channel.appendLine("automatic reveal attempt finished");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
