@@ -10,7 +10,9 @@ export function activate(context: vscode.ExtensionContext) {
   try {
     // Register a TreeDataProvider for the side panel view id
     const provider = createTreeProvider(context, channel);
-    context.subscriptions.push(vscode.window.registerTreeDataProvider("azureDevOps.sidePanel", provider));
+    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
+    context.subscriptions.push(treeView);
+    provider.setTreeView(treeView);
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
 
@@ -25,17 +27,33 @@ export function activate(context: vscode.ExtensionContext) {
           if (!org) return;
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
-          await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          vscode.window.showInformationMessage(`PAT saved for ${org}`);
-          // Trigger a refresh of the tree since the PAT is now available
-          try {
-            provider.refresh();
-          } catch (e) {
-            // ignore refresh errors here
+
+          // Verify the PAT before saving
+          channel.appendLine(`Starting PAT verification for organization: ${org}`);
+          const client = provider.getClient();
+          const isValid = await client.verifyPat(org, pat);
+          channel.appendLine(`PAT verification result: ${isValid}`);
+
+          if (!isValid) {
+            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
+            channel.appendLine(`Error: ${errorMsg}`);
+            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
+            provider.clearCacheForOrganization(org);
+            await provider.revealOrganization(org);
+            await vscode.window.showErrorMessage(errorMsg);
+            return;
           }
+
+          await context.secrets.store(`ado-assist.pat.${org}`, pat);
+          channel.appendLine(`PAT successfully saved for organization: ${org}`);
+          // キャッシュクリア→プロジェクト先行フェッチ→ツリー展開
+          provider.clearCacheForOrganization(org);
+          await provider.revealOrganization(org);
+          await vscode.window.showInformationMessage(`PAT saved for ${org}`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to save PAT: " + msg);
+          channel.appendLine(`Exception in enterPatForOrg: ${msg}`);
+          await vscode.window.showErrorMessage("Failed to save PAT: " + msg);
         }
       }),
     );
@@ -237,10 +255,44 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.addOrganization", async () => {
         try {
+          // 1. org 名を入力
           const org = await vscode.window.showInputBox({ prompt: "Organization name to add (e.g. myorg)" });
           if (!org) return;
+          const existing = context.globalState.get<string[]>("azuredevops.organizations") || [];
+          if (existing.includes(org)) {
+            vscode.window.showErrorMessage(`Organization "${org}" is already registered.`);
+            return;
+          }
+
+          // 2. PAT を入力
+          const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
+          if (!pat) return;
+
+          // 3. PAT を検証
+          channel.appendLine(`Starting PAT verification for organization: ${org}`);
+          const client = provider.getClient();
+          const isValid = await client.verifyPat(org, pat);
+          channel.appendLine(`PAT verification result: ${isValid}`);
+
+          // 4. org 登録（PAT の OK/NG に関わらず）
           provider.addOrganization(org);
-          vscode.window.showInformationMessage(`Added organization ${org}`);
+
+          if (!isValid) {
+            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
+            channel.appendLine(`Error: ${errorMsg}`);
+            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
+            provider.clearCacheForOrganization(org);
+            await provider.revealOrganization(org);
+            await vscode.window.showErrorMessage(errorMsg);
+            return;
+          }
+
+          // 5. PAT 保存 → ツリー展開
+          await context.secrets.store(`ado-assist.pat.${org}`, pat);
+          channel.appendLine(`PAT successfully saved for organization: ${org}`);
+          provider.clearCacheForOrganization(org);
+          await provider.revealOrganization(org);
+          await vscode.window.showInformationMessage(`Organization "${org}" added.`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to add organization: " + msg);
@@ -250,20 +302,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Remove organization
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.removeOrganization", async () => {
+      vscode.commands.registerCommand("ado-assist.removeOrganization", async (orgArg?: any) => {
         try {
-          const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
-          if (orgs.length === 0) {
-            vscode.window.showInformationMessage("No organizations to remove");
-            return;
-          }
-          const pick = await vscode.window.showQuickPick(orgs, { placeHolder: "Select organization to remove" });
+          const pick = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           if (!pick) return;
-          const confirm = await vscode.window.showQuickPick(["REMOVE", "CANCEL"], {
-            placeHolder: `Confirm remove organization ${pick}?`,
+          const confirm = await vscode.window.showQuickPick([`REMOVE ${pick}`, "CANCEL"], {
+            placeHolder: `Remove organization ${pick} and its PAT?`,
           });
-          if (confirm !== "REMOVE") return;
+          if (confirm !== `REMOVE ${pick}`) return;
           provider.removeOrganization(pick);
+          await context.secrets.delete(`ado-assist.pat.${pick}`);
           vscode.window.showInformationMessage(`Removed organization ${pick}`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -272,31 +320,22 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Clear all organizations + delete stored PATs
+    // Remove all organizations + delete stored PATs
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.clearOrganizations", async () => {
+      vscode.commands.registerCommand("ado-assist.removeAllOrganizations", async () => {
         try {
           const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
           if (orgs.length === 0) {
-            vscode.window.showInformationMessage("No organizations to clear");
+            vscode.window.showInformationMessage("No organizations to remove");
             return;
           }
-          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: "CLEAR ALL ORGANIZATIONS AND THEIR PATS" });
-          if (confirm !== "CLEAR") return;
-          // delete PATs
-          for (const o of orgs) {
-            try {
-              await context.secrets.delete(`ado-assist.pat.${o}`);
-            } catch (e) {
-              // ignore per-org deletion errors
-            }
-          }
-          // clear provider state (provider now also removes stored PATs)
-          if (provider && provider.clearOrganizations) await provider.clearOrganizations();
-          vscode.window.showInformationMessage(`Cleared ${orgs.length} organizations and their PATs`);
+          const confirm = await vscode.window.showQuickPick(["REMOVE ALL ORGANIZATIONS", "CANCEL"], { placeHolder: "Remove all organizations and their PATs?" });
+          if (confirm !== "REMOVE ALL ORGANIZATIONS") return;
+          await provider.removeAllOrganizations();
+          vscode.window.showInformationMessage(`Removed ${orgs.length} organizations and their PATs`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to clear organizations: " + msg);
+          vscode.window.showErrorMessage("Failed to remove organizations: " + msg);
         }
       }),
     );
@@ -312,6 +351,11 @@ export function activate(context: vscode.ExtensionContext) {
             return;
           }
           await provider.refreshNode(element);
+          // 組織ノードのリフレッシュ後は展開して表示
+          const org = typeof element === "string" ? element : element?.organization;
+          if (org) {
+            await provider.revealOrganization(org);
+          }
           vscode.window.showInformationMessage("Refreshed");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

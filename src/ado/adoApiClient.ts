@@ -16,7 +16,6 @@ export class AdoApiClient {
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
   private currentProfileCache: any | undefined;
   private patCache: { [org: string]: string } = {};
-  private patPromptCallback?: (org: string) => Promise<string | undefined>;
 
   // -----------------------
   // Constructor
@@ -29,14 +28,6 @@ export class AdoApiClient {
   // -----------------------
   // Configuration
   // -----------------------
-  /**
-   * PAT プロンプト用のコールバックを設定します。
-   * @param callback PAT を要求する関数
-   */
-  setPatPromptCallback(callback: (org: string) => Promise<string | undefined>): void {
-    this.patPromptCallback = callback;
-  }
-
   /**
    * PAT キャッシュをクリアします。
    */
@@ -214,120 +205,50 @@ export class AdoApiClient {
   // -----------------------
   // Work Items - Categories
   // -----------------------
+  private buildWiql(projName: string, conditions: string[], orderBy: string): string {
+    const clauses = [projName ? `[System.TeamProject] = '${projName.replace(/'/g, "''")}'` : "", ...conditions].filter(Boolean);
+    return `Select [System.Id], [System.Title] From WorkItems${clauses.length ? ` Where ${clauses.join(" AND ")}` : ""} Order By ${orderBy}`;
+  }
+
   async fetchAssignedToMe(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.AssignedTo] = @Me`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["[System.AssignedTo] = @Me"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchFollowing(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.Tags] CONTAINS 'follow'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["[System.Tags] CONTAINS 'follow'"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchMentioned(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.History] CONTAINS '@'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["[System.History] CONTAINS '@'"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchMyActivity(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchRecentlyUpdated(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, [], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchRecentlyCompleted(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`([System.State] = 'Done' OR [System.State] = 'Closed' OR [System.State] = 'Resolved' OR [System.State] = 'Completed')`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["([System.State] = 'Done' OR [System.State] = 'Closed' OR [System.State] = 'Resolved' OR [System.State] = 'Completed')"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchRecentlyCreated(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.CreatedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, [], "[System.CreatedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
@@ -445,6 +366,31 @@ export class AdoApiClient {
   // -----------------------
   // Private Utilities
   // -----------------------
+  /**
+   * PAT の有効性を確認します。
+   * @param organization 組織名
+   * @param pat 確認対象の PAT
+   * @returns 有効な場合は true、無効な場合は false
+   */
+  async verifyPat(organization: string, pat: string): Promise<boolean> {
+    try {
+      // app.vssps.visualstudio.com は無効なPATでも200を返す場合があるため
+      // 実際に使う組織のエンドポイントで検証する
+      const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=6.0&$top=1`;
+      const result = await httpRequest("GET", url, pat, undefined, { channel: this.channel });
+      if (this.channel) {
+        this.channel.appendLine(`PAT verification succeeded for ${organization}`);
+      }
+      return true;
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      if (this.channel) {
+        this.channel.appendLine(`PAT verification failed for ${organization}: ${errorMsg}`);
+      }
+      return false;
+    }
+  }
+
   private async fetchCurrentProfile(organization: string, pat?: string): Promise<any> {
     if (this.currentProfileCache) return this.currentProfileCache;
     const usePat = await this.resolvePat(organization, pat);
@@ -473,14 +419,6 @@ export class AdoApiClient {
           return stored;
         }
       } catch (e) {}
-    }
-    // PAT プロンプト用コールバックがある場合は呼び出す
-    if (this.patPromptCallback) {
-      const pat = await this.patPromptCallback(org);
-      if (pat) {
-        this.patCache[org] = pat;
-      }
-      return pat;
     }
     return undefined;
   }
