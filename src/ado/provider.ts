@@ -32,6 +32,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private channel?: vscode.LogOutputChannel;
   private apiClient: AdoApiClient;
   private organizations: string[] = [];
+  private treeView?: vscode.TreeView<AdoTreeItem>;
 
   // -----------------------
   // Caching & Error Handling
@@ -39,6 +40,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private childrenCache: { [key: string]: any[] } = {};
   private childrenFetchPromises: { [key: string]: Promise<any[]> } = {};
   private errorsByOrg: { [org: string]: string } = {};
+  private nodeIdGen: { [key: string]: number } = {};
+  private childrenFetchTokens: { [key: string]: number } = {};
+  private childrenFetchSuppressions: { [key: string]: number } = {};
 
   // -----------------------
   // Loading UI State
@@ -757,6 +761,23 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       it.description = this.apiClient.extractPerson((pr as any).createdBy || {});
     } catch (e) {}
     return it;
+  }
+
+  // -----------------------
+  // Private Utilities - Authentication
+  // -----------------------
+  // -----------------------
+  // Projects Fetching
+  // -----------------------
+  /**
+   * 指定した組織のプロジェクトをフェッチします。
+   */
+  private async fetchProjects(org: string): Promise<void> {
+    try {
+      await this.apiClient.fetchProjects(org);
+    } catch (e) {
+      // エラーはログされるが、例外は呼び出し元で処理される
+    }
   }
 
   // -----------------------
