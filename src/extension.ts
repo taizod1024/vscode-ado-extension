@@ -399,7 +399,9 @@ export function activate(context: vscode.ExtensionContext) {
             if (typeof arg.title === "string" && arg.title.trim()) title = arg.title.trim();
             else {
               const label = getLabel(arg);
-              title = String(label).replace(/^#\d+\s*/, "").trim();
+              title = String(label)
+                .replace(/^#\d+\s*/, "")
+                .trim();
             }
           } else if (typeof arg === "string") {
             title = arg;
@@ -413,11 +415,7 @@ export function activate(context: vscode.ExtensionContext) {
             else if (typeof arg.body === "string") description = arg.body;
           }
 
-          const parts = [
-            `work item: #${workItemNum}`,
-            `title: ${title}`,
-            `description: ${description}`,
-          ];
+          const parts = [`work item: #${workItemNum}`, `title: ${title}`, `description: ${description}`];
           const query = parts.join("\n");
           channel.appendLine(`sendWorkItemToCopilot - workItem=${workItemNum}, title=${title}`);
           await vscode.commands.executeCommand("workbench.action.chat.open", { query });
