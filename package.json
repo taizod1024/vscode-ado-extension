@@ -73,6 +73,16 @@
         "command": "ado-assist.sendWorkItemToCopilot",
         "title": "Azure DevOps: Send Work Item to GitHub Copilot",
         "icon": "$(copilot)"
+      },
+      {
+        "command": "ado-assist.createBranchForWorkItem",
+        "title": "Azure DevOps: Create Branch for Work Item",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "ado-assist.openSettings",
+        "title": "Azure DevOps: Open Settings",
+        "icon": "$(gear)"
       }
     ],
     "menus": {
@@ -87,6 +97,11 @@
           "command": "ado-assist.removeAllOrganizations",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@2"
+        },
+        {
+          "command": "ado-assist.openSettings",
+          "when": "view == azureDevOps.sidePanel",
+          "group": "navigation@99"
         }
       ],
       "view/item/context": [
@@ -137,13 +152,18 @@
         },
         {
           "command": "ado-assist.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem || viewItem == workitem_active)",
           "group": "inline@99"
         },
         {
           "command": "ado-assist.sendWorkItemToCopilot",
-          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
-          "group": "inline"
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem_active",
+          "group": "inline@2"
+        },
+        {
+          "command": "ado-assist.createBranchForWorkItem",
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem_active",
+          "group": "inline@1"
         },
         {
           "command": "ado-assist.openUrl",
@@ -215,7 +235,17 @@
         }
       ]
     },
-    "keybindings": []
+    "keybindings": [],
+    "configuration": {
+      "title": "Azure DevOps Assist",
+      "properties": {
+        "adoAssist.branchPrefix": {
+          "type": "string",
+          "default": "working",
+          "description": "Prefix for created branches (e.g., working/username/#id_title)"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run esbuild-base -- --minify",

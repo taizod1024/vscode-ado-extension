@@ -604,7 +604,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.contextValue = "workitem";
     try {
       const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
-      if (st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete")) {
+      const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
+      // DONE以外のチケットには workitem_active を追加
+      if (!isDone) {
+        it.contextValue = "workitem_active";
+      }
+      if (isDone) {
         it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.green"));
       } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
         it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.green"));
