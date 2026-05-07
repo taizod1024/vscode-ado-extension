@@ -302,14 +302,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Remove organization
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.removeOrganization", async () => {
+      vscode.commands.registerCommand("ado-assist.removeOrganization", async (orgArg?: any) => {
         try {
-          const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
-          if (orgs.length === 0) {
-            vscode.window.showInformationMessage("No organizations to remove");
-            return;
-          }
-          const pick = await vscode.window.showQuickPick(orgs, { placeHolder: "Select organization to remove" });
+          const pick = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           if (!pick) return;
           const confirm = await vscode.window.showQuickPick([`REMOVE ${pick}`, "CANCEL"], {
             placeHolder: `Remove organization ${pick} and its PAT?`,
