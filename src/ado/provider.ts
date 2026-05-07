@@ -45,6 +45,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private childrenFetchSuppressions: { [key: string]: number } = {};
 
   // -----------------------
+  // Authentication State
+  // -----------------------
+  private authFailedOrgs = new Set<string>();
+
+  // -----------------------
   // Loading UI State
   // -----------------------
   private loadingOrg?: string;
@@ -64,8 +69,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     this.context = context;
     this.channel = channel;
     this.apiClient = new AdoApiClient(context, channel);
-    // PAT プロンプト用コールバックを設定
-    this.apiClient.setPatPromptCallback(org => this.promptAndStorePat(org));
     if (this.context) {
       const orgs = this.context.globalState.get<string[]>("azuredevops.organizations");
       if (orgs) this.organizations = orgs;
@@ -77,6 +80,27 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /** Called from extension activation to provide the TreeView instance */
   setTreeView(tv: vscode.TreeView<AdoTreeItem>) {
     this.treeView = tv;
+  }
+
+  /**
+   * API クライアントを取得します。
+   */
+  getClient(): AdoApiClient {
+    return this.apiClient;
+  }
+
+  /**
+   * 指定組織のキャッシュをクリアします。
+   * @param organization 組織名
+   */
+  clearCacheForOrganization(organization: string): void {
+    this.apiClient.clearPatCache();
+    this.authFailedOrgs.delete(organization);
+    const keysToDelete = Object.keys(this.childrenCache).filter(k => k.startsWith(`projects:${organization}`) || k.startsWith(`workitems:${organization}:`) || k.startsWith(`repos:${organization}:`));
+    for (const k of keysToDelete) {
+      delete this.childrenCache[k];
+    }
+    this.channel?.appendLine(`Cleared cache for organization: ${organization}`);
   }
 
   // -----------------------
@@ -133,6 +157,20 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     // organization の子: projects（汎用 lazy loader を利用）
     if (t === "organization" && element.organization) {
       const org = element.organization as string;
+
+      // PAT が未設定の場合は「Enter PAT」アイテムを表示
+      const storedPat = await this.context?.secrets.get(`ado-assist.pat.${org}`);
+      if (!storedPat) {
+        const enterPatItem = new AdoTreeItem("Enter PAT to connect...", vscode.TreeItemCollapsibleState.None);
+        enterPatItem.itemType = "error";
+        enterPatItem.organization = org;
+        enterPatItem.id = `enter-pat:${org}`;
+        enterPatItem.contextValue = "enterPat";
+        enterPatItem.iconPath = new vscode.ThemeIcon("key", new vscode.ThemeColor("charts.yellow"));
+        enterPatItem.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+        return [enterPatItem];
+      }
+
       const key = `projects:${org}`;
       return this.lazyLoadChildren<AdoProject>(
         key,
@@ -469,7 +507,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           if (p.startsWith(`workitems:${org}:`)) {
             const remainingCache = Object.keys(this.childrenCache).filter(k => k === p || k.startsWith(p));
             const remainingPromises = Object.keys(this.childrenFetchPromises).filter(k => k === p || k.startsWith(p));
-            console.log(`ado-assist: refreshNode post-delete - prefix=${p} remainingCache=${JSON.stringify(remainingCache)} remainingPromises=${JSON.stringify(remainingPromises)}`);
+            this.channel?.appendLine(`ado-assist: refreshNode post-delete - prefix=${p} remainingCache=${JSON.stringify(remainingCache)} remainingPromises=${JSON.stringify(remainingPromises)}`);
           }
         }
       } catch (e) {}
@@ -668,7 +706,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // Private Utilities - TreeItem Factories
   // -----------------------
   private makeWorkItemTreeItem(w: AdoWorkItem, org: string): AdoTreeItem {
-    const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.Collapsed);
+    const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
     it.itemType = "workItem";
     it.organization = org;
     it.id = `work:${org}:${w.id}`;
@@ -790,6 +828,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
     if (!pat || !this.context) return undefined;
     try {
+      const isValid = await this.apiClient.verifyPat(org, pat);
+      if (!isValid) {
+        vscode.window.showErrorMessage(`Authentication failed. The PAT is invalid or has expired.`);
+        this.authFailedOrgs.add(org);
+        return undefined;
+      }
+      this.authFailedOrgs.delete(org);
       await this.context.secrets.store(this.patKeyForOrg(org), pat);
       vscode.window.showInformationMessage(`PAT saved for ${org}`);
       return pat;

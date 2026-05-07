@@ -16,7 +16,6 @@ export class AdoApiClient {
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
   private currentProfileCache: any | undefined;
   private patCache: { [org: string]: string } = {};
-  private patPromptCallback?: (org: string) => Promise<string | undefined>;
 
   // -----------------------
   // Constructor
@@ -29,14 +28,6 @@ export class AdoApiClient {
   // -----------------------
   // Configuration
   // -----------------------
-  /**
-   * PAT プロンプト用のコールバックを設定します。
-   * @param callback PAT を要求する関数
-   */
-  setPatPromptCallback(callback: (org: string) => Promise<string | undefined>): void {
-    this.patPromptCallback = callback;
-  }
-
   /**
    * PAT キャッシュをクリアします。
    */
@@ -445,6 +436,31 @@ export class AdoApiClient {
   // -----------------------
   // Private Utilities
   // -----------------------
+  /**
+   * PAT の有効性を確認します。
+   * @param organization 組織名
+   * @param pat 確認対象の PAT
+   * @returns 有効な場合は true、無効な場合は false
+   */
+  async verifyPat(organization: string, pat: string): Promise<boolean> {
+    try {
+      // app.vssps.visualstudio.com は無効なPATでも200を返す場合があるため
+      // 実際に使う組織のエンドポイントで検証する
+      const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=6.0&$top=1`;
+      const result = await httpRequest("GET", url, pat, undefined, { channel: this.channel });
+      if (this.channel) {
+        this.channel.appendLine(`PAT verification succeeded for ${organization}`);
+      }
+      return true;
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      if (this.channel) {
+        this.channel.appendLine(`PAT verification failed for ${organization}: ${errorMsg}`);
+      }
+      return false;
+    }
+  }
+
   private async fetchCurrentProfile(organization: string, pat?: string): Promise<any> {
     if (this.currentProfileCache) return this.currentProfileCache;
     const usePat = await this.resolvePat(organization, pat);
@@ -473,14 +489,6 @@ export class AdoApiClient {
           return stored;
         }
       } catch (e) {}
-    }
-    // PAT プロンプト用コールバックがある場合は呼び出す
-    if (this.patPromptCallback) {
-      const pat = await this.patPromptCallback(org);
-      if (pat) {
-        this.patCache[org] = pat;
-      }
-      return pat;
     }
     return undefined;
   }

@@ -25,17 +25,39 @@ export function activate(context: vscode.ExtensionContext) {
           if (!org) return;
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
+
+          // Verify the PAT before saving
+          channel.appendLine(`Starting PAT verification for organization: ${org}`);
+          const client = provider.getClient();
+          const isValid = await client.verifyPat(org, pat);
+          channel.appendLine(`PAT verification result: ${isValid}`);
+
+          if (!isValid) {
+            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
+            channel.appendLine(`Error: ${errorMsg}`);
+            // Clear cache on authentication failure to prevent stale data
+            provider.clearCacheForOrganization(org);
+            // Do NOT refresh tree on authentication failure
+            await vscode.window.showErrorMessage(errorMsg);
+            return;
+          }
+
           await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          vscode.window.showInformationMessage(`PAT saved for ${org}`);
-          // Trigger a refresh of the tree since the PAT is now available
+          const successMsg = `PAT saved for ${org}`;
+          channel.appendLine(`PAT successfully saved for organization: ${org}`);
+          await vscode.window.showInformationMessage(successMsg);
+          // Trigger a refresh of the tree ONLY after authentication succeeds
+          channel.appendLine(`Refreshing tree after successful authentication`);
           try {
+            provider.clearCacheForOrganization(org);
             provider.refresh();
           } catch (e) {
             // ignore refresh errors here
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to save PAT: " + msg);
+          channel.appendLine(`Exception in enterPatForOrg: ${msg}`);
+          await vscode.window.showErrorMessage("Failed to save PAT: " + msg);
         }
       }),
     );
@@ -264,6 +286,7 @@ export function activate(context: vscode.ExtensionContext) {
           });
           if (confirm !== "REMOVE") return;
           provider.removeOrganization(pick);
+          await context.secrets.delete(`ado-assist.pat.${pick}`);
           vscode.window.showInformationMessage(`Removed organization ${pick}`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
