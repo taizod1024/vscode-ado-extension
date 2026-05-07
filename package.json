@@ -60,14 +60,19 @@
         "icon": "$(remove)"
       },
       {
-        "command": "ado-assist.clearOrganizations",
-        "title": "Azure DevOps: Clear All Organizations",
+        "command": "ado-assist.removeAllOrganizations",
+        "title": "Azure DevOps: Remove All Organizations",
         "icon": "$(trash)"
       },
       {
         "command": "ado-assist.refreshNode",
         "title": "Azure DevOps: Refresh Node",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "ado-assist.sendWorkItemToCopilot",
+        "title": "Azure DevOps: Send Work Item to GitHub Copilot",
+        "icon": "$(copilot)"
       }
     ],
     "menus": {
@@ -79,14 +84,9 @@
           "group": "navigation@1"
         },
         {
-          "command": "ado-assist.removeOrganization",
+          "command": "ado-assist.removeAllOrganizations",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@2"
-        },
-        {
-          "command": "ado-assist.clearOrganizations",
-          "when": "view == azureDevOps.sidePanel",
-          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -97,6 +97,11 @@
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == organization",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.removeOrganization",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
         },
@@ -116,6 +121,16 @@
           "group": "inline"
         },
         {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == branchesFolder",
+          "group": "inline"
+        },
+        {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline"
@@ -126,12 +141,22 @@
           "group": "inline"
         },
         {
+          "command": "ado-assist.sendWorkItemToCopilot",
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
+          "group": "inline"
+        },
+        {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
           "group": "inline"
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
           "group": "inline"
         },
@@ -152,6 +177,11 @@
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline"
         },

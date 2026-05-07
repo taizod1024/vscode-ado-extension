@@ -46,6 +46,45 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
         res.on("end", () => {
           const status = res.statusCode;
           const masked = maskUrl(urlStr);
+
+          // ステータスコードを最初に確認
+          if (status < 200 || status >= 300) {
+            try {
+              let parsed: any = {};
+              let errorMsg = `HTTP ${status} ${res.statusMessage || ""}`;
+
+              // 302リダイレクトは通常、認証失敗を示す
+              if (status === 302) {
+                errorMsg = `Authentication failed (redirected). Check your PAT.`;
+              }
+
+              if (bodyStr) {
+                try {
+                  parsed = JSON.parse(bodyStr);
+                } catch (e) {
+                  // パース失敗は無視、bodyStrをそのまま使う
+                }
+              }
+
+              const err = new Error(errorMsg);
+              (err as any).status = status;
+              (err as any).body = parsed;
+              if (channel) {
+                channel.appendLine(`call api - request=${method} ${masked} error=${errorMsg} status=${status}`);
+              }
+              reject(err);
+            } catch (parseErr) {
+              const err = new Error(`HTTP ${status} ${res.statusMessage || ""}`);
+              (err as any).status = status;
+              if (channel) {
+                channel.appendLine(`call api - request=${method} ${masked} error=${String(err.message)}`);
+              }
+              reject(err);
+            }
+            return;
+          }
+
+          // 成功時のみJSON.parse
           try {
             let parsed: any = {};
             if (bodyStr) {
@@ -54,17 +93,7 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
             if (channel) {
               channel.appendLine(`call api - request=${method} ${masked} status=${status} ${res.statusMessage || ""}`);
             }
-            if (status >= 200 && status < 300) {
-              resolve(parsed);
-              return;
-            }
-            const err = new Error(`HTTP ${status} ${res.statusMessage || ""}`);
-            (err as any).status = status;
-            (err as any).body = parsed;
-            if (channel) {
-              channel.appendLine(`call api - request=${method} ${masked} error=${String(err.message)}`);
-            }
-            reject(err);
+            resolve(parsed);
           } catch (err) {
             const masked2 = maskUrl(urlStr);
             if (channel) {
