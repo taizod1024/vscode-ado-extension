@@ -98,7 +98,7 @@
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.removeOrganization",
@@ -108,12 +108,12 @@
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == adoProject",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.cloneRepo",
@@ -133,12 +133,12 @@
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == workitem",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.sendWorkItemToCopilot",
@@ -148,12 +148,12 @@
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.refreshNode",
@@ -178,7 +178,7 @@
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
-          "group": "inline"
+          "group": "inline@99"
         },
         {
           "command": "ado-assist.refreshNode",
@@ -193,7 +193,7 @@
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
-          "group": "inline"
+          "group": "inline@99"
         }
       ]
     },

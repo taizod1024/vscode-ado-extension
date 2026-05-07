@@ -373,15 +373,67 @@ export function activate(context: vscode.ExtensionContext) {
             if (typeof item?.label?.label === "string") return item.label.label;
             return String(item?.label ?? "");
           };
-          const label = getLabel(arg);
-          const url = arg?.url || "";
-          const assignee = typeof arg?.description === "string" ? arg.description : "";
-          const lines: string[] = [];
-          if (label) lines.push(`Work Item: ${label}`);
-          if (assignee) lines.push(`Assignee: ${assignee}`);
-          if (url) lines.push(`URL: ${url}`);
-          const query = lines.join("\n");
-          channel.appendLine(`sendWorkItemToCopilot - label=${label}, assignee=${assignee}, url=${url}`);
+
+          // work item number extraction
+          let workItemNum = "";
+          try {
+            if (arg && typeof arg === "object") {
+              if (typeof arg.id === "number") workItemNum = String(arg.id);
+              else if (typeof arg.id === "string") {
+                const m1 = arg.id.match(/work:[^:]+:(\d+)/);
+                const m2 = arg.id.match(/:(\d+)$/);
+                if (m1) workItemNum = m1[1];
+                else if (m2) workItemNum = m2[1];
+              }
+              if (!workItemNum) {
+                const label = getLabel(arg);
+                const m3 = String(label).match(/^#(\d+)/);
+                if (m3) workItemNum = m3[1];
+              }
+            }
+          } catch (e) {}
+
+          // title
+          let title = "";
+          if (arg && typeof arg === "object") {
+            if (typeof arg.title === "string" && arg.title.trim()) title = arg.title.trim();
+            else {
+              const label = getLabel(arg);
+              title = String(label)
+                .replace(/^#\d+\s*/, "")
+                .trim();
+            }
+          } else if (typeof arg === "string") {
+            title = arg;
+          }
+
+          // description
+          let description = "";
+          if (arg && typeof arg === "object") {
+            if (arg.fields && typeof arg.fields["System.Description"] === "string") {
+              description = arg.fields["System.Description"];
+            } else if (typeof arg.body === "string") {
+              description = arg.body;
+            } else if (workItemNum && arg.organization) {
+              // API から work item の詳細を取得
+              try {
+                const client = provider.getClient();
+                const pat = await context.secrets.get(`ado-assist.pat.${arg.organization}`);
+                const url = `https://dev.azure.com/${encodeURIComponent(arg.organization)}/_apis/wit/workitems/${workItemNum}?api-version=6.0`;
+                const response: any = await (await import("./ado/api")).httpRequest("GET", url, pat || "", undefined, { channel });
+                if (response && response.fields) {
+                  description = response.fields["System.Description"] || response.fields["Description"] || "";
+                }
+              } catch (e) {
+                channel.appendLine(`Failed to fetch work item details: ${e}`);
+              }
+            }
+          }
+          // HTML タグを削除
+          description = description.replace(/<[^>]*>/g, "");
+
+          const query = `**work item**: #${workItemNum}\n**title**: ${title}\n**description**:\n${description}`;
+          channel.appendLine(`sendWorkItemToCopilot - workItem=${workItemNum}, title=${title}`);
           await vscode.commands.executeCommand("workbench.action.chat.open", { query });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
