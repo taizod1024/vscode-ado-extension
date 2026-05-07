@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.3](https://github.com/taizod1024/vscode-ado-assist-extension/compare/v0.0.2...v0.0.3) (2026-05-07)
+
+
+### Bug Fixes
+
+* correct display name in package.json ([38fe961](https://github.com/taizod1024/vscode-ado-assist-extension/commit/38fe9614816789f963c2be879a043b4a58a757ec))
+
 ### 0.0.2 (2026-05-07)
 
 
