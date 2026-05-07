@@ -2,18 +2,17 @@ import * as vscode from "vscode";
 import { createTreeProvider } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("ado-assist: activate() start");
+  // Create output channel
+  const channel = vscode.window.createOutputChannel("Azure DevOps Assist", { log: true });
+
+  channel.appendLine("Azure DevOps Assist activated");
+  channel.appendLine("activate() start");
   try {
-    // Create a TreeDataProvider and TreeView for the side panel so we can control reveal/collapse
-    const provider = createTreeProvider(context);
-    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
-    context.subscriptions.push(treeView);
-    // registerTreeDataProvider is not needed when createTreeView is used, but keep provider available
-    try {
-      if ((provider as any).setTreeView) (provider as any).setTreeView(treeView);
-    } catch (e) {}
-    console.log("ado-assist: registered TreeDataProvider for", "azureDevOps.sidePanel");
-    console.log("ado-assist: extension path:", context.extensionPath);
+    // Register a TreeDataProvider for the side panel view id
+    const provider = createTreeProvider(context, channel);
+    context.subscriptions.push(vscode.window.registerTreeDataProvider("azureDevOps.sidePanel", provider));
+    channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
+    channel.appendLine("extension path: " + context.extensionPath);
 
     // (removed unused helper commands: showView, savePat)
 
@@ -28,11 +27,11 @@ export function activate(context: vscode.ExtensionContext) {
           if (!pat) return;
           await context.secrets.store(`ado-assist.pat.${org}`, pat);
           vscode.window.showInformationMessage(`PAT saved for ${org}`);
-          // trigger a refresh/fetch for this org if provider is available
+          // Trigger a refresh of the tree since the PAT is now available
           try {
-            await provider.fetchProjects(org);
+            provider.refresh();
           } catch (e) {
-            // ignore fetch errors here
+            // ignore refresh errors here
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -51,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
           const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
           if (!url) return;
-          console.log(`ado-assist: open url - url=${url}`);
+          channel.appendLine(`open url - url=${url}`);
           // Try to open with Live Server extension if installed (user requested ms-vscode.live-server)
           try {
             const tryExtIds = ["ms-vscode.live-server", "ritwickdey.LiveServer", "ritwickdey.liveserver"];
@@ -62,7 +61,7 @@ export function activate(context: vscode.ExtensionContext) {
                 try {
                   // many live-server commands accept a URL or will open the last served page
                   await vscode.commands.executeCommand(c, url);
-                  console.log(`ado-assist: opened with extension command=${c}`);
+                  channel.appendLine(`opened with extension command=${c}`);
                   return;
                 } catch (e) {
                   // try next
@@ -215,7 +214,7 @@ export function activate(context: vscode.ExtensionContext) {
           // Log only host/path, do not emit PAT
           try {
             const safeLog = cloneUrl.replace(/^(https?:\/\/)(?:[^@]+@)?/, "$1");
-            console.log(`ado-assist: clone repo - url=${safeLog}`);
+            channel.appendLine(`clone repo - url=${safeLog}`);
           } catch (e) {}
 
           try {
@@ -282,7 +281,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage("No organizations to clear");
             return;
           }
-          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: "CLEAR ALL ORGANIZATIONS" });
+          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: "CLEAR ALL ORGANIZATIONS AND THEIR PATS" });
           if (confirm !== "CLEAR") return;
           // delete PATs
           for (const o of orgs) {
@@ -323,13 +322,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
-    console.error("ado-assist: error registering provider", err);
+    channel.appendLine("error registering provider: " + String(err));
   }
-  console.log("ado-assist: activate() end");
+  channel.appendLine("activate() end");
   // attempt to force reveal the view after a short delay
   setTimeout(async () => {
     try {
-      console.log("ado-assist: attempting automatic reveal of side panel");
+      channel.appendLine("attempting automatic reveal of side panel");
       await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
       try {
         // try the newer openView command if available
@@ -337,12 +336,12 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.commands.executeCommand("workbench.views.openView", "azureDevOps.sidePanel", true);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.log("ado-assist: optional openView failed", msg);
+        channel.appendLine("optional openView failed: " + msg);
       }
-      console.log("ado-assist: automatic reveal attempt finished");
+      channel.appendLine("automatic reveal attempt finished");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("ado-assist: automatic reveal setup error", msg);
+      channel.appendLine("automatic reveal setup error: " + msg);
     }
   }, 500);
 }
