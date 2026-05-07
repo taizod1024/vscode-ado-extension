@@ -87,6 +87,11 @@
           "command": "ado-assist.removeAllOrganizations",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@2"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
