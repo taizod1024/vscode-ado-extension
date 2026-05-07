@@ -1,0 +1,258 @@
+{
+  "version": "0.0.1",
+  "name": "ado-assist",
+  "displayName": "Azure DevOps Extension",
+  "description": "A VS Code extension for Azure DevOps",
+  "engines": {
+    "vscode": "^1.117.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "Azure DevOps"
+  ],
+  "publisher": "taizod1024",
+  "main": "./build/main.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ado-assist.openUrl",
+        "title": "Azure DevOps: Open URL",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "ado-assist.createEpic",
+        "title": "Azure DevOps: Create Epic",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createIssue",
+        "title": "Azure DevOps: Create Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createTask",
+        "title": "Azure DevOps: Create Task",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.createPullRequest",
+        "title": "Azure DevOps: Create Pull Request",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.cloneRepo",
+        "title": "Azure DevOps: Clone Repository",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "ado-assist.addOrganization",
+        "title": "Azure DevOps: Add Organization",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ado-assist.removeOrganization",
+        "title": "Azure DevOps: Remove Organization",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "ado-assist.removeAllOrganizations",
+        "title": "Azure DevOps: Remove All Organizations",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "ado-assist.refreshNode",
+        "title": "Azure DevOps: Refresh Node",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ado-assist.sendWorkItemToCopilot",
+        "title": "Azure DevOps: Send Work Item to GitHub Copilot",
+        "icon": "$(copilot)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [],
+      "view/title": [
+        {
+          "command": "ado-assist.addOrganization",
+          "when": "view == azureDevOps.sidePanel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ado-assist.removeAllOrganizations",
+          "when": "view == azureDevOps.sidePanel",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == organization",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == organization",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.removeOrganization",
+          "when": "view == azureDevOps.sidePanel && viewItem == organization",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == adoProject",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.cloneRepo",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == branchesFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == board",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.sendWorkItemToCopilot",
+          "when": "view == azureDevOps.sidePanel && viewItem == workitem",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createEpic",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createIssue",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createTask",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.refreshNode",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.createPullRequest",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == branch",
+          "group": "inline"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "azureDevOps",
+          "title": "Azure DevOps Assist",
+          "icon": "$(azure-devops)"
+        }
+      ]
+    },
+    "views": {
+      "azureDevOps": [
+        {
+          "id": "azureDevOps.sidePanel",
+          "name": "Azure DevOps Assist",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "keybindings": []
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=build/main.js --format=cjs --platform=node --external:vscode",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "test": "node ./build/test/runTest.js",
+    "vscode:uninstall": "node bin/uninstall.js",
+    "release": "npm run release-premerge && npx standard-version && vsce publish && npm run release-postmerge",
+    "release-premerge": "git switch main && git merge --no-ff develop --no-edit",
+    "release-postmerge": "git push --follow-tags origin main && git push origin develop && git switch develop",
+    "package": "vsce package",
+    "clean": "rmdir /q /s .\\build || exit /b 0"
+  },
+  "author": "yamamoto.taizo <taizod1024@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/cli": "^19.3.0",
+    "@commitlint/config-conventional": "^13.2.0",
+    "@types/mocha": "^9.0.0",
+    "@types/superagent": "^4.1.13",
+    "@types/superagent-proxy": "^2.0.1",
+    "@types/vscode": "^1.116.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "esbuild": "^0.27.2",
+    "eslint": "^8.0.1",
+    "husky": "^9.1.7",
+    "standard-version": "^9.5.0",
+    "ts-node": "^10.3.0",
+    "typescript": "^4.4.4",
+    "utf-8-validate": "^5.0.7",
+    "@types/node": "^20.5.6",
+    "vscode-test": "^1.4.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/taizod1024/vscode-ado-assist-extension.git"
+  }
+}

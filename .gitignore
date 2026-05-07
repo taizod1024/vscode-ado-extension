@@ -1,0 +1,9 @@
+# libraries: no commit
+node_modules
+
+# build: no commit
+build
+
+# root: no commit
+# *.vsix
+*.zip
