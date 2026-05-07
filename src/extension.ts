@@ -262,7 +262,7 @@ export function activate(context: vscode.ExtensionContext) {
           const org = await vscode.window.showInputBox({ prompt: "Organization name to add (e.g. myorg)" });
           if (!org) return;
           provider.addOrganization(org);
-          vscode.window.showInformationMessage(`Added organization ${org}`);
+          await vscode.commands.executeCommand("ado-assist.enterPatForOrg", org);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to add organization: " + msg);
