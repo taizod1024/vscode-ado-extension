@@ -10,7 +10,9 @@ export function activate(context: vscode.ExtensionContext) {
   try {
     // Register a TreeDataProvider for the side panel view id
     const provider = createTreeProvider(context, channel);
-    context.subscriptions.push(vscode.window.registerTreeDataProvider("azureDevOps.sidePanel", provider));
+    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
+    context.subscriptions.push(treeView);
+    provider.setTreeView(treeView);
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
 
@@ -35,25 +37,19 @@ export function activate(context: vscode.ExtensionContext) {
           if (!isValid) {
             const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
             channel.appendLine(`Error: ${errorMsg}`);
-            // Clear cache on authentication failure to prevent stale data
+            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
             provider.clearCacheForOrganization(org);
-            // Do NOT refresh tree on authentication failure
+            await provider.revealOrganization(org);
             await vscode.window.showErrorMessage(errorMsg);
             return;
           }
 
           await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          const successMsg = `PAT saved for ${org}`;
           channel.appendLine(`PAT successfully saved for organization: ${org}`);
-          await vscode.window.showInformationMessage(successMsg);
-          // Trigger a refresh of the tree ONLY after authentication succeeds
-          channel.appendLine(`Refreshing tree after successful authentication`);
-          try {
-            provider.clearCacheForOrganization(org);
-            provider.refresh();
-          } catch (e) {
-            // ignore refresh errors here
-          }
+          // キャッシュクリア→プロジェクト先行フェッチ→ツリー展開
+          provider.clearCacheForOrganization(org);
+          await provider.revealOrganization(org);
+          await vscode.window.showInformationMessage(`PAT saved for ${org}`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           channel.appendLine(`Exception in enterPatForOrg: ${msg}`);
@@ -282,7 +278,7 @@ export function activate(context: vscode.ExtensionContext) {
           const pick = await vscode.window.showQuickPick(orgs, { placeHolder: "Select organization to remove" });
           if (!pick) return;
           const confirm = await vscode.window.showQuickPick(["REMOVE", "CANCEL"], {
-            placeHolder: `Confirm remove organization ${pick}?`,
+            placeHolder: `Remove organization ${pick} and its PAT?`,
           });
           if (confirm !== "REMOVE") return;
           provider.removeOrganization(pick);
@@ -295,31 +291,22 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Clear all organizations + delete stored PATs
+    // Remove all organizations + delete stored PATs
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.clearOrganizations", async () => {
         try {
           const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
           if (orgs.length === 0) {
-            vscode.window.showInformationMessage("No organizations to clear");
+            vscode.window.showInformationMessage("No organizations to remove");
             return;
           }
-          const confirm = await vscode.window.showQuickPick(["CLEAR", "CANCEL"], { placeHolder: "CLEAR ALL ORGANIZATIONS AND THEIR PATS" });
-          if (confirm !== "CLEAR") return;
-          // delete PATs
-          for (const o of orgs) {
-            try {
-              await context.secrets.delete(`ado-assist.pat.${o}`);
-            } catch (e) {
-              // ignore per-org deletion errors
-            }
-          }
-          // clear provider state (provider now also removes stored PATs)
-          if (provider && provider.clearOrganizations) await provider.clearOrganizations();
-          vscode.window.showInformationMessage(`Cleared ${orgs.length} organizations and their PATs`);
+          const confirm = await vscode.window.showQuickPick(["REMOVE ALL", "CANCEL"], { placeHolder: "Remove all organizations and their PATs?" });
+          if (confirm !== "REMOVE ALL") return;
+          await provider.clearOrganizations();
+          vscode.window.showInformationMessage(`Removed ${orgs.length} organizations and their PATs`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to clear organizations: " + msg);
+          vscode.window.showErrorMessage("Failed to remove organizations: " + msg);
         }
       }),
     );

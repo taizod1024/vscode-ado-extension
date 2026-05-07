@@ -42,20 +42,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private errorsByOrg: { [org: string]: string } = {};
   private nodeIdGen: { [key: string]: number } = {};
   private childrenFetchTokens: { [key: string]: number } = {};
-  private childrenFetchSuppressions: { [key: string]: number } = {};
 
   // -----------------------
   // Authentication State
   // -----------------------
   private authFailedOrgs = new Set<string>();
-
-  // -----------------------
-  // Loading UI State
-  // -----------------------
-  private loadingOrg?: string;
-  private loadingNodes: { [id: string]: boolean } = {};
-  private loadingTimers: { [id: string]: NodeJS.Timeout } = {};
-  private loadingIconBackup: { [id: string]: vscode.ThemeIcon | any } = {};
 
   // -----------------------
   // Constructor
@@ -94,11 +85,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * @param organization 組織名
    */
   clearCacheForOrganization(organization: string): void {
-    this.apiClient.clearPatCache();
     this.authFailedOrgs.delete(organization);
-    const keysToDelete = Object.keys(this.childrenCache).filter(k => k.startsWith(`projects:${organization}`) || k.startsWith(`workitems:${organization}:`) || k.startsWith(`repos:${organization}:`));
-    for (const k of keysToDelete) {
-      delete this.childrenCache[k];
+    delete this.errorsByOrg[organization];
+    if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+    const prefixes = [`projects:${organization}`, `workitems:${organization}:`, `repos:${organization}:`, `branches:${organization}:`, `prs:${organization}:`];
+    for (const k of Object.keys(this.childrenCache)) {
+      if (prefixes.some(p => k === p || k.startsWith(p))) delete this.childrenCache[k];
+    }
+    for (const k of Object.keys(this.childrenFetchPromises)) {
+      if (prefixes.some(p => k === p || k.startsWith(p))) {
+        delete this.childrenFetchPromises[k];
+        this.childrenFetchTokens[k] = (this.childrenFetchTokens[k] || 0) + 1;
+      }
     }
     this.channel?.appendLine(`Cleared cache for organization: ${organization}`);
   }
@@ -434,150 +432,48 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   /**
    * 指定ノード（または全体）をリフレッシュする公開 API。
+   * キャッシュをクリアして tree data change を一度だけ発火する。
    * @param element 更新対象のノード（未指定で全体）
    */
   async refreshNode(element?: AdoTreeItem): Promise<void> {
-    if (!element) {
-      this.refresh();
-      return;
-    }
-    // refresh は組織単位だけでなく、子ノード数が変化しうるノード種別でも行う
-    try {
-      const t: AdoItemType | undefined = element.itemType;
-
-      const org = element.organization as string | undefined;
-      if (!org) {
-        this.refresh();
-        return;
-      }
-
-      if (element.id) {
-        this.beginLoading(element);
-      }
-
-      // 組織の children キャッシュ／in-flight を削除して再フェッチ
-      const prefixes = [`projects:${org}`, `workitems:${org}:`, `repos:${org}:`, `branches:${org}:`, `prs:${org}:`];
-      try {
-        for (const k of Object.keys(this.childrenCache)) {
-          for (const p of prefixes) {
-            if (k === p || k.startsWith(p)) {
-              delete this.childrenCache[k];
-              // bump token to invalidate any in-flight fetches for this key
-              this.childrenFetchTokens[k] = (this.childrenFetchTokens[k] || 0) + 1;
-              // set short suppression for this prefix to avoid immediate re-fetch races
-              try {
-                const ttl = 500; // ms
-                this.childrenFetchSuppressions[p] = Date.now() + ttl;
-              } catch (e) {}
-              break;
-            }
-          }
-        }
-      } catch (e) {}
-
-      try {
-        for (const k of Object.keys(this.childrenFetchPromises)) {
-          for (const p of prefixes) {
-            if (k === p || k.startsWith(p)) {
-              delete this.childrenFetchPromises[k];
-              // bump token to invalidate any in-flight fetches for this key
-              this.childrenFetchTokens[k] = (this.childrenFetchTokens[k] || 0) + 1;
-              try {
-                const ttl = 500; // ms
-                this.childrenFetchSuppressions[p] = Date.now() + ttl;
-              } catch (e) {}
-              break;
-            }
-          }
-        }
-      } catch (e) {}
-      this._onDidChangeTreeData.fire(element);
-
-      // エラーをクリア
-      delete this.errorsByOrg[org];
+    const org = element?.organization as string | undefined;
+    if (org) {
+      this.clearCacheForOrganization(org);
+    } else {
+      this.childrenCache = {};
+      this.childrenFetchPromises = {};
+      this.childrenFetchTokens = {};
+      this.errorsByOrg = {};
       if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-
-      try {
-        await this.apiClient.fetchProjects(org);
-      } catch (e) {}
-
-      // debug: log any remaining cache/promise keys that still match prefixes after deletion
-      try {
-        for (const p of prefixes) {
-          if (p.startsWith(`workitems:${org}:`)) {
-            const remainingCache = Object.keys(this.childrenCache).filter(k => k === p || k.startsWith(p));
-            const remainingPromises = Object.keys(this.childrenFetchPromises).filter(k => k === p || k.startsWith(p));
-            this.channel?.appendLine(`ado-assist: refreshNode post-delete - prefix=${p} remainingCache=${JSON.stringify(remainingCache)} remainingPromises=${JSON.stringify(remainingPromises)}`);
-          }
-        }
-      } catch (e) {}
-
-      // force a full refresh so that updated `collapsibleState` is applied
-      this.refresh();
-
-      // organization の場合は projects を先行フェッチして UI を早めに更新
-      if (t === "organization" && org) {
-        try {
-          await this.fetchProjects(org);
-        } catch (e) {}
-      }
-
-      if (element.id) this.endLoading(element);
-      return;
-    } catch (err) {
-      if (element?.id) this.endLoading(element);
-      this.refresh();
     }
+    this.refresh();
   }
 
-  private beginLoading(element: AdoTreeItem) {
-    if (!element.id) return;
+  /**
+   * 指定組織のプロジェクトを先行フェッチし、ツリーで組織ノードを展開する。
+   * PAT 入力成功後に呼び出す。
+   */
+  async revealOrganization(org: string): Promise<void> {
+    // プロジェクトをキャッシュに乗せておく
     try {
-      this.loadingNodes[element.id] = true;
-      try {
-        if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-      } catch (e) {}
-      this.loadingTimers[element.id] = setTimeout(() => {
-        try {
-          if (this.loadingNodes[element.id]) {
-            try {
-              if (Object.prototype.hasOwnProperty.call(this.loadingIconBackup, element.id)) {
-                element.iconPath = this.loadingIconBackup[element.id];
-                delete this.loadingIconBackup[element.id];
-              }
-            } catch (e) {}
-            delete this.loadingNodes[element.id];
-            delete this.loadingTimers[element.id];
-            this._onDidChangeTreeData.fire(element);
-          }
-        } catch (e) {}
-      }, 10000);
-      try {
-        if (!Object.prototype.hasOwnProperty.call(this.loadingIconBackup, element.id)) {
-          this.loadingIconBackup[element.id] = element.iconPath;
-          element.iconPath = new vscode.ThemeIcon("sync~spin");
-        }
-      } catch (e) {}
-      this._onDidChangeTreeData.fire(element);
-    } catch (e) {}
-  }
+      await this.apiClient.fetchProjects(org);
+    } catch (e) {
+      this.channel?.appendLine(`prefetch projects failed for ${org}: ${e}`);
+    }
+    this.refresh();
 
-  private endLoading(element: AdoTreeItem) {
-    if (!element.id) return;
+    if (!this.treeView) return;
+    // getChildren(undefined) が返す組織ノードと同じ id を持つアイテムで reveal する
+    const orgItem = new AdoTreeItem(org, vscode.TreeItemCollapsibleState.Collapsed);
+    orgItem.id = `org:${org}`;
+    orgItem.itemType = "organization";
+    orgItem.organization = org;
+    orgItem.contextValue = "organization";
     try {
-      try {
-        if (this.loadingTimers[element.id]) clearTimeout(this.loadingTimers[element.id]);
-      } catch (e) {}
-      delete this.loadingTimers[element.id];
-      try {
-        if (Object.prototype.hasOwnProperty.call(this.loadingIconBackup, element.id)) {
-          element.iconPath = this.loadingIconBackup[element.id];
-          delete this.loadingIconBackup[element.id];
-        }
-      } catch (e) {}
-      delete this.loadingNodes[element.id];
-      this._onDidChangeTreeData.fire(element);
-    } catch (e) {}
+      await this.treeView.reveal(orgItem, { expand: true, select: true, focus: false });
+    } catch (e) {
+      this.channel?.appendLine(`reveal failed for ${org}: ${e}`);
+    }
   }
 
   // -----------------------
@@ -644,22 +540,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       ph.iconPath = new vscode.ThemeIcon("sync~spin");
       return [ph];
     }
-
-    // if there's a recent suppression for this key/prefix, skip starting a fetch to avoid races
-    try {
-      const now = Date.now();
-      for (const s of Object.keys(this.childrenFetchSuppressions)) {
-        const exp = this.childrenFetchSuppressions[s] || 0;
-        if (exp <= now) {
-          delete this.childrenFetchSuppressions[s];
-          continue;
-        }
-        if (key === s || key.startsWith(s)) {
-          // During suppression, avoid showing a spinner placeholder to prevent "stuck loading" UI.
-          return [];
-        }
-      }
-    } catch (e) {}
 
     // 開始してプレースホルダを返す
     // assign a token so that if refresh clears the cache we won't write stale results
@@ -804,51 +684,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   // Private Utilities - Authentication
   // -----------------------
-  // -----------------------
-  // Projects Fetching
-  // -----------------------
-  /**
-   * 指定した組織のプロジェクトをフェッチします。
-   */
-  private async fetchProjects(org: string): Promise<void> {
-    try {
-      await this.apiClient.fetchProjects(org);
-    } catch (e) {
-      // エラーはログされるが、例外は呼び出し元で処理される
-    }
-  }
-
-  // -----------------------
-  // Private Utilities - Authentication
-  // -----------------------
-  /**
-   * ユーザーに PAT 入力を促し、入力があれば secrets に保存します。
-   */
-  private async promptAndStorePat(org: string): Promise<string | undefined> {
-    const pat = await vscode.window.showInputBox({ prompt: `Personal Access Token (PAT) for organization ${org}`, password: true });
-    if (!pat || !this.context) return undefined;
-    try {
-      const isValid = await this.apiClient.verifyPat(org, pat);
-      if (!isValid) {
-        vscode.window.showErrorMessage(`Authentication failed. The PAT is invalid or has expired.`);
-        this.authFailedOrgs.add(org);
-        return undefined;
-      }
-      this.authFailedOrgs.delete(org);
-      await this.context.secrets.store(this.patKeyForOrg(org), pat);
-      vscode.window.showInformationMessage(`PAT saved for ${org}`);
-      return pat;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      vscode.window.showErrorMessage(`Failed to save PAT for ${org}: ${msg}`);
-      return undefined;
-    }
-  }
-
-  /**
-   * 指定した組織に対応する secrets のキーを返します。
-   */
-  private patKeyForOrg(org: string) {
+  private patKeyForOrg(org: string): string {
     return `ado-assist.pat.${org}`;
   }
 }

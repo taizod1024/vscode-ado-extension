@@ -205,120 +205,50 @@ export class AdoApiClient {
   // -----------------------
   // Work Items - Categories
   // -----------------------
+  private buildWiql(projName: string, conditions: string[], orderBy: string): string {
+    const clauses = [projName ? `[System.TeamProject] = '${projName.replace(/'/g, "''")}'` : "", ...conditions].filter(Boolean);
+    return `Select [System.Id], [System.Title] From WorkItems${clauses.length ? ` Where ${clauses.join(" AND ")}` : ""} Order By ${orderBy}`;
+  }
+
   async fetchAssignedToMe(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.AssignedTo] = @Me`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["[System.AssignedTo] = @Me"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchFollowing(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.Tags] CONTAINS 'follow'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["[System.Tags] CONTAINS 'follow'"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchMentioned(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`[System.History] CONTAINS '@'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["[System.History] CONTAINS '@'"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchMyActivity(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchRecentlyUpdated(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, [], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchRecentlyCompleted(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    clauses.push(`([System.State] = 'Done' OR [System.State] = 'Closed' OR [System.State] = 'Resolved' OR [System.State] = 'Completed')`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.ChangedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, ["([System.State] = 'Done' OR [System.State] = 'Closed' OR [System.State] = 'Resolved' OR [System.State] = 'Completed')"], "[System.ChangedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
   async fetchRecentlyCreated(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    let projName = projectIdOrName || "";
-    if (projectIdOrName && (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0)) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-      const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-      if (proj && proj.name) projName = proj.name;
-    }
-    const clauses: string[] = [];
-    if (projName) clauses.push(`[System.TeamProject] = '${String(projName).replace(/'/g, "''")}'`);
-    const where = clauses.length ? `Where ${clauses.join(" AND ")}` : "";
-    const q = `Select [System.Id], [System.Title] From WorkItems ${where} Order By [System.CreatedDate] Desc`;
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const q = this.buildWiql(projName, [], "[System.CreatedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 

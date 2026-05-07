@@ -61,7 +61,7 @@
       },
       {
         "command": "ado-assist.clearOrganizations",
-        "title": "Azure DevOps: Clear All Organizations",
+        "title": "Azure DevOps: Remove All Organizations",
         "icon": "$(trash)"
       },
       {
