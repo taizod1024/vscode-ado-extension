@@ -112,6 +112,15 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
+   * 親要素を返す。treeView.reveal を使うために必要。
+   * 組織ノードはルート直下のため undefined を返す。
+   */
+  getParent(element: AdoTreeItem): vscode.ProviderResult<AdoTreeItem> {
+    if (element.itemType === "organization") return undefined;
+    return undefined;
+  }
+
+  /**
    * 指定要素の子要素を返す（ルート時に組織リストを返す）。TreeDataProvider 必須メソッド。
    */
   async getChildren(element?: AdoTreeItem): Promise<AdoTreeItem[]> {
@@ -439,14 +448,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const org = element?.organization as string | undefined;
     if (org) {
       this.clearCacheForOrganization(org);
+      // 対象 org のサブツリーだけ再描画（他 org に影響しない）
+      this._onDidChangeTreeData.fire(element);
     } else {
       this.childrenCache = {};
       this.childrenFetchPromises = {};
       this.childrenFetchTokens = {};
       this.errorsByOrg = {};
       if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
+      this.refresh();
     }
-    this.refresh();
   }
 
   /**
@@ -504,7 +515,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /**
    * すべての組織情報と関連データをクリアします。
    */
-  async clearOrganizations(): Promise<void> {
+  async removeAllOrganizations(): Promise<void> {
     // delete stored PATs for known organizations
     const orgs = Array.from(this.organizations || []);
     if (this.context) {

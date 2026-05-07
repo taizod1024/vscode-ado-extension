@@ -60,7 +60,7 @@
         "icon": "$(remove)"
       },
       {
-        "command": "ado-assist.clearOrganizations",
+        "command": "ado-assist.removeAllOrganizations",
         "title": "Azure DevOps: Remove All Organizations",
         "icon": "$(trash)"
       },
@@ -84,7 +84,7 @@
           "group": "navigation@2"
         },
         {
-          "command": "ado-assist.clearOrganizations",
+          "command": "ado-assist.removeAllOrganizations",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@3"
         }
