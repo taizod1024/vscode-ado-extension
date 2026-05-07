@@ -442,6 +442,120 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Create branch for work item
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.createBranchForWorkItem", async (arg?: any) => {
+        try {
+          // Extract work item ID
+          let workItemNum = "";
+          if (arg && typeof arg === "object") {
+            if (typeof arg.id === "number") workItemNum = String(arg.id);
+            else if (typeof arg.id === "string") {
+              const m1 = arg.id.match(/work:[^:]+:(\d+)/);
+              const m2 = arg.id.match(/:(\d+)$/);
+              if (m1) workItemNum = m1[1];
+              else if (m2) workItemNum = m2[1];
+            }
+          }
+
+          if (!workItemNum) {
+            vscode.window.showErrorMessage("Could not extract work item number");
+            return;
+          }
+
+          // Get title
+          let title = "";
+          if (arg && typeof arg === "object") {
+            if (typeof arg.title === "string" && arg.title.trim()) title = arg.title.trim();
+            else {
+              const label = typeof arg?.label === "string" ? arg.label : String(arg?.label ?? "");
+              title = String(label)
+                .replace(/^#\d+\s*/, "")
+                .trim();
+            }
+          }
+
+          // Sanitize title for branch name
+          const sanitizedTitle = title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_|_$/g, "");
+
+          // Get branch prefix from settings
+          const config = vscode.workspace.getConfiguration("adoAssist");
+          const branchPrefix = config.get<string>("branchPrefix") || "working";
+
+          // Get git username
+          let username = "";
+          try {
+            const { execSync } = await import("child_process");
+            username = execSync("git config user.name", { encoding: "utf-8", stdio: "pipe" }).trim();
+          } catch (e) {
+            channel.appendLine(`Failed to get git username: ${e}`);
+            username = "user";
+          }
+
+          const branchName = `${branchPrefix}/${username}/#${workItemNum}_${sanitizedTitle}`;
+
+          // Check if branch already exists using git branch --list
+          let branchExists = false;
+          try {
+            const { execSync } = await import("child_process");
+            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+            const branches = execSync("git branch --list", {
+              encoding: "utf-8",
+              stdio: "pipe",
+              cwd,
+            });
+            branchExists = branches.includes(branchName);
+            channel.appendLine(`Branch check result: exists=${branchExists}, cwd=${cwd}`);
+          } catch (e) {
+            channel.appendLine(`Failed to check branch: ${e}`);
+          }
+
+          // Create or checkout branch using the active terminal
+          try {
+            let terminal = vscode.window.activeTerminal;
+            if (!terminal) {
+              terminal = vscode.window.createTerminal("Azure DevOps");
+            }
+
+            const cmd = branchExists ? `git checkout "${branchName}"` : `git checkout -b "${branchName}"`;
+
+            channel.appendLine(`Executing: ${cmd}`);
+            terminal.sendText(cmd, true);
+            terminal.show();
+
+            const msg = branchExists ? `Switched to branch: ${branchName}` : `New branch created: ${branchName}`;
+            vscode.window.showInformationMessage(msg);
+            channel.appendLine(msg);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            channel.appendLine(`Failed to create/checkout branch: ${msg}`);
+            vscode.window.showErrorMessage(`Failed to create/checkout branch: ${msg}`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Exception in createBranchForWorkItem: ${msg}`);
+          vscode.window.showErrorMessage("Failed to create branch: " + msg);
+        }
+      }),
+    );
+
+    // Open settings
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.openSettings", async () => {
+        try {
+          await vscode.commands.executeCommand("workbench.action.openSettings", "adoAssist.");
+          channel.appendLine("Opened settings for adoAssist");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Failed to open settings: ${msg}`);
+          vscode.window.showErrorMessage("Failed to open settings: " + msg);
+        }
+      }),
+    );
+
     // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
     channel.appendLine("error registering provider: " + String(err));
@@ -452,14 +566,6 @@ export function activate(context: vscode.ExtensionContext) {
     try {
       channel.appendLine("attempting automatic reveal of side panel");
       await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
-      try {
-        // try the newer openView command if available
-        // @ts-ignore
-        await vscode.commands.executeCommand("workbench.views.openView", "azureDevOps.sidePanel", true);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        channel.appendLine("optional openView failed: " + msg);
-      }
       channel.appendLine("automatic reveal attempt finished");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
