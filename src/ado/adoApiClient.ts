@@ -117,7 +117,8 @@ export class AdoApiClient {
     if (ids.length === 0) return [];
 
     const idsStr = ids.join(",");
-    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
+    const fields = encodeURIComponent("System.Id,System.Title,System.State,System.Description,System.IterationPath,System.Parent,System.AssignedTo");
+    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&fields=${fields}&api-version=6.0`;
     const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
     const items: AdoWorkItem[] = [];
     if (details && Array.isArray(details.value)) {

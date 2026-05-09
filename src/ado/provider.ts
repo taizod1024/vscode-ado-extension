@@ -856,11 +856,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const roots: AdoWorkItem[] = [];
     for (const w of workItems) {
       if (w.parentId && itemMap.has(w.parentId)) {
+        // 親がこのリスト内に存在する場合のみ、子として登録
         if (!childrenMap.has(w.parentId)) childrenMap.set(w.parentId, []);
         childrenMap.get(w.parentId)!.push(w);
       } else {
+        // 親がない場合、またはリスト内に親が存在しない場合、ルートとして登録
         roots.push(w);
       }
+    }
+    // デバッグ情報をログ出力
+    if (roots.length > 0) {
+      const rootIds = roots.map(r => `#${r.id}(parent:${r.parentId})`).join(", ");
+      this.channel?.appendLine(`buildWorkItemHierarchy: ${roots.length} roots: [${rootIds}], total items: ${workItems.length}, children: ${childrenMap.size}`);
     }
     // ショートカットで一応イテレーション内の全 WorkItem分 childrenMap を保存（子層ノードの getChildren で使う）
     this.workItemChildrenMaps[cacheKey] = childrenMap;
