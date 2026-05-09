@@ -58,6 +58,24 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Open Work Items
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.openWorkItems", async (arg?: any) => {
+        try {
+          const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
+          if (!url) return;
+          channel.appendLine(`open url - url=${url}`);
+
+          await vscode.commands.executeCommand("simpleBrowser.show", url);
+          channel.appendLine("opened with integrated browser");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Failed to open URL: ${msg}`);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
     // Refresh iteration items (keep current filter)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.refreshIterationItems", async (arg?: any) => {
@@ -146,6 +164,22 @@ export function activate(context: vscode.ExtensionContext) {
             return;
           }
           const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate`;
+          await vscode.commands.executeCommand("ado-assist.openUrl", url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Create Sprint
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.createSprint", async (arg?: any) => {
+        try {
+          const org = arg?.organization;
+          const proj = arg?.projectId;
+          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_sprints/directory`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

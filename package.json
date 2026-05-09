@@ -50,6 +50,16 @@
         "icon": "$(add)"
       },
       {
+        "command": "ado-assist.createSprint",
+        "title": "Azure DevOps: Sprints",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "ado-assist.openWorkItems",
+        "title": "Azure DevOps: Work Items",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "ado-assist.cloneRepo",
         "title": "Azure DevOps: Clone Repository",
         "icon": "$(repo-clone)"
@@ -163,6 +173,16 @@
           "group": "inline@99"
         },
         {
+          "command": "ado-assist.createSprint",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.openWorkItems",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "group": "inline@99"
+        },
+        {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
           "group": "inline@99"
@@ -202,11 +222,7 @@
           "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
           "group": "inline@99"
         },
-        {
-          "command": "ado-assist.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline@99"
-        },
+
         {
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",

@@ -224,7 +224,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       workFolder.projectId = projectId;
       workFolder.id = `workitems:${org}:${projectId}:gen:${workGen}`;
       workFolder.contextValue = "workItemsFolder";
-      workFolder.iconPath = new vscode.ThemeIcon("tasklist", new vscode.ThemeColor("foreground"));
+      workFolder.iconPath = new vscode.ThemeIcon("calendar", new vscode.ThemeColor("foreground"));
       // set Work Items web page for this project (recently updated view)
       try {
         const projNameForUrl = projectId || "";
