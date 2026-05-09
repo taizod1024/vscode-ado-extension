@@ -218,7 +218,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const projectId = element.projectId;
       const workGenKey = `workitems:${org}:${projectId}:category:`;
       const workGen = this.nodeIdGen[workGenKey] || 0;
-      const workFolder = new AdoTreeItem("Sprints", vscode.TreeItemCollapsibleState.Expanded);
+      const workFolder = new AdoTreeItem("Sprints", vscode.TreeItemCollapsibleState.Collapsed);
       workFolder.itemType = "sprintsFolder";
       workFolder.organization = org;
       workFolder.projectId = projectId;
