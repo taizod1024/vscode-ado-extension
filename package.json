@@ -218,12 +218,12 @@
         {
           "command": "ado-assist.selectWorkItemFilter",
           "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter",
-          "group": "inline"
+          "group": "1_filter"
         },
         {
           "command": "ado-assist.selectPrFilter",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFilter",
-          "group": "inline"
+          "group": "1_filter"
         }
       ]
     },
