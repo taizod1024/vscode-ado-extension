@@ -97,7 +97,7 @@ export class AdoApiClient {
       if (proj && proj.name) {
         projectName = proj.name;
       } else {
-        if (/^[0-9a-fA-F-]{32,36}$/.test(String(projectIdOrName))) {
+        if (/^[0-9a-fA-F-]{32,36}$/.test(projectIdOrName as string)) {
           if (this.channel) {
             this.channel.appendLine(`provided project identifier appears to be GUID and could not be resolved to name: ${projectIdOrName}`);
           }
