@@ -293,7 +293,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
           fetchFn = async () => [];
       }
 
-      return this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, items => items.map(w => this.makeWorkItemTreeItem(w, org)), "Loading work items...");
+      return this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, items => items.map(w => this.makeWorkItemTreeItem(w, org, pid)), "Loading work items...");
     }
 
     // repositoriesFolder の子: repositories
@@ -596,10 +596,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   // Private Utilities - TreeItem Factories
   // -----------------------
-  private makeWorkItemTreeItem(w: AdoWorkItem, org: string): AdoTreeItem {
+  private makeWorkItemTreeItem(w: AdoWorkItem, org: string, projectId?: string): AdoTreeItem {
     const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
     it.itemType = "workItem";
     it.organization = org;
+    it.projectId = projectId;
     it.id = `work:${org}:${w.id}`;
     it.contextValue = "workitem";
     try {
@@ -613,11 +614,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         // DONE状態: checkアイコン（青色）
         it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
       } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-        // DOING状態: 赤色
-        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
+        // DOING状態: 黄色
+        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.yellow"));
       } else {
-        // TODO・新規・その他: 黄色
-        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
+        // TODO・新規・その他: 緑色
+        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.green"));
       }
     } catch (e) {}
     it.url = w.url;

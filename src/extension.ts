@@ -463,6 +463,26 @@ export function activate(context: vscode.ExtensionContext) {
             return;
           }
 
+          // Extract organization from arg (must be provided)
+          const organization = arg?.organization || arg?.orgName || "";
+          if (!organization) {
+            const msg = "Could not extract organization from work item context. Please try again from the tree view.";
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+          channel.appendLine(`Organization from context: ${organization}`);
+
+          // Extract project ID from arg (must be provided)
+          const projectId = arg?.projectId || arg?.projectName || "";
+          if (!projectId) {
+            const msg = "Could not extract project ID from work item context. Please try again from the tree view.";
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+          channel.appendLine(`Project ID from context: ${projectId}`);
+
           // Get title
           let title = "";
           if (arg && typeof arg === "object") {
@@ -497,11 +517,103 @@ export function activate(context: vscode.ExtensionContext) {
 
           const branchName = `${branchPrefix}/${username}/#${workItemNum}_${sanitizedTitle}`;
 
+          // Get working directory (try multiple sources)
+          const wsFolder = vscode.workspace.workspaceFolders?.[0];
+          const cwd = wsFolder?.uri?.fsPath;
+          channel.appendLine(`createBranchForWorkItem: workspace folder cwd=${cwd}`);
+
+          // Verify that we have a valid git repository
+          if (!cwd) {
+            const msg = "No workspace folder found. Please open a folder in VS Code.";
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+
+          // Check if it's a git repository by running git rev-parse --git-dir
+          try {
+            const { execSync } = await import("child_process");
+            execSync("git rev-parse --git-dir", {
+              encoding: "utf-8",
+              stdio: "pipe",
+              cwd,
+            });
+            channel.appendLine(`Verified git repository at: ${cwd}`);
+          } catch (e) {
+            const msg = `Not a git repository at ${cwd}. Please initialize git or open the correct folder.`;
+            channel.appendLine(`Error: ${String(e)}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+
+          // Check organization and project match using git remote -v
+          try {
+            const { execSync } = await import("child_process");
+            const remotes = execSync("git remote -v", {
+              encoding: "utf-8",
+              stdio: "pipe",
+              cwd,
+            });
+            channel.appendLine(`git remote -v output:\n${remotes}`);
+
+            // Extract organization and project from git remote URL
+            // URL format: https://[PAT]@dev.azure.com/{org}/{project}/_git/{repo}
+            // or: git@ssh.dev.azure.com:v3/{org}/{project}/_git/{repo}
+            const httpsPattern = /dev\.azure\.com\/([^\/]+)\/([^\/]+)\//;
+            const sshPattern = /git@ssh\.dev\.azure\.com:v3\/([^\/]+)\/([^\/]+)\//;
+            
+            let remoteOrg: string | undefined;
+            let remoteProject: string | undefined;
+            
+            // Try HTTPS format first
+            const httpsMatch = remotes.match(httpsPattern);
+            if (httpsMatch && httpsMatch[1] && httpsMatch[2]) {
+              remoteOrg = httpsMatch[1];
+              remoteProject = httpsMatch[2];
+            } else {
+              // Try SSH format
+              const sshMatch = remotes.match(sshPattern);
+              if (sshMatch && sshMatch[1] && sshMatch[2]) {
+                remoteOrg = sshMatch[1];
+                remoteProject = sshMatch[2];
+              }
+            }
+
+            if (!remoteOrg || !remoteProject) {
+              const msg = "Could not extract organization/project from git remote. The repository may not be connected to Azure DevOps.";
+              channel.appendLine(`Error: ${msg}`);
+              vscode.window.showErrorMessage(msg);
+              return;
+            }
+
+            channel.appendLine(`Extracted from remote: org=${remoteOrg}, project=${remoteProject}`);
+
+            if (remoteOrg !== organization) {
+              const msg = `Organization mismatch: selected organization is '${organization}', but git remote points to '${remoteOrg}'. Please open the correct project folder.`;
+              channel.appendLine(`Error: ${msg}`);
+              vscode.window.showErrorMessage(msg);
+              return;
+            }
+
+            if (remoteProject !== projectId) {
+              const msg = `Project mismatch: selected project is '${projectId}', but git remote points to '${remoteProject}'. Please open the correct project folder.`;
+              channel.appendLine(`Error: ${msg}`);
+              vscode.window.showErrorMessage(msg);
+              return;
+            }
+
+            channel.appendLine(`Organization and project match verified: ${organization}/${projectId}`);
+          } catch (e) {
+            const msg = `Failed to verify organization/project: ${String(e)}`;
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+
           // Check if branch already exists using git branch --list
           let branchExists = false;
           try {
             const { execSync } = await import("child_process");
-            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
             const branches = execSync("git branch --list", {
               encoding: "utf-8",
               stdio: "pipe",
@@ -510,7 +622,7 @@ export function activate(context: vscode.ExtensionContext) {
             branchExists = branches.includes(branchName);
             channel.appendLine(`Branch check result: exists=${branchExists}, cwd=${cwd}`);
           } catch (e) {
-            channel.appendLine(`Failed to check branch: ${e}`);
+            channel.appendLine(`Failed to check branch: ${String(e)}`);
           }
 
           // Create or checkout branch using the active terminal
@@ -522,9 +634,17 @@ export function activate(context: vscode.ExtensionContext) {
 
             const cmd = branchExists ? `git checkout "${branchName}"` : `git checkout -b "${branchName}"`;
 
+            // If cwd is available, navigate to it first before running git command
+            if (cwd) {
+              channel.appendLine(`Terminal: cd "${cwd}"`);
+              terminal.sendText(`cd "${cwd}"`, true);
+              // Wait a brief moment for cd to complete
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
             channel.appendLine(`Executing: ${cmd}`);
             terminal.sendText(cmd, true);
-            terminal.show();
+            // terminal.show();  // Don't show terminal, just send the command
 
             const msg = branchExists ? `Switched to branch: ${branchName}` : `New branch created: ${branchName}`;
             vscode.window.showInformationMessage(msg);
