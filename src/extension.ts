@@ -19,6 +19,22 @@ export function activate(context: vscode.ExtensionContext) {
     channel.appendLine("extension path: " + context.extensionPath);
 
     // -----------------------
+    // Common Context Extraction Helper
+    // -----------------------
+    /**
+     * ツリーノードから組織・プロジェクト情報を統一的に抽出。
+     * @param arg ツリーノード引数
+     * @returns { org, projectId, repo }
+     */
+    const extractContext = (arg?: any): { org?: string; projectId?: string; repo?: string } => {
+      return {
+        org: arg?.organization || arg?.org,
+        projectId: arg?.projectId || arg?.project,
+        repo: arg?.repoName || arg?.repo || arg?.repoId,
+      };
+    };
+
+    // -----------------------
     // Common PAT Validation Handler
     // -----------------------
     /**
@@ -93,8 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("ado-assist.openWorkItems", async (arg?: any) => {
         try {
           // arg から organization と projectId を抽出して work items URL を構築
-          const org = arg?.organization;
-          const projectId = arg?.projectId;
+          const { org, projectId } = extractContext(arg);
           if (!org || !projectId) {
             vscode.window.showErrorMessage("Could not extract organization/project from context.");
             return;
@@ -149,9 +164,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.createEpic", async (arg?: any) => {
         try {
-          const org = arg?.organization;
-          const proj = arg?.projectId;
-          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
           let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Epic`;
           if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
@@ -166,9 +183,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.createIssue", async (arg?: any) => {
         try {
-          const org = arg?.organization;
-          const proj = arg?.projectId;
-          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
           let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Issue`;
           if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
@@ -183,9 +202,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.createTask", async (arg?: any) => {
         try {
-          const org = arg?.organization;
-          const proj = arg?.projectId;
-          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
           let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Task`;
           if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
@@ -200,9 +221,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.createPullRequest", async (arg?: any) => {
         try {
-          const org = arg?.organization || arg?.org;
-          const proj = arg?.projectId || arg?.project;
-          const repo = arg?.repoName || arg?.repo || arg?.repoId;
+          const { org, projectId: proj, repo } = extractContext(arg);
           if (!org || !proj || !repo) {
             vscode.window.showErrorMessage("Could not extract organization/project/repository from context.");
             return;
@@ -220,9 +239,11 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.createSprint", async (arg?: any) => {
         try {
-          const org = arg?.organization;
-          const proj = arg?.projectId;
-          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
           const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_sprints/directory`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
@@ -244,9 +265,7 @@ export function activate(context: vscode.ExtensionContext) {
             const client = provider.getClient();
             cloneUrl = client.getCloneUrl(arg);
             if (!cloneUrl) {
-              const org = arg.organization || arg.org || undefined;
-              const proj = arg.projectId || arg.project || undefined;
-              const repo = arg.repoName || arg.repo || arg.repoId || undefined;
+              const { org, projectId: proj, repo } = extractContext(arg);
               if (org && proj && repo) {
                 cloneUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}`;
               }
@@ -265,7 +284,8 @@ export function activate(context: vscode.ExtensionContext) {
               // try to extract org from node if available
               let orgFromNode: string | undefined;
               if (typeof arg === "object" && arg) {
-                orgFromNode = arg.organization || arg.org || undefined;
+                const { org } = extractContext(arg);
+                orgFromNode = org;
               }
               // if we have an org, look up stored PAT
               if (!orgFromNode) {
@@ -276,21 +296,30 @@ export function activate(context: vscode.ExtensionContext) {
 
               if (orgFromNode && context) {
                 const key = `ado-assist.pat.${orgFromNode}`;
-                const pat = await context.secrets.get(key);
-                if (pat) {
-                  // embed PAT safely (username 'PAT' used as placeholder)
-                  if (cloneUrl.startsWith("https://")) {
-                    const rest = cloneUrl.slice("https://".length);
-                    attemptUrl = `https://PAT:${encodeURIComponent(pat)}@${rest}`;
-                  } else if (cloneUrl.startsWith("http://")) {
-                    const rest = cloneUrl.slice("http://".length);
-                    attemptUrl = `http://PAT:${encodeURIComponent(pat)}@${rest}`;
+                try {
+                  const pat = await context.secrets.get(key);
+                  if (pat) {
+                    // embed PAT safely (username 'PAT' used as placeholder)
+                    if (cloneUrl.startsWith("https://")) {
+                      const rest = cloneUrl.slice("https://".length);
+                      attemptUrl = `https://PAT:${encodeURIComponent(pat)}@${rest}`;
+                    } else if (cloneUrl.startsWith("http://")) {
+                      const rest = cloneUrl.slice("http://".length);
+                      attemptUrl = `http://PAT:${encodeURIComponent(pat)}@${rest}`;
+                    }
                   }
+                } catch (secretErr) {
+                  // Log secret read error but proceed with original URL
+                  const secretMsg = secretErr instanceof Error ? secretErr.message : String(secretErr);
+                  channel.appendLine(`Warning: Failed to retrieve PAT for ${orgFromNode}: ${secretMsg}`);
+                  attemptUrl = cloneUrl;
                 }
               }
             }
           } catch (e) {
-            // ignore secret read errors and proceed with original URL
+            // General error handling: proceed with original URL
+            const errMsg = e instanceof Error ? e.message : String(e);
+            channel.appendLine(`Warning: Failed to embed PAT: ${errMsg}`);
             attemptUrl = cloneUrl;
           }
 
