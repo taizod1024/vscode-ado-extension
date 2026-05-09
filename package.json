@@ -89,88 +89,44 @@
         "title": "Assigned to me"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.assigned.checked",
-        "title": "✓ Assigned to me"
-      },
-      {
         "command": "ado-assist.setWorkItemFilter.following",
         "title": "Following"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.following.checked",
-        "title": "✓ Following"
       },
       {
         "command": "ado-assist.setWorkItemFilter.mentioned",
         "title": "Mentioned"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.mentioned.checked",
-        "title": "✓ Mentioned"
-      },
-      {
         "command": "ado-assist.setWorkItemFilter.myactivity",
         "title": "My activity"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.myactivity.checked",
-        "title": "✓ My activity"
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyUpdated",
         "title": "Recently updated"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.recentlyUpdated.checked",
-        "title": "✓ Recently updated"
-      },
-      {
         "command": "ado-assist.setWorkItemFilter.recentlyCompleted",
         "title": "Recently completed"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.recentlyCompleted.checked",
-        "title": "✓ Recently completed"
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyCreated",
         "title": "Recently created"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.recentlyCreated.checked",
-        "title": "✓ Recently created"
-      },
-      {
         "command": "ado-assist.setPrFilter.mine",
         "title": "Mine"
-      },
-      {
-        "command": "ado-assist.setPrFilter.mine.checked",
-        "title": "✓ Mine"
       },
       {
         "command": "ado-assist.setPrFilter.active",
         "title": "Active"
       },
       {
-        "command": "ado-assist.setPrFilter.active.checked",
-        "title": "✓ Active"
-      },
-      {
         "command": "ado-assist.setPrFilter.completed",
         "title": "Completed"
       },
       {
-        "command": "ado-assist.setPrFilter.completed.checked",
-        "title": "✓ Completed"
-      },
-      {
         "command": "ado-assist.setPrFilter.abandoned",
         "title": "Abandoned"
-      },
-      {
-        "command": "ado-assist.setPrFilter.abandoned.checked",
-        "title": "✓ Abandoned"
       }
     ],
     "menus": {
@@ -285,112 +241,57 @@
         },
         {
           "command": "ado-assist.setWorkItemFilter.assigned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_assigned",
-          "group": "1_filter@1"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.assigned.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_assigned",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@1"
         },
         {
           "command": "ado-assist.setWorkItemFilter.following",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_following",
-          "group": "1_filter@2"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.following.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_following",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@2"
         },
         {
           "command": "ado-assist.setWorkItemFilter.mentioned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_mentioned",
-          "group": "1_filter@3"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.mentioned.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_mentioned",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@3"
         },
         {
           "command": "ado-assist.setWorkItemFilter.myactivity",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_myactivity",
-          "group": "1_filter@4"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.myactivity.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_myactivity",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@4"
         },
         {
           "command": "ado-assist.setWorkItemFilter.recentlyUpdated",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_recentlyUpdated",
-          "group": "1_filter@5"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.recentlyUpdated.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_recentlyUpdated",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@5"
         },
         {
           "command": "ado-assist.setWorkItemFilter.recentlyCompleted",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_recentlyCompleted",
-          "group": "1_filter@6"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.recentlyCompleted.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_recentlyCompleted",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@6"
         },
         {
           "command": "ado-assist.setWorkItemFilter.recentlyCreated",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/ && viewItem != workItemsFilter_recentlyCreated",
-          "group": "1_filter@7"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.recentlyCreated.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter_recentlyCreated",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
           "group": "1_filter@7"
         },
         {
           "command": "ado-assist.setPrFilter.mine",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/ && viewItem != pullRequestsFilter_mine",
-          "group": "1_filter@1"
-        },
-        {
-          "command": "ado-assist.setPrFilter.mine.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFilter_mine",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
           "group": "1_filter@1"
         },
         {
           "command": "ado-assist.setPrFilter.active",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/ && viewItem != pullRequestsFilter_active",
-          "group": "1_filter@2"
-        },
-        {
-          "command": "ado-assist.setPrFilter.active.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFilter_active",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
           "group": "1_filter@2"
         },
         {
           "command": "ado-assist.setPrFilter.completed",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/ && viewItem != pullRequestsFilter_completed",
-          "group": "1_filter@3"
-        },
-        {
-          "command": "ado-assist.setPrFilter.completed.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFilter_completed",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
           "group": "1_filter@3"
         },
         {
           "command": "ado-assist.setPrFilter.abandoned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/ && viewItem != pullRequestsFilter_abandoned",
-          "group": "1_filter@4"
-        },
-        {
-          "command": "ado-assist.setPrFilter.abandoned.checked",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFilter_abandoned",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
           "group": "1_filter@4"
         }
       ]

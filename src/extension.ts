@@ -14,6 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
     const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
     context.subscriptions.push(treeView);
     provider.setTreeView(treeView);
+
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
 
@@ -321,22 +322,15 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Work Items filter: individual commands (plain + checked variants)
+    // Work Items filter: individual commands
     const wiFilters: [string, number][] = [
-      ["ado-assist.setWorkItemFilter.assigned",                0],
-      ["ado-assist.setWorkItemFilter.assigned.checked",        0],
-      ["ado-assist.setWorkItemFilter.following",               1],
-      ["ado-assist.setWorkItemFilter.following.checked",       1],
-      ["ado-assist.setWorkItemFilter.mentioned",               2],
-      ["ado-assist.setWorkItemFilter.mentioned.checked",       2],
-      ["ado-assist.setWorkItemFilter.myactivity",              3],
-      ["ado-assist.setWorkItemFilter.myactivity.checked",      3],
-      ["ado-assist.setWorkItemFilter.recentlyUpdated",           4],
-      ["ado-assist.setWorkItemFilter.recentlyUpdated.checked",   4],
-      ["ado-assist.setWorkItemFilter.recentlyCompleted",         5],
-      ["ado-assist.setWorkItemFilter.recentlyCompleted.checked", 5],
-      ["ado-assist.setWorkItemFilter.recentlyCreated",           6],
-      ["ado-assist.setWorkItemFilter.recentlyCreated.checked",   6],
+      ["ado-assist.setWorkItemFilter.assigned",        0],
+      ["ado-assist.setWorkItemFilter.following",       1],
+      ["ado-assist.setWorkItemFilter.mentioned",       2],
+      ["ado-assist.setWorkItemFilter.myactivity",      3],
+      ["ado-assist.setWorkItemFilter.recentlyUpdated",   4],
+      ["ado-assist.setWorkItemFilter.recentlyCompleted", 5],
+      ["ado-assist.setWorkItemFilter.recentlyCreated",   6],
     ];
     for (const [cmd, idx] of wiFilters) {
       context.subscriptions.push(
@@ -352,16 +346,12 @@ export function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    // Pull Requests filter: individual commands (plain + checked variants)
+    // Pull Requests filter: individual commands
     const prFilters: [string, number][] = [
-      ["ado-assist.setPrFilter.mine",               0],
-      ["ado-assist.setPrFilter.mine.checked",        0],
-      ["ado-assist.setPrFilter.active",              1],
-      ["ado-assist.setPrFilter.active.checked",      1],
-      ["ado-assist.setPrFilter.completed",           2],
-      ["ado-assist.setPrFilter.completed.checked",   2],
-      ["ado-assist.setPrFilter.abandoned",           3],
-      ["ado-assist.setPrFilter.abandoned.checked",   3],
+      ["ado-assist.setPrFilter.mine",      0],
+      ["ado-assist.setPrFilter.active",    1],
+      ["ado-assist.setPrFilter.completed", 2],
+      ["ado-assist.setPrFilter.abandoned", 3],
     ];
     for (const [cmd, idx] of prFilters) {
       context.subscriptions.push(
