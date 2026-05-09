@@ -262,11 +262,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       filterBtn.organization = org;
       filterBtn.projectId = pid;
       filterBtn.id = `workitems-filter:${org}:${pid}`;
-      filterBtn.contextValue = "workItemsFilter";
+      filterBtn.contextValue = `workItemsFilter_${currentCat.key}`;
       filterBtn.folderRef = element;
       filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
-      filterBtn.tooltip = "クリックしてフィルタを切り替える（右クリックで選択）";
-      filterBtn.command = { command: "ado-assist.cycleWorkItemFilter", title: "フィルタを切り替える", arguments: [element] };
+      filterBtn.tooltip = "右クリックでフィルタを選択";
 
       // 現在フィルタの work item をフェッチ
       let fetchFn: () => Promise<AdoWorkItem[]> = async () => [];
@@ -419,11 +418,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       filterBtn.repoId = repoId;
       filterBtn.repoName = (element as any).repoName || "";
       filterBtn.id = `prs-filter:${org}:${repoId}`;
-      filterBtn.contextValue = "pullRequestsFilter";
+      filterBtn.contextValue = `pullRequestsFilter_${currentCat.key}`;
       filterBtn.folderRef = element;
       filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
-      filterBtn.tooltip = "クリックしてフィルタを切り替える（右クリックで選択）";
-      filterBtn.command = { command: "ado-assist.cyclePrFilter", title: "フィルタを切り替える", arguments: [element] };
+      filterBtn.tooltip = "右クリックでフィルタを選択";
 
       // 現在フィルタの PR をフェッチ
       let fetchFn: () => Promise<AdoPullRequest[]> = async () => [];

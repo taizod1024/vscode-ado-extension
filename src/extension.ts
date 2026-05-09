@@ -321,39 +321,22 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Cycle Work Items filter button
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.cycleWorkItemFilter", (folderElement?: any) => {
-        try {
-          provider.cycleWorkItemFilter(folderElement);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          channel.appendLine(`cycleWorkItemFilter error: ${msg}`);
-        }
-      }),
-    );
-
-    // Cycle Pull Requests filter button
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.cyclePrFilter", (folderElement?: any) => {
-        try {
-          provider.cyclePrFilter(folderElement);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          channel.appendLine(`cyclePrFilter error: ${msg}`);
-        }
-      }),
-    );
-
-    // Work Items filter: individual commands
+    // Work Items filter: individual commands (plain + checked variants)
     const wiFilters: [string, number][] = [
-      ["ado-assist.setWorkItemFilter.assigned",        0],
-      ["ado-assist.setWorkItemFilter.following",       1],
-      ["ado-assist.setWorkItemFilter.mentioned",       2],
-      ["ado-assist.setWorkItemFilter.myactivity",      3],
-      ["ado-assist.setWorkItemFilter.recentlyUpdated",   4],
-      ["ado-assist.setWorkItemFilter.recentlyCompleted", 5],
-      ["ado-assist.setWorkItemFilter.recentlyCreated",   6],
+      ["ado-assist.setWorkItemFilter.assigned",                0],
+      ["ado-assist.setWorkItemFilter.assigned.checked",        0],
+      ["ado-assist.setWorkItemFilter.following",               1],
+      ["ado-assist.setWorkItemFilter.following.checked",       1],
+      ["ado-assist.setWorkItemFilter.mentioned",               2],
+      ["ado-assist.setWorkItemFilter.mentioned.checked",       2],
+      ["ado-assist.setWorkItemFilter.myactivity",              3],
+      ["ado-assist.setWorkItemFilter.myactivity.checked",      3],
+      ["ado-assist.setWorkItemFilter.recentlyUpdated",           4],
+      ["ado-assist.setWorkItemFilter.recentlyUpdated.checked",   4],
+      ["ado-assist.setWorkItemFilter.recentlyCompleted",         5],
+      ["ado-assist.setWorkItemFilter.recentlyCompleted.checked", 5],
+      ["ado-assist.setWorkItemFilter.recentlyCreated",           6],
+      ["ado-assist.setWorkItemFilter.recentlyCreated.checked",   6],
     ];
     for (const [cmd, idx] of wiFilters) {
       context.subscriptions.push(
@@ -369,12 +352,16 @@ export function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    // Pull Requests filter: individual commands
+    // Pull Requests filter: individual commands (plain + checked variants)
     const prFilters: [string, number][] = [
-      ["ado-assist.setPrFilter.mine",      0],
-      ["ado-assist.setPrFilter.active",    1],
-      ["ado-assist.setPrFilter.completed", 2],
-      ["ado-assist.setPrFilter.abandoned", 3],
+      ["ado-assist.setPrFilter.mine",               0],
+      ["ado-assist.setPrFilter.mine.checked",        0],
+      ["ado-assist.setPrFilter.active",              1],
+      ["ado-assist.setPrFilter.active.checked",      1],
+      ["ado-assist.setPrFilter.completed",           2],
+      ["ado-assist.setPrFilter.completed.checked",   2],
+      ["ado-assist.setPrFilter.abandoned",           3],
+      ["ado-assist.setPrFilter.abandoned.checked",   3],
     ];
     for (const [cmd, idx] of prFilters) {
       context.subscriptions.push(
