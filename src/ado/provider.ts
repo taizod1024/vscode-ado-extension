@@ -561,6 +561,36 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
+   * フィルタ状態を設定する汎用メソッド。キャッシュをクリアして再構成をトリガーする。
+   * @param element フィルタ対象のツリーノード
+   * @param index フィルタのインデックス（0 始まり）
+   * @param filterState フィルタ状態を保持するオブジェクト
+   * @param categories フィルタのカテゴリーリスト
+   * @param buildCacheKey キャッシュキーを生成する関数
+   * @returns キー文字列、または取得失敗時は null
+   */
+  private setFilter(
+    element: AdoTreeItem,
+    index: number,
+    filterState: { [key: string]: number },
+    categories: string[],
+    buildStateKey: () => string | null,
+    buildCacheKey: (catKey: string) => string
+  ): void {
+    const stateKey = buildStateKey();
+    if (!stateKey) return;
+    filterState[stateKey] = index;
+    const catKey = categories[index];
+    if (catKey) {
+      const cacheKey = buildCacheKey(catKey);
+      delete this.childrenCache[cacheKey];
+      delete this.childrenFetchPromises[cacheKey];
+      this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
+    }
+    this._onDidChangeTreeData.fire(element);
+  }
+
+  /**
    * イテレーション内 Work Item フィルタを指定インデックスに設定する。
    * @param iterElement workItemsIteration の AdoTreeItem
    * @param index フィルタのインデックス（0 始まり）
@@ -569,18 +599,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const org = iterElement.organization;
     const pid = iterElement.projectId;
     const iterPath = iterElement.iterationPath;
-    if (!org || !pid || iterPath === undefined) return;
-    const key = `${org}:${pid}:${iterPath}`;
-    this.iterationItemFilterState[key] = index;
     const categories = ["all", "assigned", "myactivity", "active"];
-    const catKey = categories[index];
-    if (catKey) {
-      const cacheKey = `workitems:${org}:${pid}:iter:${iterPath}:${catKey}`;
-      delete this.childrenCache[cacheKey];
-      delete this.childrenFetchPromises[cacheKey];
-      this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
-    }
-    this._onDidChangeTreeData.fire(iterElement);
+    
+    this.setFilter(
+      iterElement,
+      index,
+      this.iterationItemFilterState,
+      categories,
+      () => (!org || !pid || iterPath === undefined) ? null : `${org}:${pid}:${iterPath}`,
+      (catKey) => `workitems:${org}:${pid}:iter:${iterPath}:${catKey}`
+    );
   }
 
   /**
@@ -605,18 +633,16 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   setPrFilter(folderElement: AdoTreeItem, index: number): void {
     const org = folderElement.organization;
     const repoId = folderElement.repoId;
-    if (!org || !repoId) return;
-    const key = `${org}:${repoId}`;
-    this.prFilterState[key] = index;
     const prCategories = ["mine", "active", "completed", "abandoned"];
-    const catKey = prCategories[index];
-    if (catKey) {
-      const cacheKey = `prs:${org}:${repoId}:category:${catKey}`;
-      delete this.childrenCache[cacheKey];
-      delete this.childrenFetchPromises[cacheKey];
-      this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
-    }
-    this._onDidChangeTreeData.fire(folderElement);
+    
+    this.setFilter(
+      folderElement,
+      index,
+      this.prFilterState,
+      prCategories,
+      () => (!org || !repoId) ? null : `${org}:${repoId}`,
+      (catKey) => `prs:${org}:${repoId}:category:${catKey}`
+    );
   }
 
   /**

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
-import { createTreeProvider, httpRequest } from "./ado";
+import { createTreeProvider, httpRequest, ERROR_MESSAGES } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
         channel.appendLine(`PAT verification result: ${isValid}`);
 
         if (!isValid) {
-          const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
+          const errorMsg = ERROR_MESSAGES.PAT_INVALID;
           channel.appendLine(`Error: ${errorMsg}`);
           provider.clearCacheForOrganization(org);
           await provider.revealOrganization(org);

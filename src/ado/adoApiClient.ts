@@ -128,7 +128,7 @@ export class AdoApiClient {
         if (projectName) {
           webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
         }
-        const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
+        const state = (d.fields?.["System.State"] || d.fields?.["State"] || "") as string;
         let rawDesc = d.fields?.["System.Description"] || d.fields?.["Description"] || "";
         if (rawDesc && typeof rawDesc === "string") {
           rawDesc = rawDesc
@@ -140,11 +140,11 @@ export class AdoApiClient {
         }
         const shortDesc = rawDesc.length > 200 ? rawDesc.slice(0, 197) + "..." : rawDesc;
         const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
-        const iterationPath = String(d.fields?.["System.IterationPath"] || "");
+        const iterationPath = (d.fields?.["System.IterationPath"] || "") as string;
         const parentId = d.fields?.["System.Parent"] ? Number(d.fields["System.Parent"]) : undefined;
         items.push({
           id: wid,
-          title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"),
+          title: (d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)") as string,
           url: webUrl,
           status: state,
           assignee,
@@ -219,8 +219,8 @@ export class AdoApiClient {
       for (const it of data.value) {
         iterations.push({
           id: String(it.id || ""),
-          name: String(it.name || ""),
-          path: String(it.path || ""),
+          name: it.name || "",
+          path: it.path || "",
           startDate: it.attributes?.startDate || undefined,
           finishDate: it.attributes?.finishDate || undefined,
         });
@@ -259,7 +259,7 @@ export class AdoApiClient {
     const out: AdoBranch[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
-        const name = String(r.name || r.ref || "");
+        const name = r.name || r.ref || "";
         out.push({ name });
       }
     }
@@ -274,11 +274,11 @@ export class AdoApiClient {
     const repos: AdoRepository[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
-        const name = String(r.name || r.repositoryName || "");
-        const id = String(r.id || r.repositoryId || "");
+        const name = r.name || r.repositoryName || "";
+        const id = r.id || r.repositoryId || "";
         const web = this.getWebUrl(r);
         const defaultBranch = r.defaultBranch || undefined;
-        repos.push({ id, name, url: String(web || ""), defaultBranch });
+        repos.push({ id, name, url: web || "", defaultBranch });
       }
     }
     return repos;
