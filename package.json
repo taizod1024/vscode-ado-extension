@@ -90,7 +90,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.assigned.checked",
-        "title": "$(check) Assigned to me"
+        "title": "✓ Assigned to me"
       },
       {
         "command": "ado-assist.setWorkItemFilter.following",
@@ -98,7 +98,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.following.checked",
-        "title": "$(check) Following"
+        "title": "✓ Following"
       },
       {
         "command": "ado-assist.setWorkItemFilter.mentioned",
@@ -106,7 +106,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.mentioned.checked",
-        "title": "$(check) Mentioned"
+        "title": "✓ Mentioned"
       },
       {
         "command": "ado-assist.setWorkItemFilter.myactivity",
@@ -114,7 +114,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.myactivity.checked",
-        "title": "$(check) My activity"
+        "title": "✓ My activity"
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyUpdated",
@@ -122,7 +122,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyUpdated.checked",
-        "title": "$(check) Recently updated"
+        "title": "✓ Recently updated"
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyCompleted",
@@ -130,7 +130,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyCompleted.checked",
-        "title": "$(check) Recently completed"
+        "title": "✓ Recently completed"
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyCreated",
@@ -138,7 +138,7 @@
       },
       {
         "command": "ado-assist.setWorkItemFilter.recentlyCreated.checked",
-        "title": "$(check) Recently created"
+        "title": "✓ Recently created"
       },
       {
         "command": "ado-assist.setPrFilter.mine",
@@ -146,7 +146,7 @@
       },
       {
         "command": "ado-assist.setPrFilter.mine.checked",
-        "title": "$(check) Mine"
+        "title": "✓ Mine"
       },
       {
         "command": "ado-assist.setPrFilter.active",
@@ -154,7 +154,7 @@
       },
       {
         "command": "ado-assist.setPrFilter.active.checked",
-        "title": "$(check) Active"
+        "title": "✓ Active"
       },
       {
         "command": "ado-assist.setPrFilter.completed",
@@ -162,7 +162,7 @@
       },
       {
         "command": "ado-assist.setPrFilter.completed.checked",
-        "title": "$(check) Completed"
+        "title": "✓ Completed"
       },
       {
         "command": "ado-assist.setPrFilter.abandoned",
@@ -170,7 +170,7 @@
       },
       {
         "command": "ado-assist.setPrFilter.abandoned.checked",
-        "title": "$(check) Abandoned"
+        "title": "✓ Abandoned"
       }
     ],
     "menus": {
@@ -464,3 +464,4 @@
     "url": "https://github.com/taizod1024/vscode-ado-assist-extension.git"
   }
 }
+
