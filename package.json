@@ -85,32 +85,20 @@
         "icon": "$(gear)"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.assigned",
+        "command": "ado-assist.setIterationItemFilter.all",
+        "title": "All"
+      },
+      {
+        "command": "ado-assist.setIterationItemFilter.assigned",
         "title": "Assigned to me"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.following",
-        "title": "Following"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.mentioned",
-        "title": "Mentioned"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.myactivity",
+        "command": "ado-assist.setIterationItemFilter.myactivity",
         "title": "My activity"
       },
       {
-        "command": "ado-assist.setWorkItemFilter.recentlyUpdated",
-        "title": "Recently updated"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.recentlyCompleted",
-        "title": "Recently completed"
-      },
-      {
-        "command": "ado-assist.setWorkItemFilter.recentlyCreated",
-        "title": "Recently created"
+        "command": "ado-assist.setIterationItemFilter.active",
+        "title": "Active"
       },
       {
         "command": "ado-assist.setPrFilter.mine",
@@ -230,6 +218,11 @@
           "group": "inline@99"
         },
         {
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsIteration",
+          "group": "inline@99"
+        },
+        {
           "command": "ado-assist.createPullRequest",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline"
@@ -240,39 +233,24 @@
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.setWorkItemFilter.assigned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
+          "command": "ado-assist.setIterationItemFilter.all",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
           "group": "1_filter@1"
         },
         {
-          "command": "ado-assist.setWorkItemFilter.following",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
+          "command": "ado-assist.setIterationItemFilter.assigned",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
           "group": "1_filter@2"
         },
         {
-          "command": "ado-assist.setWorkItemFilter.mentioned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
+          "command": "ado-assist.setIterationItemFilter.myactivity",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
           "group": "1_filter@3"
         },
         {
-          "command": "ado-assist.setWorkItemFilter.myactivity",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
+          "command": "ado-assist.setIterationItemFilter.active",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
           "group": "1_filter@4"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.recentlyUpdated",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
-          "group": "1_filter@5"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.recentlyCompleted",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
-          "group": "1_filter@6"
-        },
-        {
-          "command": "ado-assist.setWorkItemFilter.recentlyCreated",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsFilter_/",
-          "group": "1_filter@7"
         },
         {
           "command": "ado-assist.setPrFilter.mine",
@@ -365,4 +343,3 @@
     "url": "https://github.com/taizod1024/vscode-ado-assist-extension.git"
   }
 }
-

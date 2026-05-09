@@ -18,7 +18,7 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "workItemsFolder" | "workItemsCategory" | "workItemsFilter" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
+export type AdoItemType = "organization" | "project" | "workItemsFolder" | "workItemsCategory" | "workItemsFilter" | "workItemsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。
@@ -57,6 +57,18 @@ export class AdoTreeItem extends vscode.TreeItem {
    * フィルタボタンノードが参照する親フォルダノード（workItemsFilter / pullRequestsFilter 専用）。
    */
   folderRef?: AdoTreeItem;
+  /**
+   * イテレーションパス（workItemsIteration ノード専用）。
+   */
+  iterationPath?: string;
+  /**
+   * Work Item の ID（workItem ノード専用、子アイテム探索に使用）。
+   */
+  workItemId?: number;
+  /**
+   * イテレーションキャッシュキー（workItem ノード専用、子 Work Item 探索に使用）。
+   */
+  iterationCacheKey?: string;
 
   /**
    * AdoTreeItem のコンストラクタ。
@@ -101,6 +113,24 @@ export interface AdoWorkItem {
   assignee?: string;
   /** 説明のプレーンテキスト（短縮済み） */
   description?: string;
+  /** イテレーションパス（例: "MyProject\\Sprint 1"） */
+  iterationPath?: string;
+  /** 親 Work Item の ID */
+  parentId?: number;
+}
+
+/** ADO イテレーション（スプリント）の簡易表現 */
+export interface AdoIteration {
+  /** イテレーションの一意 ID */
+  id: string;
+  /** 表示名（例: "Sprint 1"） */
+  name: string;
+  /** フルパス（例: "MyProject\\Sprint 1"） */
+  path: string;
+  /** 開始日（ISO8601 文字列） */
+  startDate?: string;
+  /** 終了日（ISO8601 文字列） */
+  finishDate?: string;
 }
 
 /** ブランチ情報の簡易表現 */

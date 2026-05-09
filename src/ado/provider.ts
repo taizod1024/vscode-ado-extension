@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest } from "./types";
+import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration } from "./types";
 import { AdoApiClient } from "./adoApiClient";
 
 export function createTreeProvider(context?: vscode.ExtensionContext, channel?: vscode.LogOutputChannel): AdoTreeProvider {
@@ -42,11 +42,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private errorsByOrg: { [org: string]: string } = {};
   private nodeIdGen: { [key: string]: number } = {};
   private childrenFetchTokens: { [key: string]: number } = {};
+  /** イテレーション内 Work Item の親子マップ（key: iterationCacheKey, value: parentId → [子 WorkItem]） */
+  private workItemChildrenMaps: { [key: string]: Map<number, AdoWorkItem[]> } = {};
 
   // -----------------------
   // Filter State
   // -----------------------
-  private workItemFilterState: { [folderId: string]: number } = {};
+  private iterationItemFilterState: { [iterKey: string]: number } = {};
   private prFilterState: { [folderId: string]: number } = {};
 
   // -----------------------
@@ -103,6 +105,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         delete this.childrenFetchPromises[k];
         this.childrenFetchTokens[k] = (this.childrenFetchTokens[k] || 0) + 1;
       }
+    }
+    for (const k of Object.keys(this.workItemChildrenMaps)) {
+      if (k.startsWith(`workitems:${organization}:`)) delete this.workItemChildrenMaps[k];
     }
     this.channel?.appendLine(`Cleared cache for organization: ${organization}`);
   }
@@ -219,6 +224,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       workFolder.projectId = projectId;
       workFolder.id = `workitems:${org}:${projectId}:gen:${workGen}`;
       workFolder.contextValue = "workItemsFolder";
+      workFolder.iconPath = new vscode.ThemeIcon("tasklist", new vscode.ThemeColor("foreground"));
       // set Work Items web page for this project (recently updated view)
       try {
         const projNameForUrl = projectId || "";
@@ -235,52 +241,31 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       repoFolder.projectId = projectId;
       repoFolder.id = `repos:${org}:${projectId}:gen:${repoGen}`;
       repoFolder.contextValue = "repositoriesFolder";
+      repoFolder.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("foreground"));
 
       return [workFolder, repoFolder];
     }
 
-    // workItemsFolder の子: フィルタボタン＋現在フィルタの work item を直接表示する
+    // workItemsFolder の子: イテレーション一覧を直接表示する
     if (t === "workItemsFolder" && element.organization && element.projectId) {
       const org = element.organization as string;
       const pid = element.projectId as string;
-      const workItemCategories = [
-        { key: "assigned", label: "Assigned to me" },
-        { key: "following", label: "Following" },
-        { key: "mentioned", label: "Mentioned" },
-        { key: "myactivity", label: "My activity" },
-        { key: "recentlyUpdated", label: "Recently updated" },
-        { key: "recentlyCompleted", label: "Recently completed" },
-        { key: "recentlyCreated", label: "Recently created" },
-      ];
-      const filterKey = `${org}:${pid}`;
-      const filterIdx = (this.workItemFilterState[filterKey] || 0) % workItemCategories.length;
-      const currentCat = workItemCategories[filterIdx];
+      // ルートイテレーション（スプリント未割り当て）用の Backlog ノードを先頭に追加
+      const projName = await this.apiClient.resolveProjectName(org, pid);
+      const rootIterPath = projName || pid;
+      const backlogNode = this.makeIterationTreeItem(
+        { id: `${pid}:backlog`, name: "(No Sprint)", path: rootIterPath },
+        org, pid,
+      );
 
-      // フィルタボタンノード
-      const filterBtn = new AdoTreeItem(currentCat.label, vscode.TreeItemCollapsibleState.None);
-      filterBtn.itemType = "workItemsFilter";
-      filterBtn.organization = org;
-      filterBtn.projectId = pid;
-      filterBtn.id = `workitems-filter:${org}:${pid}`;
-      filterBtn.contextValue = `workItemsFilter_${currentCat.key}`;
-      filterBtn.folderRef = element;
-      filterBtn.iconPath = new vscode.ThemeIcon("filter");
-      filterBtn.tooltip = "右クリックでフィルタを選択";
-
-      // 現在フィルタの work item をフェッチ
-      let fetchFn: () => Promise<AdoWorkItem[]> = async () => [];
-      switch (currentCat.key) {
-        case "assigned":       fetchFn = async () => await this.apiClient.fetchAssignedToMe(org, pid); break;
-        case "following":      fetchFn = async () => await this.apiClient.fetchFollowing(org, pid); break;
-        case "mentioned":      fetchFn = async () => await this.apiClient.fetchMentioned(org, pid); break;
-        case "myactivity":     fetchFn = async () => await this.apiClient.fetchMyActivity(org, pid); break;
-        case "recentlyUpdated":   fetchFn = async () => await this.apiClient.fetchRecentlyUpdated(org, pid); break;
-        case "recentlyCompleted": fetchFn = async () => await this.apiClient.fetchRecentlyCompleted(org, pid); break;
-        case "recentlyCreated":   fetchFn = async () => await this.apiClient.fetchRecentlyCreated(org, pid); break;
-      }
-      const cacheKey = `workitems:${org}:${pid}:category:${currentCat.key}`;
-      const items = this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, ws => ws.map(w => this.makeWorkItemTreeItem(w, org, pid)), "Loading work items...");
-      return [filterBtn, ...items];
+      const key = `workitems:${org}:${pid}:iterations`;
+      return this.lazyLoadChildren<AdoIteration>(
+        key,
+        element,
+        async () => await this.apiClient.fetchIterations(org, pid),
+        iters => [backlogNode, ...iters.map(iter => this.makeIterationTreeItem(iter, org, pid))],
+        "Loading iterations...",
+      );
     }
 
     // workItemsCategory の子: 実際の Work Item をカテゴリに応じて取得して表示
@@ -321,6 +306,52 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, items => items.map(w => this.makeWorkItemTreeItem(w, org, pid)), "Loading work items...");
     }
 
+    // workItemsIteration の子: フィルタボタン＋イテレーション内の Work Item を親子階層で返す
+    if (t === "workItemsIteration" && element.organization && element.projectId && element.iterationPath !== undefined) {
+      const org = element.organization as string;
+      const pid = element.projectId as string;
+      const iterPath = element.iterationPath;
+      const iterationItemCategories = [
+        { key: "all",        label: "All" },
+        { key: "assigned",   label: "Assigned to me" },
+        { key: "myactivity", label: "My activity" },
+        { key: "active",     label: "Active" },
+      ];
+      const filterStateKey = `${org}:${pid}:${iterPath}`;
+      const filterIdx = (this.iterationItemFilterState[filterStateKey] || 0) % iterationItemCategories.length;
+      const currentCat = iterationItemCategories[filterIdx];
+
+      // フィルタボタンノード
+      const filterBtn = new AdoTreeItem(currentCat.label, vscode.TreeItemCollapsibleState.None);
+      filterBtn.itemType = "workItemsFilter";
+      filterBtn.organization = org;
+      filterBtn.projectId = pid;
+      filterBtn.iterationPath = iterPath;
+      filterBtn.id = `iter-filter:${org}:${pid}:${iterPath}`;
+      filterBtn.contextValue = `workItemsIterationFilter_${currentCat.key}`;
+      filterBtn.folderRef = element;
+      filterBtn.iconPath = new vscode.ThemeIcon("filter");
+      filterBtn.tooltip = "右クリックでフィルタを選択";
+
+      const cacheKey = `workitems:${org}:${pid}:iter:${iterPath}:${currentCat.key}`;
+      const items = this.lazyLoadChildren<AdoWorkItem>(
+        cacheKey,
+        element,
+        async () => await this.apiClient.fetchWorkItemsForIteration(org, pid, iterPath, currentCat.key),
+        ws => this.buildWorkItemHierarchy(ws, org, pid, cacheKey),
+        "Loading work items...",
+      );
+      return [filterBtn, ...items];
+    }
+
+    // workItem の子: イテレーション内連携で亲子関係がある場合に子要素を返す
+    if (t === "workItem" && element.workItemId !== undefined && element.iterationCacheKey) {
+      const childrenMap = this.workItemChildrenMaps[element.iterationCacheKey];
+      if (!childrenMap) return [];
+      const children = childrenMap.get(element.workItemId) || [];
+      return children.map(w => this.makeWorkItemHierarchyItem(w, element.organization!, element.projectId, element.iterationCacheKey!, childrenMap));
+    }
+
     // repositoriesFolder の子: repositories
     if (t === "repositoriesFolder" && element.organization && element.projectId) {
       const org = element.organization as string;
@@ -352,6 +383,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       branchesFolder.repoName = element.repoName || "";
       branchesFolder.id = `branches:${org}:${repoId}:gen:${branchesGen}`;
       branchesFolder.contextValue = "branchesFolder";
+      branchesFolder.iconPath = new vscode.ThemeIcon("git-branch");
 
       const prsFolder = new AdoTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
       prsFolder.itemType = "pullRequestsFolder";
@@ -363,6 +395,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const prsGen = this.nodeIdGen[prsGenKey] || 0;
       prsFolder.id = `prs:${org}:${repoId}:gen:${prsGen}`;
       prsFolder.contextValue = "pullRequestsFolder";
+      prsFolder.iconPath = new vscode.ThemeIcon("git-pull-request", new vscode.ThemeColor("foreground"));
 
       // set Pull Requests web page URL (showing 'mine' by default)
       try {
@@ -426,10 +459,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       // 現在フィルタの PR をフェッチ
       let fetchFn: () => Promise<AdoPullRequest[]> = async () => [];
       switch (currentCat.key) {
-        case "mine":      fetchFn = async () => await this.apiClient.fetchPullRequestsMine(org, repoId); break;
-        case "active":    fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "active"); break;
-        case "completed": fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "completed"); break;
-        case "abandoned": fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "abandoned"); break;
+        case "mine":
+          fetchFn = async () => await this.apiClient.fetchPullRequestsMine(org, repoId);
+          break;
+        case "active":
+          fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "active");
+          break;
+        case "completed":
+          fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "completed");
+          break;
+        case "abandoned":
+          fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "abandoned");
+          break;
       }
       const cacheKey = `prs:${org}:${repoId}:category:${currentCat.key}`;
       const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
@@ -475,39 +516,41 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // Public API
   // -----------------------
   /**
-   * Work Items フォルダのフィルタを次へ進める。
-   * @param folderElement workItemsFolder の AdoTreeItem
+   * イテレーション内 Work Item フィルタを次へ進める。
+   * @param iterElement workItemsIteration の AdoTreeItem
    */
-  cycleWorkItemFilter(folderElement: AdoTreeItem): void {
-    const org = folderElement.organization;
-    const pid = folderElement.projectId;
-    if (!org || !pid) return;
-    const key = `${org}:${pid}`;
-    const categoryCount = 7;
-    this.workItemFilterState[key] = ((this.workItemFilterState[key] || 0) + 1) % categoryCount;
-    this._onDidChangeTreeData.fire(folderElement);
+  cycleIterationItemFilter(iterElement: AdoTreeItem): void {
+    const org = iterElement.organization;
+    const pid = iterElement.projectId;
+    const iterPath = iterElement.iterationPath;
+    if (!org || !pid || iterPath === undefined) return;
+    const key = `${org}:${pid}:${iterPath}`;
+    const categoryCount = 4;
+    this.iterationItemFilterState[key] = ((this.iterationItemFilterState[key] || 0) + 1) % categoryCount;
+    this._onDidChangeTreeData.fire(iterElement);
   }
 
   /**
-   * Work Items フォルダのフィルタを指定インデックスに設定する。
-   * @param folderElement workItemsFolder の AdoTreeItem
+   * イテレーション内 Work Item フィルタを指定インデックスに設定する。
+   * @param iterElement workItemsIteration の AdoTreeItem
    * @param index フィルタのインデックス（0 始まり）
    */
-  setWorkItemFilter(folderElement: AdoTreeItem, index: number): void {
-    const org = folderElement.organization;
-    const pid = folderElement.projectId;
-    if (!org || !pid) return;
-    const key = `${org}:${pid}`;
-    this.workItemFilterState[key] = index;
-    const workItemCategories = ["assigned", "following", "mentioned", "myactivity", "recentlyUpdated", "recentlyCompleted", "recentlyCreated"];
-    const catKey = workItemCategories[index];
+  setIterationItemFilter(iterElement: AdoTreeItem, index: number): void {
+    const org = iterElement.organization;
+    const pid = iterElement.projectId;
+    const iterPath = iterElement.iterationPath;
+    if (!org || !pid || iterPath === undefined) return;
+    const key = `${org}:${pid}:${iterPath}`;
+    this.iterationItemFilterState[key] = index;
+    const categories = ["all", "assigned", "myactivity", "active"];
+    const catKey = categories[index];
     if (catKey) {
-      const cacheKey = `workitems:${org}:${pid}:category:${catKey}`;
+      const cacheKey = `workitems:${org}:${pid}:iter:${iterPath}:${catKey}`;
       delete this.childrenCache[cacheKey];
       delete this.childrenFetchPromises[cacheKey];
       this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
     }
-    this._onDidChangeTreeData.fire(folderElement);
+    this._onDidChangeTreeData.fire(iterElement);
   }
 
   /**
@@ -562,12 +605,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const org = element?.organization as string | undefined;
     if (org) {
       this.clearCacheForOrganization(org);
-      // 対象 org のサブツリーだけ再描画（他 org に影響しない）
+      // 対象 org のサブツリーだけ再描画（他 org に影響しなя）
       this._onDidChangeTreeData.fire(element);
     } else {
       this.childrenCache = {};
       this.childrenFetchPromises = {};
       this.childrenFetchTokens = {};
+      this.workItemChildrenMaps = {};
       this.errorsByOrg = {};
       if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
       this.refresh();
@@ -739,6 +783,83 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.tooltip = w.url || w.title;
     try {
       it.description = (w as any).assignee || "";
+    } catch (e) {}
+    return it;
+  }
+
+  /** イテレーション内の親子階層で使う Work Item ノードを作成する */
+  private makeWorkItemHierarchyItem(w: AdoWorkItem, org: string, projectId: string | undefined, iterCacheKey: string, childrenMap: Map<number, AdoWorkItem[]>): AdoTreeItem {
+    const children = childrenMap.get(w.id) || [];
+    const state = children.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
+    const it = new AdoTreeItem(`#${w.id} ${w.title}`, state);
+    it.itemType = "workItem";
+    it.organization = org;
+    it.projectId = projectId;
+    it.id = `work:${org}:${w.id}:iter:${iterCacheKey}`;
+    it.workItemId = w.id;
+    it.iterationCacheKey = iterCacheKey;
+    it.contextValue = "workitem";
+    try {
+      const st = w.status ? String(w.status).toLowerCase() : "";
+      const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
+      if (!isDone) it.contextValue = "workitem_active";
+      if (isDone) {
+        it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
+      } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
+        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
+      } else {
+        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
+      }
+    } catch (e) {}
+    it.url = w.url;
+    it.tooltip = w.url || w.title;
+    try {
+      it.description = w.assignee || "";
+    } catch (e) {}
+    return it;
+  }
+
+  /** Work Item リストを親子階層に変換し、ルートノードの配列を返す */
+  private buildWorkItemHierarchy(workItems: AdoWorkItem[], org: string, projectId: string | undefined, cacheKey: string): AdoTreeItem[] {
+    const itemMap = new Map<number, AdoWorkItem>();
+    for (const w of workItems) itemMap.set(w.id, w);
+
+    const childrenMap = new Map<number, AdoWorkItem[]>();
+    const roots: AdoWorkItem[] = [];
+    for (const w of workItems) {
+      if (w.parentId && itemMap.has(w.parentId)) {
+        if (!childrenMap.has(w.parentId)) childrenMap.set(w.parentId, []);
+        childrenMap.get(w.parentId)!.push(w);
+      } else {
+        roots.push(w);
+      }
+    }
+    // ショートカットで一応イテレーション内の全 WorkItem分 childrenMap を保存（子層ノードの getChildren で使う）
+    this.workItemChildrenMaps[cacheKey] = childrenMap;
+    return roots.map(w => this.makeWorkItemHierarchyItem(w, org, projectId, cacheKey, childrenMap));
+  }
+
+  /** イテレーションノードを作成する */
+  private makeIterationTreeItem(iter: AdoIteration, org: string, projectId?: string): AdoTreeItem {
+    const it = new AdoTreeItem(iter.name, vscode.TreeItemCollapsibleState.Collapsed);
+    it.itemType = "workItemsIteration";
+    it.organization = org;
+    it.projectId = projectId;
+    it.id = `iteration:${org}:${projectId}:${iter.id}`;
+    it.contextValue = "workItemsIteration";
+    it.iconPath = new vscode.ThemeIcon("calendar", new vscode.ThemeColor("charts.blue"));
+    it.iterationPath = iter.path;
+    if (iter.startDate && iter.finishDate) {
+      const start = iter.startDate.slice(0, 10);
+      const finish = iter.finishDate.slice(0, 10);
+      it.tooltip = `${start} → ${finish}`;
+      it.description = `${start} → ${finish}`;
+    }
+    try {
+      if (org && projectId && iter.path) {
+        const teamName = `${projectId} Team`;
+        it.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectId)}/_sprints/taskboard/${encodeURIComponent(teamName)}/${iter.path.split("\\").map(encodeURIComponent).join("/")}`;
+      }
     } catch (e) {}
     return it;
   }

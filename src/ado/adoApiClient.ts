@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest } from "./types";
+import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration } from "./types";
 import { httpRequest } from "./api";
 
 /**
@@ -189,6 +189,8 @@ export class AdoApiClient {
         }
         const shortDesc = rawDesc.length > 200 ? rawDesc.slice(0, 197) + "..." : rawDesc;
         const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
+        const iterationPath = String(d.fields?.["System.IterationPath"] || "");
+        const parentId = d.fields?.["System.Parent"] ? Number(d.fields["System.Parent"]) : undefined;
         items.push({
           id: wid,
           title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"),
@@ -196,6 +198,8 @@ export class AdoApiClient {
           status: state,
           assignee,
           description: shortDesc,
+          iterationPath,
+          parentId,
         });
       }
     }
@@ -250,6 +254,47 @@ export class AdoApiClient {
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     const q = this.buildWiql(projName, [], "[System.CreatedDate] Desc");
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
+  }
+
+  async fetchIterations(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoIteration[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    if (!projName) return [];
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/work/teamsettings/iterations?api-version=6.0`;
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const iterations: AdoIteration[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const it of data.value) {
+        iterations.push({
+          id: String(it.id || ""),
+          name: String(it.name || ""),
+          path: String(it.path || ""),
+          startDate: it.attributes?.startDate || undefined,
+          finishDate: it.attributes?.finishDate || undefined,
+        });
+      }
+    }
+    return iterations;
+  }
+
+  async fetchWorkItemsForIteration(organization: string, projectIdOrName: string, iterationPath: string, filterKey?: string, pat?: string): Promise<AdoWorkItem[]> {
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const safeIterPath = iterationPath.replace(/'/g, "''");
+    const conditions = [`[System.IterationPath] = '${safeIterPath}'`];
+    switch (filterKey) {
+      case "assigned":
+        conditions.push("[System.AssignedTo] = @Me");
+        break;
+      case "myactivity":
+        conditions.push("([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)");
+        break;
+      case "active":
+        conditions.push("([System.State] = 'Active' OR [System.State] = 'In Progress' OR [System.State] = 'Doing')");
+        break;
+    }
+    const q = this.buildWiql(projName || projectIdOrName, conditions, "[System.WorkItemType] Asc, [System.Id] Asc");
+    return this.fetchWorkItemsByWiql(organization, q, projName || projectIdOrName, pat);
   }
 
   // -----------------------

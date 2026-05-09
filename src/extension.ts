@@ -322,23 +322,20 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Work Items filter: individual commands
-    const wiFilters: [string, number][] = [
-      ["ado-assist.setWorkItemFilter.assigned",        0],
-      ["ado-assist.setWorkItemFilter.following",       1],
-      ["ado-assist.setWorkItemFilter.mentioned",       2],
-      ["ado-assist.setWorkItemFilter.myactivity",      3],
-      ["ado-assist.setWorkItemFilter.recentlyUpdated",   4],
-      ["ado-assist.setWorkItemFilter.recentlyCompleted", 5],
-      ["ado-assist.setWorkItemFilter.recentlyCreated",   6],
+    // Iteration Items filter commands
+    const iterFilters: [string, number][] = [
+      ["ado-assist.setIterationItemFilter.all", 0],
+      ["ado-assist.setIterationItemFilter.assigned", 1],
+      ["ado-assist.setIterationItemFilter.myactivity", 2],
+      ["ado-assist.setIterationItemFilter.active", 3],
     ];
-    for (const [cmd, idx] of wiFilters) {
+    for (const [cmd, idx] of iterFilters) {
       context.subscriptions.push(
         vscode.commands.registerCommand(cmd, (filterBtnArg?: any) => {
           try {
             const folderElement = filterBtnArg?.folderRef;
             if (!folderElement) return;
-            provider.setWorkItemFilter(folderElement, idx);
+            provider.setIterationItemFilter(folderElement, idx);
           } catch (err) {
             channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
           }
@@ -348,8 +345,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Pull Requests filter: individual commands
     const prFilters: [string, number][] = [
-      ["ado-assist.setPrFilter.mine",      0],
-      ["ado-assist.setPrFilter.active",    1],
+      ["ado-assist.setPrFilter.mine", 0],
+      ["ado-assist.setPrFilter.active", 1],
       ["ado-assist.setPrFilter.completed", 2],
       ["ado-assist.setPrFilter.abandoned", 3],
     ];
