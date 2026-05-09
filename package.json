@@ -20,6 +20,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "ado-assist.refreshIterationItems",
+        "title": "Azure DevOps: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "ado-assist.openUrl",
         "title": "Azure DevOps: Open URL",
         "icon": "$(globe)"
@@ -231,6 +236,11 @@
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline@99"
+        },
+        {
+          "command": "ado-assist.refreshIterationItems",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
+          "group": "inline"
         },
         {
           "command": "ado-assist.setIterationItemFilter.all",

@@ -58,6 +58,13 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Refresh iteration items (keep current filter)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.refreshIterationItems", async (arg?: any) => {
+        provider.refreshIterationItems(arg);
+      }),
+    );
+
     // Open project/repo/pipeline URL (integrated browser only)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.openUrl", async (arg?: any) => {
