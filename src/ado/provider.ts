@@ -499,6 +499,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (!org || !pid) return;
     const key = `${org}:${pid}`;
     this.workItemFilterState[key] = index;
+    const workItemCategories = ["assigned", "following", "mentioned", "myactivity", "recentlyUpdated", "recentlyCompleted", "recentlyCreated"];
+    const catKey = workItemCategories[index];
+    if (catKey) {
+      const cacheKey = `workitems:${org}:${pid}:category:${catKey}`;
+      delete this.childrenCache[cacheKey];
+      delete this.childrenFetchPromises[cacheKey];
+      this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
+    }
     this._onDidChangeTreeData.fire(folderElement);
   }
 
@@ -527,6 +535,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (!org || !repoId) return;
     const key = `${org}:${repoId}`;
     this.prFilterState[key] = index;
+    const prCategories = ["mine", "active", "completed", "abandoned"];
+    const catKey = prCategories[index];
+    if (catKey) {
+      const cacheKey = `prs:${org}:${repoId}:category:${catKey}`;
+      delete this.childrenCache[cacheKey];
+      delete this.childrenFetchPromises[cacheKey];
+      this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
+    }
     this._onDidChangeTreeData.fire(folderElement);
   }
 
