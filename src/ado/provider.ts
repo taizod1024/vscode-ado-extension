@@ -177,7 +177,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const org = element.organization as string;
 
       // PAT が未設定の場合は「Enter PAT」アイテムを表示
-      const storedPat = await this.context?.secrets.get(`ado-assist.pat.${org}`);
+      const storedPat = await this.context?.secrets.get(`ado-ext.pat.${org}`);
       if (!storedPat) {
         const enterPatItem = new AdoTreeItem("Enter PAT to connect...", vscode.TreeItemCollapsibleState.None);
         enterPatItem.itemType = "error";
@@ -185,7 +185,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         enterPatItem.id = `enter-pat:${org}`;
         enterPatItem.contextValue = "enterPat";
         enterPatItem.iconPath = new vscode.ThemeIcon("key", new vscode.ThemeColor("charts.yellow"));
-        enterPatItem.command = { command: "ado-assist.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+        enterPatItem.command = { command: "ado-ext.enterPatForOrg", title: "Enter PAT", arguments: [org] };
         return [enterPatItem];
       }
 
@@ -260,10 +260,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       // ルートイテレーション（スプリント未割り当て）用の Backlog ノードを先頭に追加
       const projName = await this.apiClient.resolveProjectName(org, pid);
       const rootIterPath = projName || pid;
-      const backlogNode = this.makeIterationTreeItem(
-        { id: `${pid}:backlog`, name: "(No Sprint)", path: rootIterPath },
-        org, pid,
-      );
+      const backlogNode = this.makeIterationTreeItem({ id: `${pid}:backlog`, name: "(No Sprint)", path: rootIterPath }, org, pid);
 
       const key = `workitems:${org}:${pid}:iterations`;
       return this.lazyLoadChildren<AdoIteration>(
@@ -319,10 +316,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const pid = element.projectId as string;
       const iterPath = element.iterationPath;
       const iterationItemCategories = [
-        { key: "all",        label: "All" },
-        { key: "assigned",   label: "Assigned to me" },
+        { key: "all", label: "All" },
+        { key: "assigned", label: "Assigned to me" },
         { key: "myactivity", label: "My activity" },
-        { key: "active",     label: "Active" },
+        { key: "active", label: "Active" },
       ];
       const filterStateKey = `${org}:${pid}:${iterPath}`;
       const filterIdx = (this.iterationItemFilterState[filterStateKey] || 0) % iterationItemCategories.length;
@@ -569,14 +566,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * @param buildCacheKey キャッシュキーを生成する関数
    * @returns キー文字列、または取得失敗時は null
    */
-  private setFilter(
-    element: AdoTreeItem,
-    index: number,
-    filterState: { [key: string]: number },
-    categories: string[],
-    buildStateKey: () => string | null,
-    buildCacheKey: (catKey: string) => string
-  ): void {
+  private setFilter(element: AdoTreeItem, index: number, filterState: { [key: string]: number }, categories: string[], buildStateKey: () => string | null, buildCacheKey: (catKey: string) => string): void {
     const stateKey = buildStateKey();
     if (!stateKey) return;
     filterState[stateKey] = index;
@@ -600,14 +590,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const pid = iterElement.projectId;
     const iterPath = iterElement.iterationPath;
     const categories = ["all", "assigned", "myactivity", "active"];
-    
+
     this.setFilter(
       iterElement,
       index,
       this.iterationItemFilterState,
       categories,
-      () => (!org || !pid || iterPath === undefined) ? null : `${org}:${pid}:${iterPath}`,
-      (catKey) => `workitems:${org}:${pid}:iter:${iterPath}:${catKey}`
+      () => (!org || !pid || iterPath === undefined ? null : `${org}:${pid}:${iterPath}`),
+      catKey => `workitems:${org}:${pid}:iter:${iterPath}:${catKey}`,
     );
   }
 
@@ -634,14 +624,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const org = folderElement.organization;
     const repoId = folderElement.repoId;
     const prCategories = ["mine", "active", "completed", "abandoned"];
-    
+
     this.setFilter(
       folderElement,
       index,
       this.prFilterState,
       prCategories,
-      () => (!org || !repoId) ? null : `${org}:${repoId}`,
-      (catKey) => `prs:${org}:${repoId}:category:${catKey}`
+      () => (!org || !repoId ? null : `${org}:${repoId}`),
+      catKey => `prs:${org}:${repoId}:category:${catKey}`,
     );
   }
 
@@ -1001,6 +991,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // Private Utilities - Authentication
   // -----------------------
   private patKeyForOrg(org: string): string {
-    return `ado-assist.pat.${org}`;
+    return `ado-ext.pat.${org}`;
   }
 }

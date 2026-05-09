@@ -415,7 +415,7 @@ export class AdoApiClient {
   }
 
   private patKeyForOrg(org: string): string {
-    return `ado-assist.pat.${org}`;
+    return `ado-ext.pat.${org}`;
   }
 
   /**

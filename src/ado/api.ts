@@ -63,7 +63,7 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
 
               // 302リダイレクトは通常、認証失敗を示す
               if (status === 302) {
-              errorMsg = ERROR_MESSAGES.PAT_REDIRECTED;
+                errorMsg = ERROR_MESSAGES.PAT_REDIRECTED;
               }
 
               if (bodyStr) {
