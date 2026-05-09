@@ -784,6 +784,32 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   // Private Utilities - TreeItem Factories
   // -----------------------
+  /**
+   * Work Item のステータスに基づいてアイコン設定と contextValue を適用します。
+   * @param item 対象の AdoTreeItem
+   * @param w Work Item データ
+   */
+  private applyWorkItemStyling(item: AdoTreeItem, w: AdoWorkItem): void {
+    try {
+      const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
+      const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
+      // DONE以外のチケットには workitem_active を追加
+      if (!isDone) {
+        item.contextValue = "workitem_active";
+      }
+      if (isDone) {
+        // DONE状態: checkアイコン（青色）
+        item.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
+      } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
+        // DOING状態: 赤色
+        item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
+      } else {
+        // TODO・新規・その他: 黄色
+        item.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
+      }
+    } catch (e) {}
+  }
+
   private makeWorkItemTreeItem(w: AdoWorkItem, org: string, projectId?: string): AdoTreeItem {
     const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
     it.itemType = "workItem";
@@ -791,24 +817,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.projectId = projectId;
     it.id = `work:${org}:${w.id}`;
     it.contextValue = "workitem";
-    try {
-      const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
-      const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
-      // DONE以外のチケットには workitem_active を追加
-      if (!isDone) {
-        it.contextValue = "workitem_active";
-      }
-      if (isDone) {
-        // DONE状態: checkアイコン（青色）
-        it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
-      } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-        // DOING状態: 赤色
-        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
-      } else {
-        // TODO・新規・その他: 黄色
-        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
-      }
-    } catch (e) {}
+    this.applyWorkItemStyling(it, w);
     it.url = w.url;
     it.tooltip = w.url || w.title;
     try {
@@ -829,18 +838,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.workItemId = w.id;
     it.iterationCacheKey = iterCacheKey;
     it.contextValue = "workitem";
-    try {
-      const st = w.status ? String(w.status).toLowerCase() : "";
-      const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
-      if (!isDone) it.contextValue = "workitem_active";
-      if (isDone) {
-        it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
-      } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
-      } else {
-        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
-      }
-    } catch (e) {}
+    this.applyWorkItemStyling(it, w);
     it.url = w.url;
     it.tooltip = w.url || w.title;
     try {

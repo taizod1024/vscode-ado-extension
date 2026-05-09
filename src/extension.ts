@@ -18,6 +18,57 @@ export function activate(context: vscode.ExtensionContext) {
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
 
+    // -----------------------
+    // Common PAT Validation Handler
+    // -----------------------
+    /**
+     * PAT の検証と保存を行う共通ハンドラー。
+     * @param org 組織名
+     * @param pat Personal Access Token
+     * @param addOrgToProvider true の場合、成功時に provider.addOrganization() を呼び出す
+     * @returns 成功時は true、失敗時は false
+     */
+    const handlePatValidationAndSave = async (org: string, pat: string, addOrgToProvider: boolean = false): Promise<boolean> => {
+      try {
+        // PAT を検証
+        channel.appendLine(`Starting PAT verification for organization: ${org}`);
+        const client = provider.getClient();
+        const isValid = await client.verifyPat(org, pat);
+        channel.appendLine(`PAT verification result: ${isValid}`);
+
+        if (!isValid) {
+          const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
+          channel.appendLine(`Error: ${errorMsg}`);
+          provider.clearCacheForOrganization(org);
+          await provider.revealOrganization(org);
+          await vscode.window.showErrorMessage(errorMsg);
+          return false;
+        }
+
+        // PAT 保存
+        await context.secrets.store(`ado-assist.pat.${org}`, pat);
+        channel.appendLine(`PAT successfully saved for organization: ${org}`);
+
+        // 組織を追加（if requested）
+        if (addOrgToProvider) {
+          provider.addOrganization(org);
+        }
+
+        // キャッシュクリア→プロジェクト先行フェッチ→ツリー展開
+        provider.clearCacheForOrganization(org);
+        await provider.revealOrganization(org);
+
+        const successMsg = addOrgToProvider ? `Organization "${org}" added.` : `PAT saved for ${org}`;
+        await vscode.window.showInformationMessage(successMsg);
+        return true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        channel.appendLine(`Exception in PAT handling: ${msg}`);
+        await vscode.window.showErrorMessage("Failed to save PAT: " + msg);
+        return false;
+      }
+    };
+
     // Enter PAT for a specific organization (used by tree items)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.enterPatForOrg", async (orgArg?: any) => {
@@ -28,28 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // Verify the PAT before saving
-          channel.appendLine(`Starting PAT verification for organization: ${org}`);
-          const client = provider.getClient();
-          const isValid = await client.verifyPat(org, pat);
-          channel.appendLine(`PAT verification result: ${isValid}`);
-
-          if (!isValid) {
-            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
-            channel.appendLine(`Error: ${errorMsg}`);
-            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
-            provider.clearCacheForOrganization(org);
-            await provider.revealOrganization(org);
-            await vscode.window.showErrorMessage(errorMsg);
-            return;
-          }
-
-          await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          channel.appendLine(`PAT successfully saved for organization: ${org}`);
-          // キャッシュクリア→プロジェクト先行フェッチ→ツリー展開
-          provider.clearCacheForOrganization(org);
-          await provider.revealOrganization(org);
-          await vscode.window.showInformationMessage(`PAT saved for ${org}`);
+          await handlePatValidationAndSave(org, pat, false);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           channel.appendLine(`Exception in enterPatForOrg: ${msg}`);
@@ -93,7 +123,15 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.openUrl", async (arg?: any) => {
         try {
-          const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
+          let url: string = "";
+          if (typeof arg === "string") {
+            url = arg;
+          } else if (arg && typeof arg === "object") {
+            // Use getWebUrl() helper to extract Web URL with fallback logic
+            const client = provider.getClient();
+            url = client.getWebUrl(arg);
+          }
+
           if (!url) return;
           channel.appendLine(`open url - url=${url}`);
 
@@ -202,8 +240,9 @@ export function activate(context: vscode.ExtensionContext) {
           if (typeof arg === "string") {
             cloneUrl = arg;
           } else if (arg && typeof arg === "object") {
-            // prefer explicit repo clone url if available
-            cloneUrl = arg.cloneUrl || arg.remoteUrl || arg.url || undefined;
+            // Use getCloneUrl() helper to extract Clone URL with fallback logic
+            const client = provider.getClient();
+            cloneUrl = client.getCloneUrl(arg);
             if (!cloneUrl) {
               const org = arg.organization || arg.org || undefined;
               const proj = arg.projectId || arg.project || undefined;
@@ -285,31 +324,8 @@ export function activate(context: vscode.ExtensionContext) {
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // 3. PAT を検証
-          channel.appendLine(`Starting PAT verification for organization: ${org}`);
-          const client = provider.getClient();
-          const isValid = await client.verifyPat(org, pat);
-          channel.appendLine(`PAT verification result: ${isValid}`);
-
-          // 4. org 登録（PAT の OK/NG に関わらず）
-          provider.addOrganization(org);
-
-          if (!isValid) {
-            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
-            channel.appendLine(`Error: ${errorMsg}`);
-            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
-            provider.clearCacheForOrganization(org);
-            await provider.revealOrganization(org);
-            await vscode.window.showErrorMessage(errorMsg);
-            return;
-          }
-
-          // 5. PAT 保存 → ツリー展開
-          await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          channel.appendLine(`PAT successfully saved for organization: ${org}`);
-          provider.clearCacheForOrganization(org);
-          await provider.revealOrganization(org);
-          await vscode.window.showInformationMessage(`Organization "${org}" added.`);
+          // 3. PAT を検証・保存して org を追加
+          await handlePatValidationAndSave(org, pat, true);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to add organization: " + msg);
