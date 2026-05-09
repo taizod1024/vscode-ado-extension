@@ -62,38 +62,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     // (removed unused refreshProjects command)
 
-    // Open project/repo/pipeline URL
+    // Open project/repo/pipeline URL (integrated browser only)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.openUrl", async (arg?: any) => {
         try {
           const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
           if (!url) return;
           channel.appendLine(`open url - url=${url}`);
-          // Try to open with Live Server extension if installed (user requested ms-vscode.live-server)
-          try {
-            const tryExtIds = ["ms-vscode.live-server", "ritwickdey.LiveServer", "ritwickdey.liveserver"];
-            const ext = tryExtIds.map(id => vscode.extensions.getExtension(id)).find(x => !!x);
-            if (ext) {
-              const cmds = ["liveServer.openBrowser", "liveServer.open", "extension.liveServer.goOnline", "liveServer.goOnline", "openInLiveServer", "openInBrowser"];
-              for (const c of cmds) {
-                try {
-                  // many live-server commands accept a URL or will open the last served page
-                  await vscode.commands.executeCommand(c, url);
-                  channel.appendLine(`opened with extension command=${c}`);
-                  return;
-                } catch (e) {
-                  // try next
-                }
-              }
-            }
-          } catch (e) {
-            // ignore and fallback
-          }
-
-          // fallback to external browser
-          await vscode.env.openExternal(vscode.Uri.parse(url));
+          
+          await vscode.commands.executeCommand("simpleBrowser.show", url);
+          channel.appendLine("opened with integrated browser");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Failed to open URL: ${msg}`);
           vscode.window.showErrorMessage("Failed to open URL: " + msg);
         }
       }),
