@@ -174,13 +174,18 @@
         },
         {
           "command": "ado-assist.createSprint",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openWorkItems",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
+          "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
           "group": "inline@99"
+        },
+        {
+          "command": "ado-assist.openWorkItems",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "group": "inline@98"
         },
         {
           "command": "ado-assist.openUrl",
@@ -230,22 +235,22 @@
         },
         {
           "command": "ado-assist.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsIteration",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
           "group": "inline@99"
         },
         {
           "command": "ado-assist.createEpic",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsIteration",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
           "group": "inline"
         },
         {
           "command": "ado-assist.createIssue",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsIteration",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
           "group": "inline"
         },
         {
           "command": "ado-assist.createTask",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsIteration",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
           "group": "inline"
         },
         {
@@ -260,27 +265,27 @@
         },
         {
           "command": "ado-assist.refreshIterationItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
           "group": "inline"
         },
         {
           "command": "ado-assist.setIterationItemFilter.all",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
           "group": "1_filter@1"
         },
         {
           "command": "ado-assist.setIterationItemFilter.assigned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
           "group": "1_filter@2"
         },
         {
           "command": "ado-assist.setIterationItemFilter.myactivity",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
           "group": "1_filter@3"
         },
         {
           "command": "ado-assist.setIterationItemFilter.active",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^workItemsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
           "group": "1_filter@4"
         },
         {

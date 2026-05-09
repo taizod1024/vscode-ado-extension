@@ -62,9 +62,15 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.openWorkItems", async (arg?: any) => {
         try {
-          const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
-          if (!url) return;
-          channel.appendLine(`open url - url=${url}`);
+          // arg から organization と projectId を抽出して work items URL を構築
+          const org = arg?.organization;
+          const projectId = arg?.projectId;
+          if (!org || !projectId) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectId)}/_workitems/recentlyupdated/`;
+          channel.appendLine(`open work items url - url=${url}`);
 
           await vscode.commands.executeCommand("simpleBrowser.show", url);
           channel.appendLine("opened with integrated browser");

@@ -18,7 +18,7 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "workItemsFolder" | "workItemsCategory" | "workItemsFilter" | "workItemsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
+export type AdoItemType = "organization" | "project" | "sprintsFolder" | "sprintsCategory" | "sprintsFilter" | "sprintsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。
@@ -54,11 +54,11 @@ export class AdoTreeItem extends vscode.TreeItem {
    */
   url?: string;
   /**
-   * フィルタボタンノードが参照する親フォルダノード（workItemsFilter / pullRequestsFilter 専用）。
+   * フィルタボタンノードが参照する親フォルダノード（sprintsFilter / pullRequestsFilter 専用）。
    */
   folderRef?: AdoTreeItem;
   /**
-   * イテレーションパス（workItemsIteration ノード専用）。
+   * イテレーションパス（sprintsIteration ノード専用）。
    */
   iterationPath?: string;
   /**

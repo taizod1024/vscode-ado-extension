@@ -218,18 +218,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const projectId = element.projectId;
       const workGenKey = `workitems:${org}:${projectId}:category:`;
       const workGen = this.nodeIdGen[workGenKey] || 0;
-      const workFolder = new AdoTreeItem("Work items", vscode.TreeItemCollapsibleState.Expanded);
-      workFolder.itemType = "workItemsFolder";
+      const workFolder = new AdoTreeItem("Sprints", vscode.TreeItemCollapsibleState.Expanded);
+      workFolder.itemType = "sprintsFolder";
       workFolder.organization = org;
       workFolder.projectId = projectId;
       workFolder.id = `workitems:${org}:${projectId}:gen:${workGen}`;
-      workFolder.contextValue = "workItemsFolder";
+      workFolder.contextValue = "sprintsFolder";
       workFolder.iconPath = new vscode.ThemeIcon("calendar", new vscode.ThemeColor("foreground"));
-      // set Work Items web page for this project (recently updated view)
+      // set Sprints web page for this project
       try {
         const projNameForUrl = projectId || "";
         if (projNameForUrl) {
-          workFolder.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projNameForUrl)}/_workitems/recentlyupdated/`;
+          workFolder.url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projNameForUrl)}/_sprints/directory`;
         }
       } catch (e) {}
 
@@ -253,8 +253,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return [workFolder, repoFolder];
     }
 
-    // workItemsFolder の子: イテレーション一覧を直接表示する
-    if (t === "workItemsFolder" && element.organization && element.projectId) {
+    // sprintsFolder の子: イテレーション一覧を直接表示する
+    if (t === "sprintsFolder" && element.organization && element.projectId) {
       const org = element.organization as string;
       const pid = element.projectId as string;
       // ルートイテレーション（スプリント未割り当て）用の Backlog ノードを先頭に追加
@@ -275,8 +275,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       );
     }
 
-    // workItemsCategory の子: 実際の Work Item をカテゴリに応じて取得して表示
-    if (t === "workItemsCategory" && element.organization) {
+    // sprintsCategory の子: 実際の Work Item をカテゴリに応じて取得して表示
+    if (t === "sprintsCategory" && element.organization) {
       const org = element.organization as string;
       const pid = element.projectId as string | undefined;
       const parts = String(element.id || "").split(":");
@@ -313,8 +313,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, items => items.map(w => this.makeWorkItemTreeItem(w, org, pid)), "Loading work items...");
     }
 
-    // workItemsIteration の子: フィルタボタン＋イテレーション内の Work Item を親子階層で返す
-    if (t === "workItemsIteration" && element.organization && element.projectId && element.iterationPath !== undefined) {
+    // sprintsIteration の子: フィルタボタン＋イテレーション内の Work Item を親子階層で返す
+    if (t === "sprintsIteration" && element.organization && element.projectId && element.iterationPath !== undefined) {
       const org = element.organization as string;
       const pid = element.projectId as string;
       const iterPath = element.iterationPath;
@@ -330,12 +330,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
       // フィルタボタンノード
       const filterBtn = new AdoTreeItem(currentCat.label, vscode.TreeItemCollapsibleState.None);
-      filterBtn.itemType = "workItemsFilter";
+      filterBtn.itemType = "sprintsFilter";
       filterBtn.organization = org;
       filterBtn.projectId = pid;
       filterBtn.iterationPath = iterPath;
       filterBtn.id = `iter-filter:${org}:${pid}:${iterPath}`;
-      filterBtn.contextValue = `workItemsIterationFilter_${currentCat.key}`;
+      filterBtn.contextValue = `sprintsIterationFilter_${currentCat.key}`;
       filterBtn.folderRef = element;
       filterBtn.iconPath = new vscode.ThemeIcon("filter");
       filterBtn.tooltip = "右クリックでフィルタを選択";
@@ -524,7 +524,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   /**
    * イテレーション内 Work Item を再取得する（現在のフィルタを維持）。
-   * @param filterElement workItemsFilter の AdoTreeItem
+   * @param filterElement sprintsFilter の AdoTreeItem
    */
   refreshIterationItems(filterElement: AdoTreeItem): void {
     const iterElement = filterElement.folderRef;
@@ -872,11 +872,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   /** イテレーションノードを作成する */
   private makeIterationTreeItem(iter: AdoIteration, org: string, projectId?: string): AdoTreeItem {
     const it = new AdoTreeItem(iter.name, vscode.TreeItemCollapsibleState.Collapsed);
-    it.itemType = "workItemsIteration";
+    it.itemType = "sprintsIteration";
     it.organization = org;
     it.projectId = projectId;
     it.id = `iteration:${org}:${projectId}:${iter.id}`;
-    it.contextValue = "workItemsIteration";
+    it.contextValue = "sprintsIteration";
     it.iconPath = new vscode.ThemeIcon("calendar", new vscode.ThemeColor("charts.blue"));
     it.iterationPath = iter.path;
     if (iter.startDate && iter.finishDate) {
