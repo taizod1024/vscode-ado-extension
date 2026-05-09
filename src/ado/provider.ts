@@ -264,7 +264,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       filterBtn.id = `workitems-filter:${org}:${pid}`;
       filterBtn.contextValue = `workItemsFilter_${currentCat.key}`;
       filterBtn.folderRef = element;
-      filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
+      filterBtn.iconPath = new vscode.ThemeIcon("filter");
       filterBtn.tooltip = "右クリックでフィルタを選択";
 
       // 現在フィルタの work item をフェッチ
@@ -420,7 +420,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       filterBtn.id = `prs-filter:${org}:${repoId}`;
       filterBtn.contextValue = `pullRequestsFilter_${currentCat.key}`;
       filterBtn.folderRef = element;
-      filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
+      filterBtn.iconPath = new vscode.ThemeIcon("filter");
       filterBtn.tooltip = "右クリックでフィルタを選択";
 
       // 現在フィルタの PR をフェッチ
@@ -712,11 +712,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         // DONE状態: checkアイコン（青色）
         it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
       } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-        // DOING状態: 黄色
-        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.yellow"));
+        // DOING状態: 赤色
+        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
       } else {
-        // TODO・新規・その他: 緑色
-        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.green"));
+        // TODO・新規・その他: 黄色
+        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
       }
     } catch (e) {}
     it.url = w.url;
