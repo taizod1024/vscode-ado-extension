@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
           const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
           if (!url) return;
           channel.appendLine(`open url - url=${url}`);
-          
+
           await vscode.commands.executeCommand("simpleBrowser.show", url);
           channel.appendLine("opened with integrated browser");
         } catch (err) {
@@ -321,6 +321,30 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Cycle Work Items filter button
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.cycleWorkItemFilter", (folderElement?: any) => {
+        try {
+          provider.cycleWorkItemFilter(folderElement);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`cycleWorkItemFilter error: ${msg}`);
+        }
+      }),
+    );
+
+    // Cycle Pull Requests filter button
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.cyclePrFilter", (folderElement?: any) => {
+        try {
+          provider.cyclePrFilter(folderElement);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`cyclePrFilter error: ${msg}`);
+        }
+      }),
+    );
+
     // Send Work Item to GitHub Copilot Chat
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.sendWorkItemToCopilot", async (arg?: any) => {
@@ -515,10 +539,10 @@ export function activate(context: vscode.ExtensionContext) {
             // or: git@ssh.dev.azure.com:v3/{org}/{project}/_git/{repo}
             const httpsPattern = /dev\.azure\.com\/([^\/]+)\/([^\/]+)\//;
             const sshPattern = /git@ssh\.dev\.azure\.com:v3\/([^\/]+)\/([^\/]+)\//;
-            
+
             let remoteOrg: string | undefined;
             let remoteProject: string | undefined;
-            
+
             // Try HTTPS format first
             const httpsMatch = remotes.match(httpsPattern);
             if (httpsMatch && httpsMatch[1] && httpsMatch[2]) {
@@ -628,7 +652,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }),
     );
-
   } catch (err) {
     channel.appendLine("error registering provider: " + String(err));
   }

@@ -18,7 +18,7 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "workItemsFolder" | "workItemsCategory" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
+export type AdoItemType = "organization" | "project" | "workItemsFolder" | "workItemsCategory" | "workItemsFilter" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。

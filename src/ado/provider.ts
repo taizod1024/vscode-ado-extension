@@ -44,6 +44,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private childrenFetchTokens: { [key: string]: number } = {};
 
   // -----------------------
+  // Filter State
+  // -----------------------
+  private workItemFilterState: { [folderId: string]: number } = {};
+  private prFilterState: { [folderId: string]: number } = {};
+
+  // -----------------------
   // Authentication State
   // -----------------------
   private authFailedOrgs = new Set<string>();
@@ -233,11 +239,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return [workFolder, repoFolder];
     }
 
-    // workItemsFolder の子: カテゴリ別フォルダを表示する
+    // workItemsFolder の子: フィルタボタン＋現在フィルタの work item を直接表示する
     if (t === "workItemsFolder" && element.organization && element.projectId) {
       const org = element.organization as string;
       const pid = element.projectId as string;
-      const categories = [
+      const workItemCategories = [
         { key: "assigned", label: "Assigned to me" },
         { key: "following", label: "Following" },
         { key: "mentioned", label: "Mentioned" },
@@ -246,16 +252,35 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         { key: "recentlyCompleted", label: "Recently completed" },
         { key: "recentlyCreated", label: "Recently created" },
       ];
-      return categories.map(c => {
-        const it = new AdoTreeItem(c.label, vscode.TreeItemCollapsibleState.Collapsed);
-        it.itemType = "workItemsCategory";
-        it.organization = org;
-        it.projectId = pid;
-        it.id = `workitems:${org}:${pid}:category:${c.key}`;
-        it.contextValue = "workItemsCategory";
-        it.tooltip = c.label;
-        return it;
-      });
+      const folderId = element.id!;
+      const filterIdx = (this.workItemFilterState[folderId] || 0) % workItemCategories.length;
+      const currentCat = workItemCategories[filterIdx];
+
+      // フィルタボタンノード
+      const filterBtn = new AdoTreeItem(currentCat.label, vscode.TreeItemCollapsibleState.None);
+      filterBtn.itemType = "workItemsFilter";
+      filterBtn.organization = org;
+      filterBtn.projectId = pid;
+      filterBtn.id = `workitems-filter:${org}:${pid}`;
+      filterBtn.contextValue = "workItemsFilter";
+      filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
+      filterBtn.tooltip = "クリックしてフィルタを切り替える";
+      filterBtn.command = { command: "ado-assist.cycleWorkItemFilter", title: "フィルタを切り替える", arguments: [element] };
+
+      // 現在フィルタの work item をフェッチ
+      let fetchFn: () => Promise<AdoWorkItem[]> = async () => [];
+      switch (currentCat.key) {
+        case "assigned":       fetchFn = async () => await this.apiClient.fetchAssignedToMe(org, pid); break;
+        case "following":      fetchFn = async () => await this.apiClient.fetchFollowing(org, pid); break;
+        case "mentioned":      fetchFn = async () => await this.apiClient.fetchMentioned(org, pid); break;
+        case "myactivity":     fetchFn = async () => await this.apiClient.fetchMyActivity(org, pid); break;
+        case "recentlyUpdated":   fetchFn = async () => await this.apiClient.fetchRecentlyUpdated(org, pid); break;
+        case "recentlyCompleted": fetchFn = async () => await this.apiClient.fetchRecentlyCompleted(org, pid); break;
+        case "recentlyCreated":   fetchFn = async () => await this.apiClient.fetchRecentlyCreated(org, pid); break;
+      }
+      const cacheKey = `workitems:${org}:${pid}:category:${currentCat.key}`;
+      const items = this.lazyLoadChildren<AdoWorkItem>(cacheKey, element, fetchFn, ws => ws.map(w => this.makeWorkItemTreeItem(w, org, pid)), "Loading work items...");
+      return [filterBtn, ...items];
     }
 
     // workItemsCategory の子: 実際の Work Item をカテゴリに応じて取得して表示
@@ -370,29 +395,46 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       );
     }
 
-    // pullRequestsFolder の子: カテゴリ別フォルダを表示する
+    // pullRequestsFolder の子: フィルタボタン＋現在フィルタの PR を直接表示する
     if (t === "pullRequestsFolder" && element.organization) {
       const org = element.organization as string;
       const parts = String(element.id).split(":");
       const repoId = parts.length >= 3 ? parts[2] : "";
-      const categories = [
+      const prCategories = [
         { key: "mine", label: "Mine" },
         { key: "active", label: "Active" },
         { key: "completed", label: "Completed" },
         { key: "abandoned", label: "Abandoned" },
       ];
-      return categories.map(c => {
-        const it = new AdoTreeItem(c.label, vscode.TreeItemCollapsibleState.Collapsed);
-        it.itemType = "pullRequestsCategory";
-        it.organization = org;
-        it.projectId = element.projectId;
-        it.repoId = repoId;
-        it.repoName = (element as any).repoName || "";
-        it.id = `prs:${org}:${repoId}:category:${c.key}`;
-        it.contextValue = "pullRequestsCategory";
-        it.tooltip = c.label;
-        return it;
-      });
+      const folderId = element.id!;
+      const filterIdx = (this.prFilterState[folderId] || 0) % prCategories.length;
+      const currentCat = prCategories[filterIdx];
+
+      // フィルタボタンノード
+      const filterBtn = new AdoTreeItem(currentCat.label, vscode.TreeItemCollapsibleState.None);
+      filterBtn.itemType = "pullRequestsFilter";
+      filterBtn.organization = org;
+      filterBtn.projectId = element.projectId;
+      filterBtn.repoId = repoId;
+      filterBtn.repoName = (element as any).repoName || "";
+      filterBtn.id = `prs-filter:${org}:${repoId}`;
+      filterBtn.contextValue = "pullRequestsFilter";
+      filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
+      filterBtn.tooltip = "クリックしてフィルタを切り替える";
+      filterBtn.command = { command: "ado-assist.cyclePrFilter", title: "フィルタを切り替える", arguments: [element] };
+
+      // 現在フィルタの PR をフェッチ
+      let fetchFn: () => Promise<AdoPullRequest[]> = async () => [];
+      switch (currentCat.key) {
+        case "mine":      fetchFn = async () => await this.apiClient.fetchPullRequestsMine(org, repoId); break;
+        case "active":    fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "active"); break;
+        case "completed": fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "completed"); break;
+        case "abandoned": fetchFn = async () => await this.apiClient.fetchPullRequestsByStatus(org, repoId, "abandoned"); break;
+      }
+      const cacheKey = `prs:${org}:${repoId}:category:${currentCat.key}`;
+      const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
+      const items = this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
+      return [filterBtn, ...items];
     }
 
     // pullRequestsCategory の子: カテゴリに応じて PR を取得して表示
@@ -432,6 +474,32 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   // Public API
   // -----------------------
+  /**
+   * Work Items フォルダのフィルタを次へ進める。
+   * @param folderElement workItemsFolder の AdoTreeItem
+   */
+  cycleWorkItemFilter(folderElement: AdoTreeItem): void {
+    const folderId = folderElement.id;
+    if (!folderId) return;
+    const categoryCount = 7; // workItemCategories の要素数と同じ
+    const current = this.workItemFilterState[folderId] || 0;
+    this.workItemFilterState[folderId] = (current + 1) % categoryCount;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
+  /**
+   * Pull Requests フォルダのフィルタを次へ進める。
+   * @param folderElement pullRequestsFolder の AdoTreeItem
+   */
+  cyclePrFilter(folderElement: AdoTreeItem): void {
+    const folderId = folderElement.id;
+    if (!folderId) return;
+    const categoryCount = 4; // prCategories の要素数と同じ
+    const current = this.prFilterState[folderId] || 0;
+    this.prFilterState[folderId] = (current + 1) % categoryCount;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
   /**
    * ツリー全体を更新するヘルパー。
    */

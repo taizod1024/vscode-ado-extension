@@ -83,6 +83,16 @@
         "command": "ado-assist.openSettings",
         "title": "Azure DevOps: Open Settings",
         "icon": "$(gear)"
+      },
+      {
+        "command": "ado-assist.cycleWorkItemFilter",
+        "title": "Azure DevOps: Cycle Work Items Filter",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "ado-assist.cyclePrFilter",
+        "title": "Azure DevOps: Cycle Pull Requests Filter",
+        "icon": "$(filter)"
       }
     ],
     "menus": {
