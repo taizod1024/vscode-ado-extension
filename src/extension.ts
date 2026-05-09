@@ -78,9 +78,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Epic (open Azure DevOps create-Epic URL)
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createEpic", async () => {
+      vscode.commands.registerCommand("ado-assist.createEpic", async (arg?: any) => {
         try {
-          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Epic";
+          const org = arg?.organization;
+          const proj = arg?.projectId;
+          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Epic`;
+          if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -91,9 +95,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Issue
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createIssue", async () => {
+      vscode.commands.registerCommand("ado-assist.createIssue", async (arg?: any) => {
         try {
-          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Issue";
+          const org = arg?.organization;
+          const proj = arg?.projectId;
+          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Issue`;
+          if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -104,9 +112,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Task
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createTask", async () => {
+      vscode.commands.registerCommand("ado-assist.createTask", async (arg?: any) => {
         try {
-          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Task";
+          const org = arg?.organization;
+          const proj = arg?.projectId;
+          if (!org || !proj) { vscode.window.showErrorMessage("Could not extract organization/project from context."); return; }
+          let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Task`;
+          if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
           await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
