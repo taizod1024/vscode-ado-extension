@@ -133,7 +133,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         it.organization = o;
         it.id = `org:${o}`;
         it.contextValue = "organization";
-        it.iconPath = new vscode.ThemeIcon("organization", new vscode.ThemeColor("charts.green"));
+        it.iconPath = new vscode.ThemeIcon("organization", new vscode.ThemeColor("charts.blue"));
         it.url = `https://dev.azure.com/${encodeURIComponent(o)}`;
         it.tooltip = it.url;
         orgItems.push(it);
@@ -192,7 +192,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
             it.projectId = p.name;
             it.id = `proj:${org}:${p.id}`;
             it.contextValue = "adoProject";
-            it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("charts.green"));
+            it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("charts.blue"));
             it.url = p.url;
             it.tooltip = p.description || p.url;
             return it;
@@ -610,11 +610,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         it.contextValue = "workitem_active";
       }
       if (isDone) {
-        it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.green"));
+        // DONE状態: checkアイコン（青色）
+        it.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
       } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.green"));
+        // DOING状態: 赤色
+        it.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
       } else {
-        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.red"));
+        // TODO・新規・その他: 黄色
+        it.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
       }
     } catch (e) {}
     it.url = w.url;
@@ -634,7 +637,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.id = `repo:${org}:${r.id}`;
     it.contextValue = "repo";
     it.projectId = pid;
-    it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("charts.green"));
+    it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("charts.blue"));
     try {
       const url = this.apiClient.buildWebUrl(org, resolvedProj || pid || "", r.name || "", "repo");
       if (url) {
@@ -658,7 +661,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.organization = org;
     it.id = `branch:${org}:${repoId}:${name}`;
     it.contextValue = "branch";
-    it.iconPath = new vscode.ThemeIcon("git-branch", new vscode.ThemeColor("charts.green"));
+    it.iconPath = new vscode.ThemeIcon("git-branch", new vscode.ThemeColor("charts.blue"));
     try {
       const projNameFallback = pid && typeof pid === "string" ? pid : resolvedProj || "";
       const url = this.apiClient.buildWebUrl(org, resolvedProj || projNameFallback, repoName || repoId || "", "branch", name);
@@ -674,7 +677,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.organization = org;
     it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
     it.contextValue = "pullrequest";
-    it.iconPath = new vscode.ThemeIcon("git-merge", new vscode.ThemeColor("charts.green"));
+    it.iconPath = new vscode.ThemeIcon("git-merge", new vscode.ThemeColor("charts.blue"));
     const candidate = pr.webUrl || pr.url || "";
     if (candidate && candidate.includes("/_apis/")) {
       if (resolvedProj && repoName) {
