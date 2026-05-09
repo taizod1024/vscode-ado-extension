@@ -164,6 +164,11 @@
         },
         {
           "command": "ado-assist.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline@99"
         },

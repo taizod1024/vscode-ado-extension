@@ -242,6 +242,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       repoFolder.id = `repos:${org}:${projectId}:gen:${repoGen}`;
       repoFolder.contextValue = "repositoriesFolder";
       repoFolder.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("foreground"));
+      // set Repositories web page for this project
+      try {
+        const projNameForUrl = projectId || "";
+        if (projNameForUrl) {
+          repoFolder.url = this.apiClient.buildWebUrl(org, projNameForUrl, undefined, "reposFolder");
+        }
+      } catch (e) {}
 
       return [workFolder, repoFolder];
     }
