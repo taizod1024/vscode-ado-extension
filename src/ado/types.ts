@@ -53,6 +53,10 @@ export class AdoTreeItem extends vscode.TreeItem {
    * Web への URL（任意）。ノード種別に依らずクリックで開けるリンクを保持できます。
    */
   url?: string;
+  /**
+   * フィルタボタンノードが参照する親フォルダノード（workItemsFilter / pullRequestsFilter 専用）。
+   */
+  folderRef?: AdoTreeItem;
 
   /**
    * AdoTreeItem のコンストラクタ。

@@ -90,9 +90,19 @@
         "icon": "$(filter)"
       },
       {
+        "command": "ado-assist.selectWorkItemFilter",
+        "title": "Azure DevOps: Select Work Items Filter...",
+        "icon": "$(list-unordered)"
+      },
+      {
         "command": "ado-assist.cyclePrFilter",
         "title": "Azure DevOps: Cycle Pull Requests Filter",
         "icon": "$(filter)"
+      },
+      {
+        "command": "ado-assist.selectPrFilter",
+        "title": "Azure DevOps: Select Pull Requests Filter...",
+        "icon": "$(list-unordered)"
       }
     ],
     "menus": {
@@ -204,6 +214,16 @@
           "command": "ado-assist.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline@99"
+        },
+        {
+          "command": "ado-assist.selectWorkItemFilter",
+          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFilter",
+          "group": "inline"
+        },
+        {
+          "command": "ado-assist.selectPrFilter",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFilter",
+          "group": "inline"
         }
       ]
     },

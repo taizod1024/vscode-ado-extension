@@ -252,8 +252,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         { key: "recentlyCompleted", label: "Recently completed" },
         { key: "recentlyCreated", label: "Recently created" },
       ];
-      const folderId = element.id!;
-      const filterIdx = (this.workItemFilterState[folderId] || 0) % workItemCategories.length;
+      const filterKey = `${org}:${pid}`;
+      const filterIdx = (this.workItemFilterState[filterKey] || 0) % workItemCategories.length;
       const currentCat = workItemCategories[filterIdx];
 
       // フィルタボタンノード
@@ -263,8 +263,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       filterBtn.projectId = pid;
       filterBtn.id = `workitems-filter:${org}:${pid}`;
       filterBtn.contextValue = "workItemsFilter";
+      filterBtn.folderRef = element;
       filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
-      filterBtn.tooltip = "クリックしてフィルタを切り替える";
+      filterBtn.tooltip = "クリックしてフィルタを切り替える（右クリックで選択）";
       filterBtn.command = { command: "ado-assist.cycleWorkItemFilter", title: "フィルタを切り替える", arguments: [element] };
 
       // 現在フィルタの work item をフェッチ
@@ -406,8 +407,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         { key: "completed", label: "Completed" },
         { key: "abandoned", label: "Abandoned" },
       ];
-      const folderId = element.id!;
-      const filterIdx = (this.prFilterState[folderId] || 0) % prCategories.length;
+      const filterKey = `${org}:${repoId}`;
+      const filterIdx = (this.prFilterState[filterKey] || 0) % prCategories.length;
       const currentCat = prCategories[filterIdx];
 
       // フィルタボタンノード
@@ -419,8 +420,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       filterBtn.repoName = (element as any).repoName || "";
       filterBtn.id = `prs-filter:${org}:${repoId}`;
       filterBtn.contextValue = "pullRequestsFilter";
+      filterBtn.folderRef = element;
       filterBtn.iconPath = new vscode.ThemeIcon("filter", new vscode.ThemeColor("charts.blue"));
-      filterBtn.tooltip = "クリックしてフィルタを切り替える";
+      filterBtn.tooltip = "クリックしてフィルタを切り替える（右クリックで選択）";
       filterBtn.command = { command: "ado-assist.cyclePrFilter", title: "フィルタを切り替える", arguments: [element] };
 
       // 現在フィルタの PR をフェッチ
@@ -479,11 +481,26 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * @param folderElement workItemsFolder の AdoTreeItem
    */
   cycleWorkItemFilter(folderElement: AdoTreeItem): void {
-    const folderId = folderElement.id;
-    if (!folderId) return;
-    const categoryCount = 7; // workItemCategories の要素数と同じ
-    const current = this.workItemFilterState[folderId] || 0;
-    this.workItemFilterState[folderId] = (current + 1) % categoryCount;
+    const org = folderElement.organization;
+    const pid = folderElement.projectId;
+    if (!org || !pid) return;
+    const key = `${org}:${pid}`;
+    const categoryCount = 7;
+    this.workItemFilterState[key] = ((this.workItemFilterState[key] || 0) + 1) % categoryCount;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
+  /**
+   * Work Items フォルダのフィルタを指定インデックスに設定する。
+   * @param folderElement workItemsFolder の AdoTreeItem
+   * @param index フィルタのインデックス（0 始まり）
+   */
+  setWorkItemFilter(folderElement: AdoTreeItem, index: number): void {
+    const org = folderElement.organization;
+    const pid = folderElement.projectId;
+    if (!org || !pid) return;
+    const key = `${org}:${pid}`;
+    this.workItemFilterState[key] = index;
     this._onDidChangeTreeData.fire(folderElement);
   }
 
@@ -492,11 +509,26 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * @param folderElement pullRequestsFolder の AdoTreeItem
    */
   cyclePrFilter(folderElement: AdoTreeItem): void {
-    const folderId = folderElement.id;
-    if (!folderId) return;
-    const categoryCount = 4; // prCategories の要素数と同じ
-    const current = this.prFilterState[folderId] || 0;
-    this.prFilterState[folderId] = (current + 1) % categoryCount;
+    const org = folderElement.organization;
+    const repoId = folderElement.repoId;
+    if (!org || !repoId) return;
+    const key = `${org}:${repoId}`;
+    const categoryCount = 4;
+    this.prFilterState[key] = ((this.prFilterState[key] || 0) + 1) % categoryCount;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
+  /**
+   * Pull Requests フォルダのフィルタを指定インデックスに設定する。
+   * @param folderElement pullRequestsFolder の AdoTreeItem
+   * @param index フィルタのインデックス（0 始まり）
+   */
+  setPrFilter(folderElement: AdoTreeItem, index: number): void {
+    const org = folderElement.organization;
+    const repoId = folderElement.repoId;
+    if (!org || !repoId) return;
+    const key = `${org}:${repoId}`;
+    this.prFilterState[key] = index;
     this._onDidChangeTreeData.fire(folderElement);
   }
 

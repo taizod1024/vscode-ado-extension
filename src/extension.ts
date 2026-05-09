@@ -333,6 +333,32 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Select Work Items filter from QuickPick (context menu)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.selectWorkItemFilter", async (filterBtnArg?: any) => {
+        try {
+          const folderElement = filterBtnArg?.folderRef;
+          if (!folderElement) return;
+          const categories = [
+            { label: "Assigned to me", index: 0 },
+            { label: "Following",      index: 1 },
+            { label: "Mentioned",      index: 2 },
+            { label: "My activity",    index: 3 },
+            { label: "Recently updated",   index: 4 },
+            { label: "Recently completed", index: 5 },
+            { label: "Recently created",   index: 6 },
+          ];
+          const picked = await vscode.window.showQuickPick(categories.map(c => c.label), { placeHolder: "フィルタを選択してください" });
+          if (!picked) return;
+          const selected = categories.find(c => c.label === picked);
+          if (selected !== undefined) provider.setWorkItemFilter(folderElement, selected.index);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`selectWorkItemFilter error: ${msg}`);
+        }
+      }),
+    );
+
     // Cycle Pull Requests filter button
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.cyclePrFilter", (folderElement?: any) => {
@@ -341,6 +367,29 @@ export function activate(context: vscode.ExtensionContext) {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           channel.appendLine(`cyclePrFilter error: ${msg}`);
+        }
+      }),
+    );
+
+    // Select Pull Requests filter from QuickPick (context menu)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-assist.selectPrFilter", async (filterBtnArg?: any) => {
+        try {
+          const folderElement = filterBtnArg?.folderRef;
+          if (!folderElement) return;
+          const categories = [
+            { label: "Mine",      index: 0 },
+            { label: "Active",    index: 1 },
+            { label: "Completed", index: 2 },
+            { label: "Abandoned", index: 3 },
+          ];
+          const picked = await vscode.window.showQuickPick(categories.map(c => c.label), { placeHolder: "フィルタを選択してください" });
+          if (!picked) return;
+          const selected = categories.find(c => c.label === picked);
+          if (selected !== undefined) provider.setPrFilter(folderElement, selected.index);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`selectPrFilter error: ${msg}`);
         }
       }),
     );
