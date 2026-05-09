@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { createTreeProvider } from "./ado";
+import { execSync } from "child_process";
+import { createTreeProvider, httpRequest } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
@@ -15,8 +16,6 @@ export function activate(context: vscode.ExtensionContext) {
     provider.setTreeView(treeView);
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
-
-    // (removed unused helper commands: showView, savePat)
 
     // Enter PAT for a specific organization (used by tree items)
     context.subscriptions.push(
@@ -57,10 +56,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }),
     );
-
-    // Fetch projects command (removed; use per-organization fetch via context menu or view actions)
-
-    // (removed unused refreshProjects command)
 
     // Open project/repo/pipeline URL (integrated browser only)
     context.subscriptions.push(
@@ -123,21 +118,15 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-assist.createPullRequest", async (arg?: any) => {
         try {
-          // prefer repo-specific construction when possible
-          if (arg && typeof arg === "object") {
-            const org = arg.organization || arg.org || undefined;
-            const proj = arg.projectId || arg.project || undefined;
-            const repo = arg.repoName || arg.repo || arg.repoId || undefined;
-            if (org && proj && repo) {
-              const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate`;
-              await vscode.commands.executeCommand("ado-assist.openUrl", url);
-              return;
-            }
+          const org = arg?.organization || arg?.org;
+          const proj = arg?.projectId || arg?.project;
+          const repo = arg?.repoName || arg?.repo || arg?.repoId;
+          if (!org || !proj || !repo) {
+            vscode.window.showErrorMessage("Could not extract organization/project/repository from context.");
+            return;
           }
-
-          // fallback: open project-level pull requests hub or default create page
-          const fallback = "https://dev.azure.com/taizod1024/bar-project/_git/_pullrequestcreate";
-          await vscode.commands.executeCommand("ado-assist.openUrl", fallback);
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate`;
+          await vscode.commands.executeCommand("ado-assist.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to open URL: " + msg);
@@ -182,12 +171,8 @@ export function activate(context: vscode.ExtensionContext) {
               // if we have an org, look up stored PAT
               if (!orgFromNode) {
                 // attempt to parse org from URL: https://dev.azure.com/{org}/...
-                const m = cloneUrl.match(/^https:\/\/([^/]+)\/(?:_?git|[^/]+)\/(.*)$/i);
-                if (m) {
-                  // for dev.azure.com host, the org is the first path segment
-                  const urlParts = cloneUrl.replace(/^https:\/\//i, "").split("/");
-                  if (urlParts.length >= 1) orgFromNode = urlParts[0];
-                }
+                const urlParts = cloneUrl.replace(/^https:\/\//i, "").split("/");
+                if (urlParts.length >= 1) orgFromNode = urlParts[0];
               }
 
               if (orgFromNode && context) {
@@ -216,16 +201,7 @@ export function activate(context: vscode.ExtensionContext) {
             channel.appendLine(`clone repo - url=${safeLog}`);
           } catch (e) {}
 
-          try {
-            await vscode.commands.executeCommand("git.clone", attemptUrl);
-          } catch (e) {
-            // if git.clone not available or clone failed, fallback to opening URL
-            try {
-              await vscode.commands.executeCommand("ado-assist.openUrl", cloneUrl);
-            } catch (ee) {
-              vscode.window.showErrorMessage("Failed to clone or open repository: " + String(ee));
-            }
-          }
+          await vscode.commands.executeCommand("git.clone", attemptUrl);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to clone repository: " + msg);
@@ -401,7 +377,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const client = provider.getClient();
                 const pat = await context.secrets.get(`ado-assist.pat.${arg.organization}`);
                 const url = `https://dev.azure.com/${encodeURIComponent(arg.organization)}/_apis/wit/workitems/${workItemNum}?api-version=6.0`;
-                const response: any = await (await import("./ado/api")).httpRequest("GET", url, pat || "", undefined, { channel });
+                const response: any = await httpRequest("GET", url, pat || "", undefined, { channel });
                 if (response && response.fields) {
                   description = response.fields["System.Description"] || response.fields["Description"] || "";
                 }
@@ -489,7 +465,6 @@ export function activate(context: vscode.ExtensionContext) {
           // Get git username
           let username = "";
           try {
-            const { execSync } = await import("child_process");
             username = execSync("git config user.name", { encoding: "utf-8", stdio: "pipe" }).trim();
           } catch (e) {
             channel.appendLine(`Failed to get git username: ${e}`);
@@ -513,7 +488,6 @@ export function activate(context: vscode.ExtensionContext) {
 
           // Check if it's a git repository by running git rev-parse --git-dir
           try {
-            const { execSync } = await import("child_process");
             execSync("git rev-parse --git-dir", {
               encoding: "utf-8",
               stdio: "pipe",
@@ -529,7 +503,6 @@ export function activate(context: vscode.ExtensionContext) {
 
           // Check organization and project match using git remote -v
           try {
-            const { execSync } = await import("child_process");
             const remotes = execSync("git remote -v", {
               encoding: "utf-8",
               stdio: "pipe",
@@ -594,7 +567,6 @@ export function activate(context: vscode.ExtensionContext) {
           // Check if branch already exists using git branch --list
           let branchExists = false;
           try {
-            const { execSync } = await import("child_process");
             const branches = execSync("git branch --list", {
               encoding: "utf-8",
               stdio: "pipe",
@@ -657,7 +629,6 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
     channel.appendLine("error registering provider: " + String(err));
   }
