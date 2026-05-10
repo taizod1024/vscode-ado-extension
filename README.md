@@ -8,6 +8,8 @@
 
 A VS Code extension to interact with Azure DevOps from the sidebar.
 
+![](https://github.com/taizod1024/vscode-ado-extension/blob/main/images/adoext.png?raw=true)
+
 ## Key Features
 
 - Browse organizations, projects, sprints, work items, and repositories in the sidebar
@@ -141,6 +143,8 @@ See [.github/APP_SPEC.md](./.github/APP_SPEC.md) for the full specification.
 > **注意** この拡張機能は開発中です。
 
 VS Code から Azure DevOps を操作する拡張機能です。
+
+![](https://github.com/taizod1024/vscode-ado-extension/blob/main/images/adoext.png?raw=true)
 
 ## 主要機能
 
