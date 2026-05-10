@@ -160,9 +160,9 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Create Epic (open Azure DevOps create-Epic URL)
+    // Open Create Epic page
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.createEpic", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openCreateEpic", async (arg?: any) => {
         try {
           const { org, projectId: proj } = extractContext(arg);
           if (!org || !proj) {
@@ -181,7 +181,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Issue
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.createIssue", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openCreateIssue", async (arg?: any) => {
         try {
           const { org, projectId: proj } = extractContext(arg);
           if (!org || !proj) {
@@ -200,7 +200,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Task
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.createTask", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openCreateTask", async (arg?: any) => {
         try {
           const { org, projectId: proj } = extractContext(arg);
           if (!org || !proj) {
@@ -219,7 +219,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Pull Request
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.createPullRequest", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openCreatePullRequest", async (arg?: any) => {
         try {
           const { org, projectId: proj, repo } = extractContext(arg);
           if (!org || !proj || !repo) {
@@ -235,9 +235,9 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Create Sprint
+    // Open Sprints
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.createSprint", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openSprints", async (arg?: any) => {
         try {
           const { org, projectId: proj } = extractContext(arg);
           if (!org || !proj) {
