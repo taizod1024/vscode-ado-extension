@@ -40,6 +40,11 @@
         "icon": "$(calendar)"
       },
       {
+        "command": "ado-ext.openSprintSettings",
+        "title": "Azure DevOps: Sprint Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "ado-ext.openWorkItems",
         "title": "Azure DevOps: Work Items",
         "icon": "$(checklist)"
@@ -161,6 +166,11 @@
           "command": "ado-ext.openSprints",
           "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
           "group": "inline"
+        },
+        {
+          "command": "ado-ext.openSprintSettings",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "group": "inline@99"
         },
         {
           "command": "ado-ext.openWorkItems",

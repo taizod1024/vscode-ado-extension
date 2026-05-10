@@ -199,6 +199,24 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Open Sprint Settings
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openSprintSettings", async (arg?: any) => {
+        try {
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_settings/work-team?_a=iterations`;
+          await vscode.commands.executeCommand("ado-ext.openUrl", url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
     // Clone Repository
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.cloneRepo", async (arg?: any) => {

@@ -38,8 +38,8 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ### Step 2: Add an Organization
 
-1. Click the Azure DevOps icon in the VS Code sidebar
-2. Run "Add Organization" from the Command Palette (Ctrl+Shift+P)
+1. Click the Azure DevOps Extension icon in the VS Code sidebar
+2. Click the `+` icon at the top of the panel
 3. Enter your organization name and PAT
 
 ## Usage
@@ -86,7 +86,7 @@ Open the Azure DevOps web UI from the Sprints page (`Open Sprints` icon) to crea
 
 ### Refresh the Tree
 
-Run "Refresh Node" from the Command Palette, or right-click a node and select Refresh.
+Right-click a node and select Refresh.
 
 ## Commands
 
@@ -117,7 +117,7 @@ Run "Refresh Node" from the Command Palette, or right-click a node and select Re
 ### PAT Error
 
 - Error: "Authentication failed. The PAT is invalid or has expired."
-- Fix: Run "Enter PAT for Org" from the Command Palette to reset the PAT
+- Fix: Right-click the organization node and select "Enter PAT for Org" to reset the PAT
 
 ### Repositories Not Shown
 
@@ -172,8 +172,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 ### ステップ 2: 組織を追加
 
-1. VS Code のサイドバーで Azure DevOps のアイコンをクリック
-2. コマンドパレット（Ctrl+Shift+P）で「Add Organization」を実行
+1. VS Code のサイドバーで Azure DevOps Extension のアイコンをクリック
+2. パネル上部の `+` アイコンをクリック
 3. 組織名と PAT を入力
 
 ## 使い方
@@ -220,7 +220,7 @@ Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI
 
 ### ツリーをリフレッシュ
 
-コマンドパレットで「Refresh Node」を実行、または該当ノードを右クリックして Refresh
+該当ノードを右クリックして Refresh を選択
 
 ## コマンド一覧
 
@@ -251,7 +251,7 @@ Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI
 ### PAT エラー
 
 - エラーメッセージ: "Authentication failed. The PAT is invalid or has expired."
-- 対応: コマンドパレットで「Enter PAT for Org」を実行して PAT を再設定
+- 対応: 組織ノードを右クリックして「Enter PAT for Org」を選択して PAT を再設定
 
 ### リポジトリが表示されない
 
