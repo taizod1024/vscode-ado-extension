@@ -169,7 +169,10 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage("Could not extract organization/project/repository from context.");
             return;
           }
-          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate`;
+          const branchName = arg?.branchName as string | undefined;
+          const sourceRef = branchName ? `?sourceRef=${encodeURIComponent(branchName)}` : "";
+          const targetRef = sourceRef ? `&targetRef=${encodeURIComponent("(select branch)")}` : "";
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate${sourceRef}${targetRef}`;
           await vscode.commands.executeCommand("ado-ext.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

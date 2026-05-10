@@ -62,6 +62,14 @@ export class AdoTreeItem extends vscode.TreeItem {
    */
   iterationPath?: string;
   /**
+   * ブランチ名（branch ノード専用）。
+   */
+  branchName?: string;
+  /**
+   * リポジトリのデフォルトブランチ名（repository / branchesFolder / branch ノード専用）。
+   */
+  defaultBranch?: string;
+  /**
    * Work Item の ID（workItem ノード専用、子アイテム探索に使用）。
    */
   workItemId?: number;

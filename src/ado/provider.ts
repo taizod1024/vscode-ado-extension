@@ -386,6 +386,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       branchesFolder.projectId = element.projectId;
       branchesFolder.repoId = element.repoId || (repoId as string);
       branchesFolder.repoName = element.repoName || "";
+      branchesFolder.defaultBranch = element.defaultBranch;
       branchesFolder.id = `branches:${org}:${repoId}:gen:${branchesGen}`;
       branchesFolder.contextValue = "branchesFolder";
       branchesFolder.iconPath = new vscode.ThemeIcon("git-branch");
@@ -428,7 +429,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => await this.apiClient.fetchBranches(org, repoId),
-        branches => branches.map(b => this.makeBranchTreeItem(b, org, repoId, repoName, resolvedProjForBranches, element.projectId as string | undefined)),
+        branches => branches.map(b => this.makeBranchTreeItem(b, org, repoId, repoName, resolvedProjForBranches, element.projectId as string | undefined, element.defaultBranch)),
         "Loading branches...",
       );
     }
@@ -925,6 +926,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.id = `repo:${org}:${r.id}`;
     it.contextValue = "repo";
     it.projectId = pid;
+    it.defaultBranch = r.defaultBranch ? r.defaultBranch.replace(/^refs\/heads\//, "") : undefined;
     it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("charts.blue"));
     try {
       const url = this.apiClient.buildWebUrl(org, resolvedProj || pid || "", r.name || "", "repo");
@@ -942,12 +944,17 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     return it;
   }
 
-  private makeBranchTreeItem(b: AdoBranch, org: string, repoId: string, repoName: string, resolvedProj: string | undefined, pid?: string): AdoTreeItem {
+  private makeBranchTreeItem(b: AdoBranch, org: string, repoId: string, repoName: string, resolvedProj: string | undefined, pid?: string, defaultBranch?: string): AdoTreeItem {
     const name = String(b.name).replace(/^refs\/heads\//, "");
     const it = new AdoTreeItem(name, vscode.TreeItemCollapsibleState.None);
     it.itemType = "branch";
     it.organization = org;
     it.id = `branch:${org}:${repoId}:${name}`;
+    it.branchName = name;
+    it.defaultBranch = defaultBranch;
+    it.repoId = repoId;
+    it.repoName = repoName;
+    it.projectId = pid;
     it.contextValue = "branch";
     it.iconPath = new vscode.ThemeIcon("git-branch", new vscode.ThemeColor("charts.blue"));
     try {

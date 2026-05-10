@@ -32,7 +32,7 @@
       {
         "command": "ado-ext.openCreatePullRequest",
         "title": "Azure DevOps: Create Pull Request",
-        "icon": "$(add)"
+        "icon": "$(git-pull-request)"
       },
       {
         "command": "ado-ext.openSprints",
@@ -219,7 +219,7 @@
         },
         {
           "command": "ado-ext.openCreatePullRequest",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline"
         },
         {
