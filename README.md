@@ -4,15 +4,17 @@
 
 # Azure DevOps Extension EN
 
+> **Note** This extension is under active development.
+
 A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ## Key Features
 
 - Browse organizations, projects, sprints, work items, and repositories in the sidebar
 - View work items in a parent-child hierarchy (Epic → Feature → Story → Task) with filter support
-- Create work items (Epic / Issue / Task) directly from the sprint context
 - Clone repositories with automatic PAT embedding
 - View branches and pull requests per repository with filter support
+- Create a pull request from a branch with source branch pre-filled
 - Send work items to GitHub Copilot Chat
 - Create branches for work items automatically from the tree view
 - PAT is stored securely in VS Code Secret Storage
@@ -62,13 +64,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ### Create Work Items
 
-Run from the Command Palette (Ctrl+Shift+P):
-
-- Create Epic
-- Create Issue
-- Create Task
-
-When run from a sprint context, the sprint is automatically set.
+Open the Azure DevOps web UI from the Sprints page (`Open Sprints` icon) to create Epic / Issue / Task.
 
 ### Repository Operations
 
@@ -77,6 +73,7 @@ When run from a sprint context, the sprint is automatically set.
    - Open URL: open the Web UI in the integrated browser
    - Clone Repository: clone locally (PAT is embedded automatically)
 3. Expand Branches to view the branch list
+4. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
 
 ### View Pull Requests
 
@@ -99,10 +96,8 @@ Run "Refresh Node" from the Command Palette, or right-click a node and select Re
 | Enter PAT for Org           | Update PAT for a specific org            |
 | Remove Organization         | Remove an organization                   |
 | Remove All Organizations    | Remove all organizations                 |
-| Create Epic                 | Create an Epic work item                 |
-| Create Issue                | Create an Issue work item                |
-| Create Task                 | Create a Task work item                  |
-| Create Pull Request         | Create a pull request                    |
+| Open Sprints                | Open the sprints page in the browser     |
+| Create Pull Request         | Open PR creation page with source branch |
 | Clone Repository            | Clone a repository                       |
 | Refresh Node                | Refresh the tree                         |
 | Open Work Items             | Open the work items list                 |
@@ -143,15 +138,17 @@ See [.github/APP_SPEC.md](./.github/APP_SPEC.md) for the full specification.
 
 # Azure DevOps Extension JP
 
+> **注意** この拡張機能は開発中です。
+
 VS Code から Azure DevOps を操作する拡張機能です。
 
 ## 主要機能
 
 - サイドバーで組織・プロジェクト・スプリント・ワークアイテム・リポジトリを参照
 - ワークアイテムを親子階層（Epic → Feature → Story → Task）でフィルタ付きで表示
-- スプリントコンテキストからワークアイテム（Epic / Issue / Task）を直接作成
 - PAT 自動埋め込みでリポジトリをクローン
 - リポジトリごとのブランチ・PR をフィルタ付きで表示
+- ブランチからソースブランチ自動入力で PR 作成ページを開く
 - ワークアイテムを GitHub Copilot Chat に送信
 - ツリービューからワークアイテムに対応するブランチを自動作成
 - PAT は VS Code の Secret Storage に安全に保存
@@ -201,13 +198,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 ### ワークアイテム作成
 
-コマンドパレット（Ctrl+Shift+P）で以下を実行:
-
-- Create Epic: Epic 作成
-- Create Issue: Issue 作成
-- Create Task: Task 作成
-
-スプリントコンテキストで実行するとそのスプリントに自動設定されます。
+Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI を開いて Epic / Issue / Task を作成してください。
 
 ### リポジトリ操作
 
@@ -216,6 +207,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
    - Open URL: Web UI をブラウザで開く
    - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
 3. Branches を展開してブランチ一覧を表示
+4. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
 
 ### Pull Request 参照
 
@@ -238,10 +230,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | Enter PAT for Org           | 特定組織の PAT を更新                         |
 | Remove Organization         | 組織を削除                                    |
 | Remove All Organizations    | すべての組織を削除                            |
-| Create Epic                 | Epic を作成                                   |
-| Create Issue                | Issue を作成                                  |
-| Create Task                 | Task を作成                                   |
-| Create Pull Request         | PR を作成                                     |
+| Open Sprints                | スプリント管理ページを開く                    |
+| Create Pull Request         | ソースブランチ自動入力で PR 作成ページを開く  |
 | Clone Repository            | リポジトリをクローン                          |
 | Refresh Node                | ツリーをリフレッシュ                          |
 | Open Work Items             | ワークアイテム一覧を表示                      |
