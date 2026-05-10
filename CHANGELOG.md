@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.5](https://github.com/taizod1024/vscode-ado-ext-extension/compare/v0.0.4...v0.0.5) (2026-05-10)
+
+
+### Bug Fixes
+
+* correct display name in package.json for clarity ([83981fb](https://github.com/taizod1024/vscode-ado-ext-extension/commit/83981fb6483e4e5c9402027cb1d759dc00e97a1c))
+
 ### [0.0.4](https://github.com/taizod1024/vscode-ado-ext-extension/compare/v0.0.3...v0.0.4) (2026-05-10)
 
 
