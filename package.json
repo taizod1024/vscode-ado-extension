@@ -1,7 +1,7 @@
 {
   "version": "0.0.4",
   "name": "ado-ext",
-  "displayName": "Azure DevOps Extension Extension",
+  "displayName": "Azure DevOps Extension",
   "description": "A VS Code extension for Azure DevOps",
   "engines": {
     "vscode": "^1.117.0"

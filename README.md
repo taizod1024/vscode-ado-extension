@@ -48,30 +48,31 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ### Browse in the Sidebar
 
-- Expand an organization to see its Projects
-- Each Project contains:
-  - Sprints: work items in each sprint
-  - Repositories: Git repositories
-- Right-click any node to perform actions
+1. Expand an organization to see its Projects
+2. Each Project contains:
+   - Sprints: work items in each sprint
+   - Repositories: Git repositories
+3. Right-click any node to perform actions
 
 ### View Work Items
 
 1. Expand Sprints and select a sprint
 2. Work items are displayed in a parent-child hierarchy
-3. Click the filter button to change the view:
+3. Right-click the filter icon to change the view:
    - all: show everything
    - assigned: items assigned to you
    - myactivity: items you created or edited
    - active: incomplete items
+4. Click the refresh icon on the sprint to reload
 
 ### Create Work Items
 
-Open the Azure DevOps web UI from the Sprints page (`Open Sprints` icon) to create Epic / Issue / Task.
+- Open the Azure DevOps web UI from the Sprints page (`Open Sprints` icon) to create Epic / Issue / Task.
 
 ### Repository Operations
 
 1. Expand Repositories to view repos
-2. Right-click a repo to:
+2. Click the icon buttons next to the repo to:
    - Open URL: open the Web UI in the integrated browser
    - Clone Repository: clone locally (PAT is embedded automatically)
 3. Expand Branches to view the branch list
@@ -80,15 +81,16 @@ Open the Azure DevOps web UI from the Sprints page (`Open Sprints` icon) to crea
 ### View Pull Requests
 
 1. Expand Pull Requests under a repository
-2. Click the filter button to change the view:
+2. Right-click the filter icon to change the view:
    - mine: PRs you created
    - active: open PRs
    - completed: merged PRs
    - abandoned: abandoned PRs
+3. Click the refresh icon on the PR list to reload
 
 ### Refresh the Tree
 
-Right-click a node and select Refresh.
+- Click the refresh icon next to the organization node.
 
 ## Commands
 
@@ -184,30 +186,31 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 ### サイドバーで参照
 
-- Organizations を展開すると、Projects が表示される
-- 各 Project の下に以下が表示される:
-  - Sprints: スプリント内のワークアイテム
-  - Repositories: Git リポジトリ
-- 各ノードを右クリックしてアクション実行
+1. Organizations を展開すると、Projects が表示される
+2. 各 Project の下に以下が表示される:
+   - Sprints: スプリント内のワークアイテム
+   - Repositories: Git リポジトリ
+3. 各ノードを右クリックしてアクション実行
 
 ### ワークアイテム参照
 
 1. Sprints を展開して目的のスプリントを選択
 2. ワークアイテムが親子階層で表示される
-3. フィルタボタンをクリックして表示内容を変更:
+3. フィルタアイコンを右クリックして表示内容を変更:
    - all: すべて表示
    - assigned: 自分に割り当てられたアイテム
    - myactivity: 自分が作成・編集したアイテム
    - active: 完了していないアイテム
+4. スプリントのリフレッシュアイコンをクリックして再表示
 
 ### ワークアイテム作成
 
-Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI を開いて Epic / Issue / Task を作成してください。
+- Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI を開いて Epic / Issue / Task を作成
 
 ### リポジトリ操作
 
 1. Repositories を展開してリポジトリを表示
-2. 右クリックメニューで以下を実行:
+2. リポジトリ横のアイコンをクリックして以下を実行:
    - Open URL: Web UI をブラウザで開く
    - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
 3. Branches を展開してブランチ一覧を表示
@@ -216,15 +219,16 @@ Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI
 ### Pull Request 参照
 
 1. Repository の下の Pull Requests を展開
-2. フィルタボタンをクリックして表示内容を変更:
+2. フィルタアイコンを右クリックして表示内容を変更:
    - mine: 自分が作成した PR
    - active: オープンしている PR
    - completed: マージ済み PR
    - abandoned: 破棄された PR
+3. PRのリフレッシュアイコンをクリックして再表示
 
 ### ツリーをリフレッシュ
 
-該当ノードを右クリックして Refresh を選択
+- 組織ノード横のリフレッシュアイコンをクリックする
 
 ## コマンド一覧
 
