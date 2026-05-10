@@ -30,21 +30,6 @@
         "icon": "$(globe)"
       },
       {
-        "command": "ado-ext.openCreateEpic",
-        "title": "Azure DevOps: Create Epic",
-        "icon": "$(add)"
-      },
-      {
-        "command": "ado-ext.openCreateIssue",
-        "title": "Azure DevOps: Create Issue",
-        "icon": "$(add)"
-      },
-      {
-        "command": "ado-ext.openCreateTask",
-        "title": "Azure DevOps: Create Task",
-        "icon": "$(add)"
-      },
-      {
         "command": "ado-ext.openCreatePullRequest",
         "title": "Azure DevOps: Create Pull Request",
         "icon": "$(add)"
@@ -231,21 +216,6 @@
           "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
           "group": "inline@99"
-        },
-        {
-          "command": "ado-ext.openCreateEpic",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
-          "group": "inline"
-        },
-        {
-          "command": "ado-ext.openCreateIssue",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
-          "group": "inline"
-        },
-        {
-          "command": "ado-ext.openCreateTask",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
-          "group": "inline"
         },
         {
           "command": "ado-ext.openCreatePullRequest",

@@ -160,63 +160,6 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Open Create Epic page
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.openCreateEpic", async (arg?: any) => {
-        try {
-          const { org, projectId: proj } = extractContext(arg);
-          if (!org || !proj) {
-            vscode.window.showErrorMessage("Could not extract organization/project from context.");
-            return;
-          }
-          let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Epic`;
-          if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
-          await vscode.commands.executeCommand("ado-ext.openUrl", url);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to open URL: " + msg);
-        }
-      }),
-    );
-
-    // Create Issue
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.openCreateIssue", async (arg?: any) => {
-        try {
-          const { org, projectId: proj } = extractContext(arg);
-          if (!org || !proj) {
-            vscode.window.showErrorMessage("Could not extract organization/project from context.");
-            return;
-          }
-          let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Issue`;
-          if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
-          await vscode.commands.executeCommand("ado-ext.openUrl", url);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to open URL: " + msg);
-        }
-      }),
-    );
-
-    // Create Task
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-ext.openCreateTask", async (arg?: any) => {
-        try {
-          const { org, projectId: proj } = extractContext(arg);
-          if (!org || !proj) {
-            vscode.window.showErrorMessage("Could not extract organization/project from context.");
-            return;
-          }
-          let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_workitems/create/Task`;
-          if (arg?.iterationPath) url += `?[System.IterationPath]=${encodeURIComponent(arg.iterationPath)}`;
-          await vscode.commands.executeCommand("ado-ext.openUrl", url);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to open URL: " + msg);
-        }
-      }),
-    );
-
     // Create Pull Request
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.openCreatePullRequest", async (arg?: any) => {

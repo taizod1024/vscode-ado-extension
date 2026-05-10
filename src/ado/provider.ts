@@ -261,6 +261,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const projName = await this.apiClient.resolveProjectName(org, pid);
       const rootIterPath = projName || pid;
       const backlogNode = this.makeIterationTreeItem({ id: `${pid}:backlog`, name: "(No Sprint)", path: rootIterPath }, org, pid);
+      backlogNode.contextValue = "sprintsBacklog";
 
       const key = `workitems:${org}:${pid}:iterations`;
       return this.lazyLoadChildren<AdoIteration>(
