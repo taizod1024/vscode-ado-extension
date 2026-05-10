@@ -1,6 +1,14 @@
 import { URL } from "url";
 import * as vscode from "vscode";
 
+// ============================================================================
+// Constants
+// ============================================================================
+export const ERROR_MESSAGES = {
+  PAT_INVALID: "Authentication failed. The PAT is invalid or has expired.",
+  PAT_REDIRECTED: "Authentication failed (redirected). Check your PAT.",
+} as const;
+
 /**
  * HTTP リクエストを行い、JSON レスポンスをパースして返します。
  * @param method HTTP メソッド（"GET" | "POST"）
@@ -55,7 +63,7 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
 
               // 302リダイレクトは通常、認証失敗を示す
               if (status === 302) {
-                errorMsg = `Authentication failed (redirected). Check your PAT.`;
+                errorMsg = ERROR_MESSAGES.PAT_REDIRECTED;
               }
 
               if (bodyStr) {

@@ -1,11 +1,12 @@
 import * as vscode from "vscode";
-import { createTreeProvider } from "./ado";
+import { execSync } from "child_process";
+import { createTreeProvider, httpRequest, ERROR_MESSAGES } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
-  const channel = vscode.window.createOutputChannel("Azure DevOps Assist", { log: true });
+  const channel = vscode.window.createOutputChannel("Azure DevOps Extension", { log: true });
 
-  channel.appendLine("Azure DevOps Assist activated");
+  channel.appendLine("Azure DevOps Extension activated");
   channel.appendLine("activate() start");
   try {
     // Register a TreeDataProvider for the side panel view id
@@ -13,14 +14,80 @@ export function activate(context: vscode.ExtensionContext) {
     const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
     context.subscriptions.push(treeView);
     provider.setTreeView(treeView);
+
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
 
-    // (removed unused helper commands: showView, savePat)
+    // -----------------------
+    // Common Context Extraction Helper
+    // -----------------------
+    /**
+     * ツリーノードから組織・プロジェクト情報を統一的に抽出。
+     * @param arg ツリーノード引数
+     * @returns { org, projectId, repo }
+     */
+    const extractContext = (arg?: any): { org?: string; projectId?: string; repo?: string } => {
+      return {
+        org: arg?.organization || arg?.org,
+        projectId: arg?.projectId || arg?.project,
+        repo: arg?.repoName || arg?.repo || arg?.repoId,
+      };
+    };
+
+    // -----------------------
+    // Common PAT Validation Handler
+    // -----------------------
+    /**
+     * PAT の検証と保存を行う共通ハンドラー。
+     * @param org 組織名
+     * @param pat Personal Access Token
+     * @param addOrgToProvider true の場合、成功時に provider.addOrganization() を呼び出す
+     * @returns 成功時は true、失敗時は false
+     */
+    const handlePatValidationAndSave = async (org: string, pat: string, addOrgToProvider: boolean = false): Promise<boolean> => {
+      try {
+        // PAT を検証
+        channel.appendLine(`Starting PAT verification for organization: ${org}`);
+        const client = provider.getClient();
+        const isValid = await client.verifyPat(org, pat);
+        channel.appendLine(`PAT verification result: ${isValid}`);
+
+        if (!isValid) {
+          const errorMsg = ERROR_MESSAGES.PAT_INVALID;
+          channel.appendLine(`Error: ${errorMsg}`);
+          provider.clearCacheForOrganization(org);
+          await provider.revealOrganization(org);
+          await vscode.window.showErrorMessage(errorMsg);
+          return false;
+        }
+
+        // PAT 保存
+        await context.secrets.store(`ado-ext.pat.${org}`, pat);
+        channel.appendLine(`PAT successfully saved for organization: ${org}`);
+
+        // 組織を追加（if requested）
+        if (addOrgToProvider) {
+          provider.addOrganization(org);
+        }
+
+        // キャッシュクリア→プロジェクト先行フェッチ→ツリー展開
+        provider.clearCacheForOrganization(org);
+        await provider.revealOrganization(org);
+
+        const successMsg = addOrgToProvider ? `Organization "${org}" added.` : `PAT saved for ${org}`;
+        await vscode.window.showInformationMessage(successMsg);
+        return true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        channel.appendLine(`Exception in PAT handling: ${msg}`);
+        await vscode.window.showErrorMessage("Failed to save PAT: " + msg);
+        return false;
+      }
+    };
 
     // Enter PAT for a specific organization (used by tree items)
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.enterPatForOrg", async (orgArg?: any) => {
+      vscode.commands.registerCommand("ado-ext.enterPatForOrg", async (orgArg?: any) => {
         try {
           const orgFromArg = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           const org = orgFromArg || (await vscode.window.showInputBox({ prompt: "Organization for this PAT (e.g. myorg)" }));
@@ -28,28 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // Verify the PAT before saving
-          channel.appendLine(`Starting PAT verification for organization: ${org}`);
-          const client = provider.getClient();
-          const isValid = await client.verifyPat(org, pat);
-          channel.appendLine(`PAT verification result: ${isValid}`);
-
-          if (!isValid) {
-            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
-            channel.appendLine(`Error: ${errorMsg}`);
-            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
-            provider.clearCacheForOrganization(org);
-            await provider.revealOrganization(org);
-            await vscode.window.showErrorMessage(errorMsg);
-            return;
-          }
-
-          await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          channel.appendLine(`PAT successfully saved for organization: ${org}`);
-          // キャッシュクリア→プロジェクト先行フェッチ→ツリー展開
-          provider.clearCacheForOrganization(org);
-          await provider.revealOrganization(org);
-          await vscode.window.showInformationMessage(`PAT saved for ${org}`);
+          await handlePatValidationAndSave(org, pat, false);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           channel.appendLine(`Exception in enterPatForOrg: ${msg}`);
@@ -58,81 +104,57 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Fetch projects command (removed; use per-organization fetch via context menu or view actions)
-
-    // (removed unused refreshProjects command)
-
-    // Open project/repo/pipeline URL
+    // Open Work Items
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.openUrl", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openWorkItems", async (arg?: any) => {
         try {
-          const url = typeof arg === "string" ? arg : arg?.url || arg?._links?.web?.href || (arg?.command?.arguments && arg.command.arguments[0]);
-          if (!url) return;
-          channel.appendLine(`open url - url=${url}`);
-          // Try to open with Live Server extension if installed (user requested ms-vscode.live-server)
-          try {
-            const tryExtIds = ["ms-vscode.live-server", "ritwickdey.LiveServer", "ritwickdey.liveserver"];
-            const ext = tryExtIds.map(id => vscode.extensions.getExtension(id)).find(x => !!x);
-            if (ext) {
-              const cmds = ["liveServer.openBrowser", "liveServer.open", "extension.liveServer.goOnline", "liveServer.goOnline", "openInLiveServer", "openInBrowser"];
-              for (const c of cmds) {
-                try {
-                  // many live-server commands accept a URL or will open the last served page
-                  await vscode.commands.executeCommand(c, url);
-                  channel.appendLine(`opened with extension command=${c}`);
-                  return;
-                } catch (e) {
-                  // try next
-                }
-              }
-            }
-          } catch (e) {
-            // ignore and fallback
+          // arg から organization と projectId を抽出して work items URL を構築
+          const { org, projectId } = extractContext(arg);
+          if (!org || !projectId) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectId)}/_workitems/recentlyupdated/`;
+          channel.appendLine(`open work items url - url=${url}`);
+
+          await vscode.commands.executeCommand("simpleBrowser.show", url);
+          channel.appendLine("opened with integrated browser");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Failed to open URL: ${msg}`);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Refresh iteration items (keep current filter)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.refreshIterationItems", async (arg?: any) => {
+        provider.refreshIterationItems(arg);
+      }),
+    );
+
+    // Open project/repo/pipeline URL (integrated browser only)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openUrl", async (arg?: any) => {
+        try {
+          let url: string = "";
+          if (typeof arg === "string") {
+            url = arg;
+          } else if (arg && typeof arg === "object") {
+            // Use getWebUrl() helper to extract Web URL with fallback logic
+            const client = provider.getClient();
+            url = client.getWebUrl(arg);
           }
 
-          // fallback to external browser
-          await vscode.env.openExternal(vscode.Uri.parse(url));
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to open URL: " + msg);
-        }
-      }),
-    );
+          if (!url) return;
+          channel.appendLine(`open url - url=${url}`);
 
-    // Create Epic (open Azure DevOps create-Epic URL)
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createEpic", async () => {
-        try {
-          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Epic";
-          await vscode.commands.executeCommand("ado-assist.openUrl", url);
+          await vscode.commands.executeCommand("simpleBrowser.show", url);
+          channel.appendLine("opened with integrated browser");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to open URL: " + msg);
-        }
-      }),
-    );
-
-    // Create Issue
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createIssue", async () => {
-        try {
-          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Issue";
-          await vscode.commands.executeCommand("ado-assist.openUrl", url);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          vscode.window.showErrorMessage("Failed to open URL: " + msg);
-        }
-      }),
-    );
-
-    // Create Task
-    context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createTask", async () => {
-        try {
-          const url = "https://dev.azure.com/taizod1024/bar-project/_workitems/create/Task";
-          await vscode.commands.executeCommand("ado-assist.openUrl", url);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Failed to open URL: ${msg}`);
           vscode.window.showErrorMessage("Failed to open URL: " + msg);
         }
       }),
@@ -140,23 +162,54 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Pull Request
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createPullRequest", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.openCreatePullRequest", async (arg?: any) => {
         try {
-          // prefer repo-specific construction when possible
-          if (arg && typeof arg === "object") {
-            const org = arg.organization || arg.org || undefined;
-            const proj = arg.projectId || arg.project || undefined;
-            const repo = arg.repoName || arg.repo || arg.repoId || undefined;
-            if (org && proj && repo) {
-              const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate`;
-              await vscode.commands.executeCommand("ado-assist.openUrl", url);
-              return;
-            }
+          const { org, projectId: proj, repo } = extractContext(arg);
+          if (!org || !proj || !repo) {
+            vscode.window.showErrorMessage("Could not extract organization/project/repository from context.");
+            return;
           }
+          const branchName = arg?.branchName as string | undefined;
+          const sourceRef = branchName ? `?sourceRef=${encodeURIComponent(branchName)}` : "";
+          const targetRef = sourceRef ? `&targetRef=${encodeURIComponent("(select branch)")}` : "";
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}/pullrequestcreate${sourceRef}${targetRef}`;
+          await vscode.commands.executeCommand("ado-ext.openUrl", url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
 
-          // fallback: open project-level pull requests hub or default create page
-          const fallback = "https://dev.azure.com/taizod1024/bar-project/_git/_pullrequestcreate";
-          await vscode.commands.executeCommand("ado-assist.openUrl", fallback);
+    // Open Sprints
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openSprints", async (arg?: any) => {
+        try {
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_sprints/directory`;
+          await vscode.commands.executeCommand("ado-ext.openUrl", url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Open Sprint Settings
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openSprintSettings", async (arg?: any) => {
+        try {
+          const { org, projectId: proj } = extractContext(arg);
+          if (!org || !proj) {
+            vscode.window.showErrorMessage("Could not extract organization/project from context.");
+            return;
+          }
+          const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_settings/work-team?_a=iterations`;
+          await vscode.commands.executeCommand("ado-ext.openUrl", url);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to open URL: " + msg);
@@ -166,18 +219,17 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Clone Repository
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.cloneRepo", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.cloneRepo", async (arg?: any) => {
         try {
           let cloneUrl: string | undefined;
           if (typeof arg === "string") {
             cloneUrl = arg;
           } else if (arg && typeof arg === "object") {
-            // prefer explicit repo clone url if available
-            cloneUrl = arg.cloneUrl || arg.remoteUrl || arg.url || undefined;
+            // Use getCloneUrl() helper to extract Clone URL with fallback logic
+            const client = provider.getClient();
+            cloneUrl = client.getCloneUrl(arg);
             if (!cloneUrl) {
-              const org = arg.organization || arg.org || undefined;
-              const proj = arg.projectId || arg.project || undefined;
-              const repo = arg.repoName || arg.repo || arg.repoId || undefined;
+              const { org, projectId: proj, repo } = extractContext(arg);
               if (org && proj && repo) {
                 cloneUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(proj)}/_git/${encodeURIComponent(repo)}`;
               }
@@ -196,36 +248,42 @@ export function activate(context: vscode.ExtensionContext) {
               // try to extract org from node if available
               let orgFromNode: string | undefined;
               if (typeof arg === "object" && arg) {
-                orgFromNode = arg.organization || arg.org || undefined;
+                const { org } = extractContext(arg);
+                orgFromNode = org;
               }
               // if we have an org, look up stored PAT
               if (!orgFromNode) {
                 // attempt to parse org from URL: https://dev.azure.com/{org}/...
-                const m = cloneUrl.match(/^https:\/\/([^/]+)\/(?:_?git|[^/]+)\/(.*)$/i);
-                if (m) {
-                  // for dev.azure.com host, the org is the first path segment
-                  const urlParts = cloneUrl.replace(/^https:\/\//i, "").split("/");
-                  if (urlParts.length >= 1) orgFromNode = urlParts[0];
-                }
+                const urlParts = cloneUrl.replace(/^https:\/\//i, "").split("/");
+                if (urlParts.length >= 1) orgFromNode = urlParts[0];
               }
 
               if (orgFromNode && context) {
-                const key = `ado-assist.pat.${orgFromNode}`;
-                const pat = await context.secrets.get(key);
-                if (pat) {
-                  // embed PAT safely (username 'PAT' used as placeholder)
-                  if (cloneUrl.startsWith("https://")) {
-                    const rest = cloneUrl.slice("https://".length);
-                    attemptUrl = `https://PAT:${encodeURIComponent(pat)}@${rest}`;
-                  } else if (cloneUrl.startsWith("http://")) {
-                    const rest = cloneUrl.slice("http://".length);
-                    attemptUrl = `http://PAT:${encodeURIComponent(pat)}@${rest}`;
+                const key = `ado-ext.pat.${orgFromNode}`;
+                try {
+                  const pat = await context.secrets.get(key);
+                  if (pat) {
+                    // embed PAT safely (username 'PAT' used as placeholder)
+                    if (cloneUrl.startsWith("https://")) {
+                      const rest = cloneUrl.slice("https://".length);
+                      attemptUrl = `https://PAT:${encodeURIComponent(pat)}@${rest}`;
+                    } else if (cloneUrl.startsWith("http://")) {
+                      const rest = cloneUrl.slice("http://".length);
+                      attemptUrl = `http://PAT:${encodeURIComponent(pat)}@${rest}`;
+                    }
                   }
+                } catch (secretErr) {
+                  // Log secret read error but proceed with original URL
+                  const secretMsg = secretErr instanceof Error ? secretErr.message : String(secretErr);
+                  channel.appendLine(`Warning: Failed to retrieve PAT for ${orgFromNode}: ${secretMsg}`);
+                  attemptUrl = cloneUrl;
                 }
               }
             }
           } catch (e) {
-            // ignore secret read errors and proceed with original URL
+            // General error handling: proceed with original URL
+            const errMsg = e instanceof Error ? e.message : String(e);
+            channel.appendLine(`Warning: Failed to embed PAT: ${errMsg}`);
             attemptUrl = cloneUrl;
           }
 
@@ -235,16 +293,7 @@ export function activate(context: vscode.ExtensionContext) {
             channel.appendLine(`clone repo - url=${safeLog}`);
           } catch (e) {}
 
-          try {
-            await vscode.commands.executeCommand("git.clone", attemptUrl);
-          } catch (e) {
-            // if git.clone not available or clone failed, fallback to opening URL
-            try {
-              await vscode.commands.executeCommand("ado-assist.openUrl", cloneUrl);
-            } catch (ee) {
-              vscode.window.showErrorMessage("Failed to clone or open repository: " + String(ee));
-            }
-          }
+          await vscode.commands.executeCommand("git.clone", attemptUrl);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to clone repository: " + msg);
@@ -253,7 +302,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
     // Add organization
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.addOrganization", async () => {
+      vscode.commands.registerCommand("ado-ext.addOrganization", async () => {
         try {
           // 1. org 名を入力
           const org = await vscode.window.showInputBox({ prompt: "Organization name to add (e.g. myorg)" });
@@ -268,31 +317,8 @@ export function activate(context: vscode.ExtensionContext) {
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // 3. PAT を検証
-          channel.appendLine(`Starting PAT verification for organization: ${org}`);
-          const client = provider.getClient();
-          const isValid = await client.verifyPat(org, pat);
-          channel.appendLine(`PAT verification result: ${isValid}`);
-
-          // 4. org 登録（PAT の OK/NG に関わらず）
-          provider.addOrganization(org);
-
-          if (!isValid) {
-            const errorMsg = "Authentication failed. The PAT is invalid or has expired.";
-            channel.appendLine(`Error: ${errorMsg}`);
-            // キャッシュクリア → 組織ノードを展開して PAT 入力項目を表示
-            provider.clearCacheForOrganization(org);
-            await provider.revealOrganization(org);
-            await vscode.window.showErrorMessage(errorMsg);
-            return;
-          }
-
-          // 5. PAT 保存 → ツリー展開
-          await context.secrets.store(`ado-assist.pat.${org}`, pat);
-          channel.appendLine(`PAT successfully saved for organization: ${org}`);
-          provider.clearCacheForOrganization(org);
-          await provider.revealOrganization(org);
-          await vscode.window.showInformationMessage(`Organization "${org}" added.`);
+          // 3. PAT を検証・保存して org を追加
+          await handlePatValidationAndSave(org, pat, true);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to add organization: " + msg);
@@ -302,7 +328,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Remove organization
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.removeOrganization", async (orgArg?: any) => {
+      vscode.commands.registerCommand("ado-ext.removeOrganization", async (orgArg?: any) => {
         try {
           const pick = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           if (!pick) return;
@@ -311,7 +337,7 @@ export function activate(context: vscode.ExtensionContext) {
           });
           if (confirm !== `REMOVE ${pick}`) return;
           provider.removeOrganization(pick);
-          await context.secrets.delete(`ado-assist.pat.${pick}`);
+          await context.secrets.delete(`ado-ext.pat.${pick}`);
           vscode.window.showInformationMessage(`Removed organization ${pick}`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -322,7 +348,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Remove all organizations + delete stored PATs
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.removeAllOrganizations", async () => {
+      vscode.commands.registerCommand("ado-ext.removeAllOrganizations", async () => {
         try {
           const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
           if (orgs.length === 0) {
@@ -344,7 +370,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Refresh a specific node (organization/project/category/repo) or full tree
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.refreshNode", async (element?: any) => {
+      vscode.commands.registerCommand("ado-ext.refreshNode", async (element?: any) => {
         try {
           if (!provider || !provider.refreshNode) {
             vscode.window.showInformationMessage("Provider refresh not available");
@@ -364,9 +390,51 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Iteration Items filter commands
+    const iterFilters: [string, number][] = [
+      ["ado-ext.setIterationItemFilter.all", 0],
+      ["ado-ext.setIterationItemFilter.assigned", 1],
+      ["ado-ext.setIterationItemFilter.myactivity", 2],
+      ["ado-ext.setIterationItemFilter.active", 3],
+    ];
+    for (const [cmd, idx] of iterFilters) {
+      context.subscriptions.push(
+        vscode.commands.registerCommand(cmd, (filterBtnArg?: any) => {
+          try {
+            const folderElement = filterBtnArg?.folderRef;
+            if (!folderElement) return;
+            provider.setIterationItemFilter(folderElement, idx);
+          } catch (err) {
+            channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }),
+      );
+    }
+
+    // Pull Requests filter: individual commands
+    const prFilters: [string, number][] = [
+      ["ado-ext.setPrFilter.mine", 0],
+      ["ado-ext.setPrFilter.active", 1],
+      ["ado-ext.setPrFilter.completed", 2],
+      ["ado-ext.setPrFilter.abandoned", 3],
+    ];
+    for (const [cmd, idx] of prFilters) {
+      context.subscriptions.push(
+        vscode.commands.registerCommand(cmd, (filterBtnArg?: any) => {
+          try {
+            const folderElement = filterBtnArg?.folderRef;
+            if (!folderElement) return;
+            provider.setPrFilter(folderElement, idx);
+          } catch (err) {
+            channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }),
+      );
+    }
+
     // Send Work Item to GitHub Copilot Chat
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.sendWorkItemToCopilot", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.sendWorkItemToCopilot", async (arg?: any) => {
         try {
           const getLabel = (item: any): string => {
             if (typeof item?.label === "string") return item.label;
@@ -418,9 +486,9 @@ export function activate(context: vscode.ExtensionContext) {
               // API から work item の詳細を取得
               try {
                 const client = provider.getClient();
-                const pat = await context.secrets.get(`ado-assist.pat.${arg.organization}`);
+                const pat = await context.secrets.get(`ado-ext.pat.${arg.organization}`);
                 const url = `https://dev.azure.com/${encodeURIComponent(arg.organization)}/_apis/wit/workitems/${workItemNum}?api-version=6.0`;
-                const response: any = await (await import("./ado/api")).httpRequest("GET", url, pat || "", undefined, { channel });
+                const response: any = await httpRequest("GET", url, pat || "", undefined, { channel });
                 if (response && response.fields) {
                   description = response.fields["System.Description"] || response.fields["Description"] || "";
                 }
@@ -444,7 +512,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create branch for work item
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.createBranchForWorkItem", async (arg?: any) => {
+      vscode.commands.registerCommand("ado-ext.createBranchForWorkItem", async (arg?: any) => {
         try {
           // Extract work item ID
           let workItemNum = "";
@@ -462,6 +530,26 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage("Could not extract work item number");
             return;
           }
+
+          // Extract organization from arg (must be provided)
+          const organization = arg?.organization || arg?.orgName || "";
+          if (!organization) {
+            const msg = "Could not extract organization from work item context. Please try again from the tree view.";
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+          channel.appendLine(`Organization from context: ${organization}`);
+
+          // Extract project ID from arg (must be provided)
+          const projectId = arg?.projectId || arg?.projectName || "";
+          if (!projectId) {
+            const msg = "Could not extract project ID from work item context. Please try again from the tree view.";
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+          channel.appendLine(`Project ID from context: ${projectId}`);
 
           // Get title
           let title = "";
@@ -482,13 +570,12 @@ export function activate(context: vscode.ExtensionContext) {
             .replace(/^_|_$/g, "");
 
           // Get branch prefix from settings
-          const config = vscode.workspace.getConfiguration("adoAssist");
+          const config = vscode.workspace.getConfiguration("adoExt");
           const branchPrefix = config.get<string>("branchPrefix") || "working";
 
           // Get git username
           let username = "";
           try {
-            const { execSync } = await import("child_process");
             username = execSync("git config user.name", { encoding: "utf-8", stdio: "pipe" }).trim();
           } catch (e) {
             channel.appendLine(`Failed to get git username: ${e}`);
@@ -497,11 +584,100 @@ export function activate(context: vscode.ExtensionContext) {
 
           const branchName = `${branchPrefix}/${username}/#${workItemNum}_${sanitizedTitle}`;
 
+          // Get working directory (try multiple sources)
+          const wsFolder = vscode.workspace.workspaceFolders?.[0];
+          const cwd = wsFolder?.uri?.fsPath;
+          channel.appendLine(`createBranchForWorkItem: workspace folder cwd=${cwd}`);
+
+          // Verify that we have a valid git repository
+          if (!cwd) {
+            const msg = "No workspace folder found. Please open a folder in VS Code.";
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+
+          // Check if it's a git repository by running git rev-parse --git-dir
+          try {
+            execSync("git rev-parse --git-dir", {
+              encoding: "utf-8",
+              stdio: "pipe",
+              cwd,
+            });
+            channel.appendLine(`Verified git repository at: ${cwd}`);
+          } catch (e) {
+            const msg = `Not a git repository at ${cwd}. Please initialize git or open the correct folder.`;
+            channel.appendLine(`Error: ${String(e)}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+
+          // Check organization and project match using git remote -v
+          try {
+            const remotes = execSync("git remote -v", {
+              encoding: "utf-8",
+              stdio: "pipe",
+              cwd,
+            });
+            channel.appendLine(`git remote -v output:\n${remotes}`);
+
+            // Extract organization and project from git remote URL
+            // URL format: https://[PAT]@dev.azure.com/{org}/{project}/_git/{repo}
+            // or: git@ssh.dev.azure.com:v3/{org}/{project}/_git/{repo}
+            const httpsPattern = /dev\.azure\.com\/([^\/]+)\/([^\/]+)\//;
+            const sshPattern = /git@ssh\.dev\.azure\.com:v3\/([^\/]+)\/([^\/]+)\//;
+
+            let remoteOrg: string | undefined;
+            let remoteProject: string | undefined;
+
+            // Try HTTPS format first
+            const httpsMatch = remotes.match(httpsPattern);
+            if (httpsMatch && httpsMatch[1] && httpsMatch[2]) {
+              remoteOrg = httpsMatch[1];
+              remoteProject = httpsMatch[2];
+            } else {
+              // Try SSH format
+              const sshMatch = remotes.match(sshPattern);
+              if (sshMatch && sshMatch[1] && sshMatch[2]) {
+                remoteOrg = sshMatch[1];
+                remoteProject = sshMatch[2];
+              }
+            }
+
+            if (!remoteOrg || !remoteProject) {
+              const msg = "Could not extract organization/project from git remote. The repository may not be connected to Azure DevOps.";
+              channel.appendLine(`Error: ${msg}`);
+              vscode.window.showErrorMessage(msg);
+              return;
+            }
+
+            channel.appendLine(`Extracted from remote: org=${remoteOrg}, project=${remoteProject}`);
+
+            if (remoteOrg !== organization) {
+              const msg = `Organization mismatch: selected organization is '${organization}', but git remote points to '${remoteOrg}'. Please open the correct project folder.`;
+              channel.appendLine(`Error: ${msg}`);
+              vscode.window.showErrorMessage(msg);
+              return;
+            }
+
+            if (remoteProject !== projectId) {
+              const msg = `Project mismatch: selected project is '${projectId}', but git remote points to '${remoteProject}'. Please open the correct project folder.`;
+              channel.appendLine(`Error: ${msg}`);
+              vscode.window.showErrorMessage(msg);
+              return;
+            }
+
+            channel.appendLine(`Organization and project match verified: ${organization}/${projectId}`);
+          } catch (e) {
+            const msg = `Failed to verify organization/project: ${String(e)}`;
+            channel.appendLine(`Error: ${msg}`);
+            vscode.window.showErrorMessage(msg);
+            return;
+          }
+
           // Check if branch already exists using git branch --list
           let branchExists = false;
           try {
-            const { execSync } = await import("child_process");
-            const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
             const branches = execSync("git branch --list", {
               encoding: "utf-8",
               stdio: "pipe",
@@ -510,7 +686,7 @@ export function activate(context: vscode.ExtensionContext) {
             branchExists = branches.includes(branchName);
             channel.appendLine(`Branch check result: exists=${branchExists}, cwd=${cwd}`);
           } catch (e) {
-            channel.appendLine(`Failed to check branch: ${e}`);
+            channel.appendLine(`Failed to check branch: ${String(e)}`);
           }
 
           // Create or checkout branch using the active terminal
@@ -522,9 +698,17 @@ export function activate(context: vscode.ExtensionContext) {
 
             const cmd = branchExists ? `git checkout "${branchName}"` : `git checkout -b "${branchName}"`;
 
+            // If cwd is available, navigate to it first before running git command
+            if (cwd) {
+              channel.appendLine(`Terminal: cd "${cwd}"`);
+              terminal.sendText(`cd "${cwd}"`, true);
+              // Wait a brief moment for cd to complete
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
             channel.appendLine(`Executing: ${cmd}`);
             terminal.sendText(cmd, true);
-            terminal.show();
+            // terminal.show();  // Don't show terminal, just send the command
 
             const msg = branchExists ? `Switched to branch: ${branchName}` : `New branch created: ${branchName}`;
             vscode.window.showInformationMessage(msg);
@@ -544,10 +728,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Open settings
     context.subscriptions.push(
-      vscode.commands.registerCommand("ado-assist.openSettings", async () => {
+      vscode.commands.registerCommand("ado-ext.openSettings", async () => {
         try {
-          await vscode.commands.executeCommand("workbench.action.openSettings", "adoAssist.");
-          channel.appendLine("Opened settings for adoAssist");
+          await vscode.commands.executeCommand("workbench.action.openSettings", "adoExt.");
+          channel.appendLine("Opened settings for adoExt");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           channel.appendLine(`Failed to open settings: ${msg}`);
@@ -555,8 +739,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }),
     );
-
-    // (removed unused viewMenu command - view title uses direct contributes.commands)
   } catch (err) {
     channel.appendLine("error registering provider: " + String(err));
   }

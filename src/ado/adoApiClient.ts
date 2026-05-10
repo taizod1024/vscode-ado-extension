@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest } from "./types";
+import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration } from "./types";
 import { httpRequest } from "./api";
 
 /**
@@ -80,56 +80,6 @@ export class AdoApiClient {
   // -----------------------
   // Work Items
   // -----------------------
-  async fetchWorkItems(organization: string, projectIdOrName: string, pat?: string): Promise<AdoWorkItem[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-
-    let projectName = projectIdOrName;
-    if (!this.projectsByOrg[organization] || this.projectsByOrg[organization].length === 0) {
-      try {
-        await this.fetchProjects(organization);
-      } catch (e) {}
-    }
-    const proj = (this.projectsByOrg[organization] || []).find(p => p.id === projectIdOrName || p.name === projectIdOrName);
-    if (proj && proj.name) projectName = proj.name;
-
-    const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
-    const safeName = String(projectName).replace(/'/g, "''");
-    const query = {
-      query: `Select [System.Id], [System.Title] From WorkItems Where [System.TeamProject] = '${safeName}' Order By [System.ChangedDate] Desc`,
-    };
-    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, query, { channel: this.channel });
-    const ids = (wiqlResult?.workItems || [])
-      .slice(0, 20)
-      .map((w: any) => w.id)
-      .filter(Boolean);
-    if (ids.length === 0) return [];
-
-    const idsStr = ids.join(",");
-    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
-    const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
-    const items: AdoWorkItem[] = [];
-    if (details && Array.isArray(details.value)) {
-      for (const d of details.value) {
-        const wid = Number(d.id);
-        let webUrl = d.url || "";
-        if (projectName) {
-          webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
-        }
-        const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
-        const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
-        items.push({
-          id: wid,
-          title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"),
-          url: webUrl,
-          status: state,
-          assignee,
-        });
-      }
-    }
-    return items;
-  }
-
   async fetchWorkItemsByWiql(organization: string, wiql: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
@@ -147,7 +97,7 @@ export class AdoApiClient {
       if (proj && proj.name) {
         projectName = proj.name;
       } else {
-        if (/^[0-9a-fA-F-]{32,36}$/.test(String(projectIdOrName))) {
+        if (/^[0-9a-fA-F-]{32,36}$/.test(projectIdOrName as string)) {
           if (this.channel) {
             this.channel.appendLine(`provided project identifier appears to be GUID and could not be resolved to name: ${projectIdOrName}`);
           }
@@ -167,7 +117,8 @@ export class AdoApiClient {
     if (ids.length === 0) return [];
 
     const idsStr = ids.join(",");
-    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&api-version=6.0`;
+    const fields = encodeURIComponent("System.Id,System.Title,System.State,System.Description,System.IterationPath,System.Parent,System.AssignedTo");
+    const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&fields=${fields}&api-version=6.0`;
     const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
     const items: AdoWorkItem[] = [];
     if (details && Array.isArray(details.value)) {
@@ -177,7 +128,7 @@ export class AdoApiClient {
         if (projectName) {
           webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
         }
-        const state = String(d.fields?.["System.State"] || d.fields?.["State"] || "");
+        const state = (d.fields?.["System.State"] || d.fields?.["State"] || "") as string;
         let rawDesc = d.fields?.["System.Description"] || d.fields?.["Description"] || "";
         if (rawDesc && typeof rawDesc === "string") {
           rawDesc = rawDesc
@@ -189,13 +140,17 @@ export class AdoApiClient {
         }
         const shortDesc = rawDesc.length > 200 ? rawDesc.slice(0, 197) + "..." : rawDesc;
         const assignee = this.extractPerson(d.fields?.["System.AssignedTo"] || d.fields?.["Assigned To"] || "");
+        const iterationPath = (d.fields?.["System.IterationPath"] || "") as string;
+        const parentId = d.fields?.["System.Parent"] ? Number(d.fields["System.Parent"]) : undefined;
         items.push({
           id: wid,
-          title: String(d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)"),
+          title: (d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)") as string,
           url: webUrl,
           status: state,
           assignee,
           description: shortDesc,
+          iterationPath,
+          parentId,
         });
       }
     }
@@ -252,6 +207,47 @@ export class AdoApiClient {
     return this.fetchWorkItemsByWiql(organization, q, projName, pat);
   }
 
+  async fetchIterations(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoIteration[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    if (!projName) return [];
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/work/teamsettings/iterations?api-version=6.0`;
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const iterations: AdoIteration[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const it of data.value) {
+        iterations.push({
+          id: String(it.id || ""),
+          name: it.name || "",
+          path: it.path || "",
+          startDate: it.attributes?.startDate || undefined,
+          finishDate: it.attributes?.finishDate || undefined,
+        });
+      }
+    }
+    return iterations;
+  }
+
+  async fetchWorkItemsForIteration(organization: string, projectIdOrName: string, iterationPath: string, filterKey?: string, pat?: string): Promise<AdoWorkItem[]> {
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    const safeIterPath = iterationPath.replace(/'/g, "''");
+    const conditions = [`[System.IterationPath] = '${safeIterPath}'`];
+    switch (filterKey) {
+      case "assigned":
+        conditions.push("[System.AssignedTo] = @Me");
+        break;
+      case "myactivity":
+        conditions.push("([System.ChangedBy] = @Me OR [System.CreatedBy] = @Me OR [System.AssignedTo] = @Me)");
+        break;
+      case "active":
+        conditions.push("([System.State] = 'Active' OR [System.State] = 'In Progress' OR [System.State] = 'Doing')");
+        break;
+    }
+    const q = this.buildWiql(projName || projectIdOrName, conditions, "[System.WorkItemType] Asc, [System.Id] Asc");
+    return this.fetchWorkItemsByWiql(organization, q, projName || projectIdOrName, pat);
+  }
+
   // -----------------------
   // Branches
   // -----------------------
@@ -263,7 +259,7 @@ export class AdoApiClient {
     const out: AdoBranch[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
-        const name = String(r.name || r.ref || "");
+        const name = r.name || r.ref || "";
         out.push({ name });
       }
     }
@@ -278,11 +274,11 @@ export class AdoApiClient {
     const repos: AdoRepository[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
-        const name = String(r.name || r.repositoryName || "");
-        const id = String(r.id || r.repositoryId || "");
-        const web = r._links?.web?.href || r.remoteUrl || "";
+        const name = r.name || r.repositoryName || "";
+        const id = r.id || r.repositoryId || "";
+        const web = this.getWebUrl(r);
         const defaultBranch = r.defaultBranch || undefined;
-        repos.push({ id, name, url: String(web || ""), defaultBranch });
+        repos.push({ id, name, url: web || "", defaultBranch });
       }
     }
     return repos;
@@ -291,26 +287,6 @@ export class AdoApiClient {
   // -----------------------
   // Pull Requests
   // -----------------------
-  async fetchPullRequests(organization: string, repoIdOrName: string, pat?: string): Promise<AdoPullRequest[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
-    const out: AdoPullRequest[] = [];
-    if (data && Array.isArray(data.value)) {
-      for (const pr of data.value) {
-        out.push({
-          pullRequestId: Number(pr.pullRequestId || pr.id),
-          title: String(pr.title || ""),
-          url: pr._links?.web?.href || pr.url || "",
-          status: pr.status,
-          createdBy: pr.createdBy,
-        });
-      }
-    }
-    return out;
-  }
-
   async fetchPullRequestsByStatus(organization: string, repoIdOrName: string, status: string, pat?: string): Promise<AdoPullRequest[]> {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
@@ -319,8 +295,8 @@ export class AdoApiClient {
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
-        const web = pr._links?.web?.href || undefined;
-        const apiUrl = pr.url || pr._links?.self?.href || "";
+        const web = this.getWebUrl(pr);
+        const apiUrl = this.getApiUrl(pr);
         out.push({
           pullRequestId: Number(pr.pullRequestId || pr.id),
           title: String(pr.title || ""),
@@ -347,8 +323,8 @@ export class AdoApiClient {
         const createdBy = pr.createdBy || {};
         const createdId = createdBy.id || createdBy.uniqueName || createdBy.displayName || createdBy.descriptor;
         if (!myId || String(createdId) === String(myId) || String(createdBy.uniqueName || "").toLowerCase() === String(profile?.uniqueName || "").toLowerCase()) {
-          const web = pr._links?.web?.href || undefined;
-          const apiUrl = pr.url || pr._links?.self?.href || "";
+          const web = this.getWebUrl(pr);
+          const apiUrl = this.getApiUrl(pr);
           out.push({
             pullRequestId: Number(pr.pullRequestId || pr.id),
             title: String(pr.title || ""),
@@ -439,7 +415,46 @@ export class AdoApiClient {
   }
 
   private patKeyForOrg(org: string): string {
-    return `ado-assist.pat.${org}`;
+    return `ado-ext.pat.${org}`;
+  }
+
+  /**
+   * Web URL を取得します（フォールバック順）。
+   * @param item 対象オブジェクト
+   * @returns Web URL
+   */
+  getWebUrl(item: any): string {
+    // フォールバック順: item._links?.web?.href → item.webUrl → item.url → ""
+    if (item._links?.web?.href) return String(item._links.web.href);
+    if (item.webUrl) return String(item.webUrl);
+    if (item.url) return String(item.url);
+    return "";
+  }
+
+  /**
+   * API URL を取得します（フォールバック順）。
+   * @param item 対象オブジェクト
+   * @returns API URL
+   */
+  getApiUrl(item: any): string {
+    // フォールバック順: item.url → item._links?.self?.href → item.apiUrl → ""
+    if (item.url) return String(item.url);
+    if (item._links?.self?.href) return String(item._links.self.href);
+    if (item.apiUrl) return String(item.apiUrl);
+    return "";
+  }
+
+  /**
+   * Clone URL を取得します（フォールバック順）。
+   * @param item 対象オブジェクト
+   * @returns Clone URL または undefined
+   */
+  getCloneUrl(item: any): string | undefined {
+    // フォールバック順: item.cloneUrl → item.remoteUrl → item.url → undefined
+    if (item.cloneUrl) return String(item.cloneUrl);
+    if (item.remoteUrl) return String(item.remoteUrl);
+    if (item.url) return String(item.url);
+    return undefined;
   }
 
   extractPerson(field: any): string {
@@ -461,6 +476,8 @@ export class AdoApiClient {
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}` : `https://dev.azure.com/${encodeURIComponent(org)}`;
       case "workitemsRoot":
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/recentlyupdated/` : `https://dev.azure.com/${encodeURIComponent(org)}/_workitems`;
+      case "reposFolder":
+        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_settings/repositories` : "";
       case "repo":
         return projectName && repoName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}` : "";
       case "branch":

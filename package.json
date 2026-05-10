@@ -1,7 +1,7 @@
 {
   "version": "0.0.3",
-  "name": "ado-assist",
-  "displayName": "Azure DevOps Assist Extension",
+  "name": "ado-ext",
+  "displayName": "Azure DevOps Extension Extension",
   "description": "A VS Code extension for Azure DevOps",
   "engines": {
     "vscode": "^1.117.0"
@@ -20,200 +20,267 @@
   "contributes": {
     "commands": [
       {
-        "command": "ado-assist.openUrl",
+        "command": "ado-ext.refreshIterationItems",
+        "title": "Azure DevOps: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ado-ext.openUrl",
         "title": "Azure DevOps: Open URL",
         "icon": "$(globe)"
       },
       {
-        "command": "ado-assist.createEpic",
-        "title": "Azure DevOps: Create Epic",
-        "icon": "$(add)"
-      },
-      {
-        "command": "ado-assist.createIssue",
-        "title": "Azure DevOps: Create Issue",
-        "icon": "$(add)"
-      },
-      {
-        "command": "ado-assist.createTask",
-        "title": "Azure DevOps: Create Task",
-        "icon": "$(add)"
-      },
-      {
-        "command": "ado-assist.createPullRequest",
+        "command": "ado-ext.openCreatePullRequest",
         "title": "Azure DevOps: Create Pull Request",
-        "icon": "$(add)"
+        "icon": "$(git-pull-request)"
       },
       {
-        "command": "ado-assist.cloneRepo",
+        "command": "ado-ext.openSprints",
+        "title": "Azure DevOps: Sprints",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "ado-ext.openSprintSettings",
+        "title": "Azure DevOps: Sprint Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ado-ext.openWorkItems",
+        "title": "Azure DevOps: Work Items",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "ado-ext.cloneRepo",
         "title": "Azure DevOps: Clone Repository",
         "icon": "$(repo-clone)"
       },
       {
-        "command": "ado-assist.addOrganization",
+        "command": "ado-ext.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
       },
       {
-        "command": "ado-assist.removeOrganization",
+        "command": "ado-ext.removeOrganization",
         "title": "Azure DevOps: Remove Organization",
         "icon": "$(remove)"
       },
       {
-        "command": "ado-assist.removeAllOrganizations",
+        "command": "ado-ext.removeAllOrganizations",
         "title": "Azure DevOps: Remove All Organizations",
         "icon": "$(trash)"
       },
       {
-        "command": "ado-assist.refreshNode",
+        "command": "ado-ext.refreshNode",
         "title": "Azure DevOps: Refresh Node",
         "icon": "$(refresh)"
       },
       {
-        "command": "ado-assist.sendWorkItemToCopilot",
+        "command": "ado-ext.sendWorkItemToCopilot",
         "title": "Azure DevOps: Send Work Item to GitHub Copilot",
         "icon": "$(copilot)"
       },
       {
-        "command": "ado-assist.createBranchForWorkItem",
+        "command": "ado-ext.createBranchForWorkItem",
         "title": "Azure DevOps: Create Branch for Work Item",
-        "icon": "$(arrow-right)"
+        "icon": "$(git-branch)"
       },
       {
-        "command": "ado-assist.openSettings",
+        "command": "ado-ext.openSettings",
         "title": "Azure DevOps: Open Settings",
         "icon": "$(gear)"
+      },
+      {
+        "command": "ado-ext.setIterationItemFilter.all",
+        "title": "All"
+      },
+      {
+        "command": "ado-ext.setIterationItemFilter.assigned",
+        "title": "Assigned to me"
+      },
+      {
+        "command": "ado-ext.setIterationItemFilter.myactivity",
+        "title": "My activity"
+      },
+      {
+        "command": "ado-ext.setIterationItemFilter.active",
+        "title": "Active"
+      },
+      {
+        "command": "ado-ext.setPrFilter.mine",
+        "title": "Mine"
+      },
+      {
+        "command": "ado-ext.setPrFilter.active",
+        "title": "Active"
+      },
+      {
+        "command": "ado-ext.setPrFilter.completed",
+        "title": "Completed"
+      },
+      {
+        "command": "ado-ext.setPrFilter.abandoned",
+        "title": "Abandoned"
       }
     ],
     "menus": {
       "commandPalette": [],
       "view/title": [
         {
-          "command": "ado-assist.addOrganization",
+          "command": "ado-ext.addOrganization",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@1"
         },
         {
-          "command": "ado-assist.removeAllOrganizations",
+          "command": "ado-ext.removeAllOrganizations",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@2"
         },
         {
-          "command": "ado-assist.openSettings",
+          "command": "ado-ext.openSettings",
           "when": "view == azureDevOps.sidePanel",
           "group": "navigation@99"
         }
       ],
       "view/item/context": [
         {
-          "command": "ado-assist.refreshNode",
+          "command": "ado-ext.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.removeOrganization",
+          "command": "ado-ext.removeOrganization",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",
           "group": "inline"
         },
         {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == adoProject",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openSprints",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.openSprintSettings",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openWorkItems",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "group": "inline@98"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.cloneRepo",
+          "command": "ado-ext.cloneRepo",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },
         {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == branchesFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && (viewItem == workitem || viewItem == workitem_active)",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.sendWorkItemToCopilot",
+          "command": "ado-ext.sendWorkItemToCopilot",
           "when": "view == azureDevOps.sidePanel && viewItem == workitem_active",
           "group": "inline@2"
         },
         {
-          "command": "ado-assist.createBranchForWorkItem",
+          "command": "ado-ext.createBranchForWorkItem",
           "when": "view == azureDevOps.sidePanel && viewItem == workitem_active",
           "group": "inline@1"
         },
         {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullrequest",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline@99"
-        },
-        {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.createEpic",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.createIssue",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.createTask",
-          "when": "view == azureDevOps.sidePanel && viewItem == workItemsFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline@99"
         },
         {
-          "command": "ado-assist.refreshNode",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openCreatePullRequest",
+          "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline"
         },
         {
-          "command": "ado-assist.createPullRequest",
-          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
-          "group": "inline"
-        },
-        {
-          "command": "ado-assist.openUrl",
+          "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == branch",
           "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.refreshIterationItems",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.setIterationItemFilter.all",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "group": "1_filter@1"
+        },
+        {
+          "command": "ado-ext.setIterationItemFilter.assigned",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "group": "1_filter@2"
+        },
+        {
+          "command": "ado-ext.setIterationItemFilter.myactivity",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "group": "1_filter@3"
+        },
+        {
+          "command": "ado-ext.setIterationItemFilter.active",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "group": "1_filter@4"
+        },
+        {
+          "command": "ado-ext.setPrFilter.mine",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "group": "1_filter@1"
+        },
+        {
+          "command": "ado-ext.setPrFilter.active",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "group": "1_filter@2"
+        },
+        {
+          "command": "ado-ext.setPrFilter.completed",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "group": "1_filter@3"
+        },
+        {
+          "command": "ado-ext.setPrFilter.abandoned",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "group": "1_filter@4"
         }
       ]
     },
@@ -221,7 +288,7 @@
       "activitybar": [
         {
           "id": "azureDevOps",
-          "title": "Azure DevOps Assist",
+          "title": "Azure DevOps Extension",
           "icon": "$(azure-devops)"
         }
       ]
@@ -230,16 +297,16 @@
       "azureDevOps": [
         {
           "id": "azureDevOps.sidePanel",
-          "name": "Azure DevOps Assist",
+          "name": "Azure DevOps Extension",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "keybindings": [],
     "configuration": {
-      "title": "Azure DevOps Assist",
+      "title": "Azure DevOps Extension",
       "properties": {
-        "adoAssist.branchPrefix": {
+        "adoExt.branchPrefix": {
           "type": "string",
           "default": "working",
           "description": "Prefix for created branches (e.g., working/username/#id_title)"
@@ -283,6 +350,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/taizod1024/vscode-ado-assist-extension.git"
+    "url": "https://github.com/taizod1024/vscode-ado-ext-extension.git"
   }
 }
