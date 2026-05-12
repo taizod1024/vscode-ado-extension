@@ -340,6 +340,49 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Change Work Item State
+    const makeSetStateCommand = (commandId: string, targetStates: string[], label: string) => {
+      context.subscriptions.push(
+        vscode.commands.registerCommand(commandId, async (arg?: any) => {
+          try {
+            const org: string | undefined = arg?.organization;
+            const projectId: string | undefined = arg?.projectId;
+            const workItemId: number | undefined = arg?.workItemId ?? (arg?.id ? Number(String(arg.id).split(":")[2]) : undefined);
+            if (!org || !workItemId || isNaN(workItemId)) return;
+            const client = provider.getClient();
+            const newState = await client.updateWorkItemState(org, projectId, workItemId, targetStates);
+            vscode.window.showInformationMessage(`Work item #${workItemId} moved to ${newState}.`);
+            provider.updateWorkItemNode(arg, newState);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Failed to set work item to ${label}: ` + msg);
+          }
+        }),
+      );
+    };
+    makeSetStateCommand("ado-ext.setWorkItemTodo", ["To Do", "New"], "To Do");
+    makeSetStateCommand("ado-ext.setWorkItemDoing", ["Active", "In Progress", "Doing"], "Doing");
+    makeSetStateCommand("ado-ext.setWorkItemDone", ["Done", "Closed", "Resolved", "Closed"], "Done");
+
+    // Assign Work Item to Me
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.assignWorkItemToMe", async (arg?: any) => {
+        try {
+          const org: string | undefined = arg?.organization;
+          const projectId: string | undefined = arg?.projectId;
+          const workItemId: number | undefined = arg?.workItemId ?? (arg?.id ? Number(String(arg.id).split(":")[2]) : undefined);
+          if (!org || !workItemId || isNaN(workItemId)) return;
+          const client = provider.getClient();
+          const assignee = await client.assignWorkItemToMe(org, projectId, workItemId);
+          vscode.window.showInformationMessage(`Work item #${workItemId} assigned to ${assignee}.`);
+          provider.updateWorkItemDescription(arg, assignee);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to assign work item: " + msg);
+        }
+      }),
+    );
+
     // Add organization
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.addOrganization", async () => {

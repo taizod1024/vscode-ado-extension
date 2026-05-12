@@ -44,6 +44,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private childrenFetchTokens: { [key: string]: number } = {};
   /** イテレーション内 Work Item の親子マップ（key: iterationCacheKey, value: parentId → [子 WorkItem]） */
   private workItemChildrenMaps: { [key: string]: Map<number, AdoWorkItem[]> } = {};
+  /** Work Item の状態上書きマップ（key: "org:workItemId", value: 新しい状態文字列）。キャッシュが古くても正しいアイコンを表示するために使う */
+  private workItemStateOverrides: Map<string, string> = new Map();
 
   // -----------------------
   // Filter State
@@ -95,6 +97,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   clearCacheForOrganization(organization: string): void {
     this.authFailedOrgs.delete(organization);
     delete this.errorsByOrg[organization];
+    for (const k of this.workItemStateOverrides.keys()) {
+      if (k.startsWith(`${organization}:`)) this.workItemStateOverrides.delete(k);
+    }
     if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
     const prefixes = [`projects:${organization}`, `workitems:${organization}:`, `repos:${organization}:`, `branches:${organization}:`, `prs:${organization}:`];
     for (const k of Object.keys(this.childrenCache)) {
@@ -638,9 +643,44 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
+   * 指定 Work Item ノードのアイコンと contextValue を新しいステート文字列で更新し、
+   * そのノードだけ再描画する（ツリー全体の再取得は行わない）。
+   */
+  updateWorkItemNode(item: AdoTreeItem, newState: string): void {
+    // オーバーライドを保存しておくことで、子ノードが再生成されてもキャッシュの古い状態で上書きされない
+    const workItemId = item.workItemId ?? (item.id ? Number(String(item.id).split(":")[2]) : undefined);
+    if (item.organization && workItemId && !isNaN(workItemId)) {
+      this.workItemStateOverrides.set(`${item.organization}:${workItemId}`, newState);
+    }
+    const st = newState.toLowerCase();
+    const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
+    const isDoing = !isDone && (st.includes("active") || st.includes("in progress") || st.includes("doing"));
+    if (isDone) {
+      item.contextValue = "workitem_done";
+      item.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
+    } else if (isDoing) {
+      item.contextValue = "workitem_doing";
+      item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
+    } else {
+      item.contextValue = "workitem_todo";
+      item.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
+    }
+    this._onDidChangeTreeData.fire(item);
+  }
+
+  /**
+   * 指定 Work Item ノードの description（担当者）をその場で更新する。
+   */
+  updateWorkItemDescription(item: AdoTreeItem, description: string): void {
+    item.description = description;
+    this._onDidChangeTreeData.fire(item);
+  }
+
+  /**
    * ツリー全体を更新するヘルパー。
    */
   refresh(): void {
+    this.workItemStateOverrides.clear();
     this._onDidChangeTreeData.fire();
   }
 
@@ -809,20 +849,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    */
   private applyWorkItemStyling(item: AdoTreeItem, w: AdoWorkItem): void {
     try {
-      const st = (w as any).status ? String((w as any).status).toLowerCase() : "";
+      const overrideKey = `${item.organization}:${w.id}`;
+      const override = this.workItemStateOverrides.get(overrideKey);
+      const st = override ? override.toLowerCase() : (w as any).status ? String((w as any).status).toLowerCase() : "";
       const isDone = st.includes("done") || st.includes("closed") || st.includes("resolved") || st.includes("complete");
-      // DONE以外のチケットには workitem_active を追加
-      if (!isDone) {
-        item.contextValue = "workitem_active";
-      }
+      const isDoing = !isDone && (st.includes("active") || st.includes("in progress") || st.includes("doing"));
       if (isDone) {
-        // DONE状態: checkアイコン（青色）
+        item.contextValue = "workitem_done";
         item.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
-      } else if (st.includes("active") || st.includes("in progress") || st.includes("doing")) {
-        // DOING状態: 赤色
+      } else if (isDoing) {
+        item.contextValue = "workitem_doing";
         item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
       } else {
-        // TODO・新規・その他: 黄色
+        item.contextValue = "workitem_todo";
         item.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
       }
     } catch (e) {}

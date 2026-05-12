@@ -18,9 +18,9 @@ export const ERROR_MESSAGES = {
  * @param _opts オプション設定（ロギング用 channel 含む）
  * @returns パース済みの JSON レスポンス（失敗時は例外を投げます）
  */
-export type HttpRequestOptions = { channel?: vscode.LogOutputChannel };
+export type HttpRequestOptions = { channel?: vscode.LogOutputChannel; contentType?: string };
 
-export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: string, body?: any, opts?: HttpRequestOptions): Promise<any> {
+export async function httpRequest(method: "GET" | "POST" | "PATCH", urlStr: string, pat: string, body?: any, opts?: HttpRequestOptions): Promise<any> {
   const https = require("https");
   const http = require("http");
   const u = new URL(urlStr);
@@ -40,7 +40,7 @@ export async function httpRequest(method: "GET" | "POST", urlStr: string, pat: s
     },
   };
   if (payload) {
-    options.headers["Content-Type"] = "application/json";
+    options.headers["Content-Type"] = opts?.contentType ?? "application/json";
     options.headers["Content-Length"] = Buffer.byteLength(payload);
   }
 

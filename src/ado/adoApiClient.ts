@@ -377,6 +377,7 @@ export class AdoApiClient {
       this.currentProfileCache = data;
       return data;
     } catch (e) {
+      this.channel?.appendLine(`[fetchCurrentProfile] failed: ${e}`);
       return undefined;
     }
   }
@@ -491,5 +492,59 @@ export class AdoApiClient {
       default:
         return "";
     }
+  }
+
+  /**
+   * Work Item のステートを更新します。
+   * `targetStates` を順に試し、最初に成功した状態名を返します。
+   * すべて失敗した場合は例外を投げます。
+   */
+  async updateWorkItemState(organization: string, projectIdOrName: string | undefined, workItemId: number, targetStates: string[]): Promise<string> {
+    const usePat = await this.resolvePat(organization);
+    if (!usePat) throw new Error("PAT not provided");
+    const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=7.0`;
+    let lastError: Error | undefined;
+    for (const state of targetStates) {
+      try {
+        const body = [{ op: "add", path: "/fields/System.State", value: state }];
+        const result = await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
+        return (result?.fields?.["System.State"] ?? state) as string;
+      } catch (e) {
+        lastError = e as Error;
+      }
+    }
+    throw lastError ?? new Error("Failed to update work item state");
+  }
+
+  async assignWorkItemToMe(organization: string, projectIdOrName: string | undefined, workItemId: number): Promise<string> {
+    const usePat = await this.resolvePat(organization);
+    if (!usePat) throw new Error("PAT not provided");
+
+    // profiles/me のレスポンスは coreAttributes にネストしていることがある
+    const profile = await this.fetchCurrentProfile(organization, usePat);
+    this.channel?.appendLine(`[assignWorkItemToMe] profile keys: ${JSON.stringify(Object.keys(profile ?? {}))}`);
+    this.channel?.appendLine(`[assignWorkItemToMe] profile: ${JSON.stringify(profile)}`);
+
+    let assignee: string | undefined = profile?.emailAddress || profile?.uniqueName || profile?.coreAttributes?.EmailAddress?.value || profile?.coreAttributes?.PublicAlias?.value || profile?.displayName;
+
+    // フォールバック: connectionData の authenticatedUser を使う
+    if (!assignee) {
+      try {
+        const connUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/connectionData`;
+        const connData = await httpRequest("GET", connUrl, usePat, undefined, { channel: this.channel });
+        this.channel?.appendLine(`[assignWorkItemToMe] connectionData.authenticatedUser: ${JSON.stringify(connData?.authenticatedUser)}`);
+        assignee = connData?.authenticatedUser?.properties?.Account?.$value || connData?.authenticatedUser?.providerDisplayName || connData?.authenticatedUser?.uniqueName || connData?.authenticatedUser?.id;
+      } catch (e) {
+        this.channel?.appendLine(`[assignWorkItemToMe] connectionData fallback failed: ${e}`);
+      }
+    }
+
+    if (!assignee) throw new Error("Could not resolve current user identity");
+    const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=7.0`;
+    const body = [{ op: "add", path: "/fields/System.AssignedTo", value: assignee }];
+    const result = await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
+    return (result?.fields?.["System.AssignedTo"]?.displayName ?? assignee) as string;
   }
 }
