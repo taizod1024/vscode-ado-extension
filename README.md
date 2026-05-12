@@ -85,6 +85,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 2. Click the icon buttons next to the repo to:
    - Open URL: open the Web UI in the integrated browser
    - Clone Repository: clone locally (PAT is embedded automatically)
+   - Open Git Graph: open Git Graph for the locally cloned repository
 3. Expand Branches to view the branch list
 4. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
 
@@ -103,6 +104,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 | Open Sprints                | Open the sprints page in the browser     |
 | Create Pull Request         | Open PR creation page with source branch |
 | Clone Repository            | Clone a repository                       |
+| Open Git Graph              | Open Git Graph for the repository        |
 | Refresh Node                | Refresh the tree                         |
 | Open Work Items             | Open the work items list                 |
 | Open URL                    | Open in the integrated browser           |
@@ -223,6 +225,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 2. リポジトリ横のアイコンをクリックして以下を実行:
    - Open URL: Web UI をブラウザで開く
    - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
+   - Open Git Graph: ローカルにクローン済みのリポジトリの Git Graph を開く
 3. Branches を展開してブランチ一覧を表示
 4. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
 
@@ -241,6 +244,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | Open Sprints                | スプリント管理ページを開く                    |
 | Create Pull Request         | ソースブランチ自動入力で PR 作成ページを開く  |
 | Clone Repository            | リポジトリをクローン                          |
+| Open Git Graph              | リポジトリの Git Graph を開く                 |
 | Refresh Node                | ツリーをリフレッシュ                          |
 | Open Work Items             | ワークアイテム一覧を表示                      |
 | Open URL                    | Web UI をブラウザで開く                       |

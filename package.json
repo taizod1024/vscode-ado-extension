@@ -55,6 +55,11 @@
         "icon": "$(repo-clone)"
       },
       {
+        "command": "ado-ext.openGitGraph",
+        "title": "Azure DevOps: Open Git Graph",
+        "icon": "$(git-commit)"
+      },
+      {
         "command": "ado-ext.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
@@ -189,6 +194,11 @@
         },
         {
           "command": "ado-ext.cloneRepo",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.openGitGraph",
           "when": "view == azureDevOps.sidePanel && viewItem == repo",
           "group": "inline"
         },

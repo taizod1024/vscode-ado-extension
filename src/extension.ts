@@ -300,6 +300,46 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }),
     );
+    // Open Git Graph
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openGitGraph", async (arg?: any) => {
+        try {
+          const repoName: string | undefined = arg?.repoName;
+          // VS Code Git 拡張 API からローカルリポジトリを検索
+          const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
+          const gitAPI = gitExt?.getAPI(1);
+          const repos: any[] = gitAPI?.repositories ?? [];
+          let matchedPath: string | undefined;
+          for (const repo of repos) {
+            const rootPath: string = repo.rootUri?.fsPath ?? "";
+            const remotes: any[] = repo.state?.remotes ?? [];
+            const remoteMatch = remotes.some((r: any) => {
+              const url: string = r.fetchUrl ?? r.pushUrl ?? "";
+              return repoName && url.toLowerCase().includes(repoName.toLowerCase());
+            });
+            const folderMatch =
+              repoName &&
+              rootPath
+                .replace(/\\/g, "/")
+                .toLowerCase()
+                .endsWith("/" + repoName.toLowerCase());
+            if (remoteMatch || folderMatch) {
+              matchedPath = rootPath;
+              break;
+            }
+          }
+          if (matchedPath) {
+            await vscode.commands.executeCommand("git-graph.view", { repos: [matchedPath] });
+          } else {
+            vscode.window.showInformationMessage(`Git Graph: ローカルに "${repoName ?? ""}" が見つかりません。先にクローンしてください。`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open Git Graph: " + msg);
+        }
+      }),
+    );
+
     // Add organization
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.addOrganization", async () => {
