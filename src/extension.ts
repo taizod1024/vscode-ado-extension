@@ -329,7 +329,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
           }
           if (matchedPath) {
-            await vscode.commands.executeCommand("git-graph.view", { repos: [matchedPath] });
+            await vscode.commands.executeCommand("git-graph.view", { rootUri: vscode.Uri.file(matchedPath) });
           } else {
             vscode.window.showInformationMessage(`Git Graph: ローカルに "${repoName ?? ""}" が見つかりません。先にクローンしてください。`);
           }
