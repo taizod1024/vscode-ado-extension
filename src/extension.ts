@@ -743,17 +743,6 @@ export function activate(context: vscode.ExtensionContext) {
     channel.appendLine("error registering provider: " + String(err));
   }
   channel.appendLine("activate() end");
-  // attempt to force reveal the view after a short delay
-  setTimeout(async () => {
-    try {
-      channel.appendLine("attempting automatic reveal of side panel");
-      await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
-      channel.appendLine("automatic reveal attempt finished");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      channel.appendLine("automatic reveal setup error: " + msg);
-    }
-  }, 500);
 }
 
 export function deactivate() {
