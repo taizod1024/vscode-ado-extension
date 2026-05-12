@@ -55,6 +55,31 @@
         "icon": "$(repo-clone)"
       },
       {
+        "command": "ado-ext.openGitGraph",
+        "title": "Azure DevOps: Open Git Graph",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "ado-ext.setWorkItemTodo",
+        "title": "To do",
+        "icon": "$(issues)"
+      },
+      {
+        "command": "ado-ext.setWorkItemDoing",
+        "title": "Doing",
+        "icon": "$(run)"
+      },
+      {
+        "command": "ado-ext.setWorkItemDone",
+        "title": "Done",
+        "icon": "$(check)"
+      },
+      {
+        "command": "ado-ext.assignWorkItemToMe",
+        "title": "Assign to me",
+        "icon": "$(person-add)"
+      },
+      {
         "command": "ado-ext.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
@@ -193,24 +218,49 @@
           "group": "inline"
         },
         {
+          "command": "ado-ext.openGitGraph",
+          "when": "view == azureDevOps.sidePanel && viewItem == repo",
+          "group": "inline"
+        },
+        {
           "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == board",
           "group": "inline@99"
         },
         {
           "command": "ado-ext.openUrl",
-          "when": "view == azureDevOps.sidePanel && (viewItem == workitem || viewItem == workitem_active)",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
           "group": "inline@99"
         },
         {
           "command": "ado-ext.sendWorkItemToCopilot",
-          "when": "view == azureDevOps.sidePanel && viewItem == workitem_active",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing)",
           "group": "inline@2"
         },
         {
           "command": "ado-ext.createBranchForWorkItem",
-          "when": "view == azureDevOps.sidePanel && viewItem == workitem_active",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing)",
           "group": "inline@1"
+        },
+        {
+          "command": "ado-ext.setWorkItemTodo",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_doing || viewItem == workitem_done)",
+          "group": "workitem@1"
+        },
+        {
+          "command": "ado-ext.setWorkItemDoing",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_done)",
+          "group": "workitem@2"
+        },
+        {
+          "command": "ado-ext.setWorkItemDone",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing)",
+          "group": "workitem@3"
+        },
+        {
+          "command": "ado-ext.assignWorkItemToMe",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
+          "group": "workitem_assign@1"
         },
         {
           "command": "ado-ext.openUrl",
@@ -350,6 +400,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/taizod1024/vscode-ado-ext-extension.git"
+    "url": "https://github.com/taizod1024/vscode-ado-extension.git"
   }
 }

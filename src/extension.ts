@@ -300,6 +300,89 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }),
     );
+    // Open Git Graph
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openGitGraph", async (arg?: any) => {
+        try {
+          const repoName: string | undefined = arg?.repoName;
+          // VS Code Git 拡張 API からローカルリポジトリを検索
+          const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
+          const gitAPI = gitExt?.getAPI(1);
+          const repos: any[] = gitAPI?.repositories ?? [];
+          let matchedPath: string | undefined;
+          for (const repo of repos) {
+            const rootPath: string = repo.rootUri?.fsPath ?? "";
+            const remotes: any[] = repo.state?.remotes ?? [];
+            const remoteMatch = remotes.some((r: any) => {
+              const url: string = r.fetchUrl ?? r.pushUrl ?? "";
+              return repoName && url.toLowerCase().includes(repoName.toLowerCase());
+            });
+            const folderMatch =
+              repoName &&
+              rootPath
+                .replace(/\\/g, "/")
+                .toLowerCase()
+                .endsWith("/" + repoName.toLowerCase());
+            if (remoteMatch || folderMatch) {
+              matchedPath = rootPath;
+              break;
+            }
+          }
+          if (matchedPath) {
+            await vscode.commands.executeCommand("git-graph.view", { repos: [matchedPath] });
+          } else {
+            vscode.window.showInformationMessage(`Git Graph: ローカルに "${repoName ?? ""}" が見つかりません。先にクローンしてください。`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to open Git Graph: " + msg);
+        }
+      }),
+    );
+
+    // Change Work Item State
+    const makeSetStateCommand = (commandId: string, targetStates: string[], label: string) => {
+      context.subscriptions.push(
+        vscode.commands.registerCommand(commandId, async (arg?: any) => {
+          try {
+            const org: string | undefined = arg?.organization;
+            const projectId: string | undefined = arg?.projectId;
+            const workItemId: number | undefined = arg?.workItemId ?? (arg?.id ? Number(String(arg.id).split(":")[2]) : undefined);
+            if (!org || !workItemId || isNaN(workItemId)) return;
+            const client = provider.getClient();
+            const newState = await client.updateWorkItemState(org, projectId, workItemId, targetStates);
+            vscode.window.showInformationMessage(`Work item #${workItemId} moved to ${newState}.`);
+            provider.updateWorkItemNode(arg, newState);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Failed to set work item to ${label}: ` + msg);
+          }
+        }),
+      );
+    };
+    makeSetStateCommand("ado-ext.setWorkItemTodo", ["To Do", "New"], "To Do");
+    makeSetStateCommand("ado-ext.setWorkItemDoing", ["Active", "In Progress", "Doing"], "Doing");
+    makeSetStateCommand("ado-ext.setWorkItemDone", ["Done", "Closed", "Resolved", "Closed"], "Done");
+
+    // Assign Work Item to Me
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.assignWorkItemToMe", async (arg?: any) => {
+        try {
+          const org: string | undefined = arg?.organization;
+          const projectId: string | undefined = arg?.projectId;
+          const workItemId: number | undefined = arg?.workItemId ?? (arg?.id ? Number(String(arg.id).split(":")[2]) : undefined);
+          if (!org || !workItemId || isNaN(workItemId)) return;
+          const client = provider.getClient();
+          const assignee = await client.assignWorkItemToMe(org, projectId, workItemId);
+          vscode.window.showInformationMessage(`Work item #${workItemId} assigned to ${assignee}.`);
+          provider.updateWorkItemDescription(arg, assignee);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to assign work item: " + msg);
+        }
+      }),
+    );
+
     // Add organization
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.addOrganization", async () => {
@@ -743,17 +826,6 @@ export function activate(context: vscode.ExtensionContext) {
     channel.appendLine("error registering provider: " + String(err));
   }
   channel.appendLine("activate() end");
-  // attempt to force reveal the view after a short delay
-  setTimeout(async () => {
-    try {
-      channel.appendLine("attempting automatic reveal of side panel");
-      await vscode.commands.executeCommand("workbench.view.extension.azureDevOps");
-      channel.appendLine("automatic reveal attempt finished");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      channel.appendLine("automatic reveal setup error: " + msg);
-    }
-  }, 500);
 }
 
 export function deactivate() {
