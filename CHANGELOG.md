@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.7](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.6...v0.0.7) (2026-05-12)
+
+
+### Features
+
+* Pull Requests フィルタ行にリフレッシュボタンを追加 ([62d6658](https://github.com/taizod1024/vscode-ado-extension/commit/62d6658ac8a130a953131a553b970ca29073edbd))
+
+
+### Bug Fixes
+
+* git-graph.view に rootUri 形式で対象リポジトリを渡すよう修正 ([2de8bd5](https://github.com/taizod1024/vscode-ado-extension/commit/2de8bd550f482d79825125a348e36ca3ec9af17d))
+* Todo/Doing/Done メニューを同状態でも常に表示 ([cecc73b](https://github.com/taizod1024/vscode-ado-extension/commit/cecc73b765c2db80c5906bb1e5d0d7c2f9f78cc8))
+* ロード中はフィルタ行を非表示にしてローディング行のみ表示 ([209cbf6](https://github.com/taizod1024/vscode-ado-extension/commit/209cbf63308ad3ade8cdaf13e03dcdc3c09c07e2))
+
 ### [0.0.6](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.5...v0.0.6) (2026-05-12)
 
 
