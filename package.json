@@ -249,17 +249,17 @@
         },
         {
           "command": "ado-ext.setWorkItemTodo",
-          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_doing || viewItem == workitem_done)",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
           "group": "workitem@1"
         },
         {
           "command": "ado-ext.setWorkItemDoing",
-          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_done)",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
           "group": "workitem@2"
         },
         {
           "command": "ado-ext.setWorkItemDone",
-          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing)",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
           "group": "workitem@3"
         },
         {
