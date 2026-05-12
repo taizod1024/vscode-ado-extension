@@ -351,7 +351,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         ws => this.buildWorkItemHierarchy(ws, org, pid, cacheKey),
         "Loading work items...",
       );
-      return [filterBtn, ...items];
+      return this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
     }
 
     // workItem の子: イテレーション内連携で亲子関係がある場合に子要素を返す
@@ -486,7 +486,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const cacheKey = `prs:${org}:${repoId}:category:${currentCat.key}`;
       const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
       const items = this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
-      return [filterBtn, ...items];
+      return this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
     }
 
     // pullRequestsCategory の子: カテゴリに応じて PR を取得して表示
@@ -547,6 +547,27 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     delete this.childrenFetchPromises[cacheKey];
     this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
     this._onDidChangeTreeData.fire(iterElement);
+  }
+
+  /**
+   * Pull Requests フィルタ行のリフレッシュ（現在のフィルタを維持）。
+   * @param filterElement pullRequestsFilter の AdoTreeItem
+   */
+  refreshPrItems(filterElement: AdoTreeItem): void {
+    const folderElement = filterElement.folderRef;
+    if (!folderElement) return;
+    const org = folderElement.organization;
+    const repoId = folderElement.repoId;
+    if (!org || !repoId) return;
+    const prCategories = ["mine", "active", "completed", "abandoned"];
+    const key = `${org}:${repoId}`;
+    const idx = (this.prFilterState[key] || 0) % prCategories.length;
+    const catKey = prCategories[idx];
+    const cacheKey = `prs:${org}:${repoId}:category:${catKey}`;
+    delete this.childrenCache[cacheKey];
+    delete this.childrenFetchPromises[cacheKey];
+    this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
+    this._onDidChangeTreeData.fire(folderElement);
   }
 
   /**
@@ -786,6 +807,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
    * 汎用遅延ローダー。
    * - キャッシュ確認、in-flight 合流、未ロード時は非同期 fetch を開始してプレースホルダを返す。
    */
+  private isLoaded(key: string): boolean {
+    return this.childrenCache[key] !== undefined;
+  }
+
   private lazyLoadChildren<T>(key: string, element: AdoTreeItem, fetchFn: () => Promise<T[]>, toItems: (arr: T[]) => AdoTreeItem[], placeholderLabel: string = "Loading..."): AdoTreeItem[] {
     const cached = this.childrenCache[key];
     if (cached && Array.isArray(cached)) {
