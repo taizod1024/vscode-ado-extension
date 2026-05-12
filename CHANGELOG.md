@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.6](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.5...v0.0.6) (2026-05-12)
+
+
+### Features
+
+* add command to open Git Graph and integrate with Azure DevOps extension ([0d86566](https://github.com/taizod1024/vscode-ado-extension/commit/0d86566cafd5110d3836cbdc7d61f16f2cb845ff))
+* add commands to update work item states and enhance context menu options ([6fa85a9](https://github.com/taizod1024/vscode-ado-extension/commit/6fa85a997ecb5092e9cf13ef02eac416d93fa311))
+
+
+### Bug Fixes
+
+* remove automatic reveal attempt of side panel in activate function ([36d5ffd](https://github.com/taizod1024/vscode-ado-extension/commit/36d5ffd394bec74fbf6066bc2510f4f79599f520))
+* reorder return values in AdoTreeProvider to prioritize pull requests over branches ([51f0b17](https://github.com/taizod1024/vscode-ado-extension/commit/51f0b179fc8655964777788dff2ba12839d56b14))
+* update repository URL in package.json for correct reference ([fb0dbfb](https://github.com/taizod1024/vscode-ado-extension/commit/fb0dbfbc55542232227b4deed6e0ec1679f40c58))
+
 ### [0.0.5](https://github.com/taizod1024/vscode-ado-ext-extension/compare/v0.0.4...v0.0.5) (2026-05-10)
 
 
