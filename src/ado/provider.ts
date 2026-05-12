@@ -414,7 +414,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         } catch (e) {}
       } catch (e) {}
 
-      return [branchesFolder, prsFolder];
+      return [prsFolder, branchesFolder];
     }
 
     // branchesFolder の子: ブランチ一覧

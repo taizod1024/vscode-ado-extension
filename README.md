@@ -69,15 +69,6 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 - Open the Azure DevOps web UI from the Sprints page (`Open Sprints` icon) to create Epic / Issue / Task.
 
-### Repository Operations
-
-1. Expand Repositories to view repos
-2. Click the icon buttons next to the repo to:
-   - Open URL: open the Web UI in the integrated browser
-   - Clone Repository: clone locally (PAT is embedded automatically)
-3. Expand Branches to view the branch list
-4. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
-
 ### View Pull Requests
 
 1. Expand Pull Requests under a repository
@@ -87,6 +78,15 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
    - completed: merged PRs
    - abandoned: abandoned PRs
 3. Click the refresh icon on the PR list to reload
+
+### Repository Operations
+
+1. Expand Repositories to view repos
+2. Click the icon buttons next to the repo to:
+   - Open URL: open the Web UI in the integrated browser
+   - Clone Repository: clone locally (PAT is embedded automatically)
+3. Expand Branches to view the branch list
+4. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
 
 ### Refresh the Tree
 
@@ -207,15 +207,6 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 - Sprints ページ（`Open Sprints` アイコン）から Azure DevOps の Web UI を開いて Epic / Issue / Task を作成
 
-### リポジトリ操作
-
-1. Repositories を展開してリポジトリを表示
-2. リポジトリ横のアイコンをクリックして以下を実行:
-   - Open URL: Web UI をブラウザで開く
-   - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
-3. Branches を展開してブランチ一覧を表示
-4. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
-
 ### Pull Request 参照
 
 1. Repository の下の Pull Requests を展開
@@ -225,6 +216,15 @@ VS Code から Azure DevOps を操作する拡張機能です。
    - completed: マージ済み PR
    - abandoned: 破棄された PR
 3. PRのリフレッシュアイコンをクリックして再表示
+
+### リポジトリ操作
+
+1. Repositories を展開してリポジトリを表示
+2. リポジトリ横のアイコンをクリックして以下を実行:
+   - Open URL: Web UI をブラウザで開く
+   - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
+3. Branches を展開してブランチ一覧を表示
+4. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
 
 ### ツリーをリフレッシュ
 
