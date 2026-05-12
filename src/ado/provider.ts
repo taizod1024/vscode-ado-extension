@@ -550,6 +550,27 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
+   * Pull Requests フィルタ行のリフレッシュ（現在のフィルタを維持）。
+   * @param filterElement pullRequestsFilter の AdoTreeItem
+   */
+  refreshPrItems(filterElement: AdoTreeItem): void {
+    const folderElement = filterElement.folderRef;
+    if (!folderElement) return;
+    const org = folderElement.organization;
+    const repoId = folderElement.repoId;
+    if (!org || !repoId) return;
+    const prCategories = ["mine", "active", "completed", "abandoned"];
+    const key = `${org}:${repoId}`;
+    const idx = (this.prFilterState[key] || 0) % prCategories.length;
+    const catKey = prCategories[idx];
+    const cacheKey = `prs:${org}:${repoId}:category:${catKey}`;
+    delete this.childrenCache[cacheKey];
+    delete this.childrenFetchPromises[cacheKey];
+    this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
+  /**
    * イテレーション内 Work Item フィルタを次へ進める。
    * @param iterElement workItemsIteration の AdoTreeItem
    */

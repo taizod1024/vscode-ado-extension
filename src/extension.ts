@@ -134,6 +134,13 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Refresh PR items (keep current filter)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.refreshPrItems", async (arg?: any) => {
+        provider.refreshPrItems(arg);
+      }),
+    );
+
     // Open project/repo/pipeline URL (integrated browser only)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.openUrl", async (arg?: any) => {

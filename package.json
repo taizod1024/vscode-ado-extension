@@ -25,6 +25,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "ado-ext.refreshPrItems",
+        "title": "Azure DevOps: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "ado-ext.openUrl",
         "title": "Azure DevOps: Open URL",
         "icon": "$(globe)"
@@ -311,6 +316,11 @@
           "command": "ado-ext.setIterationItemFilter.active",
           "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
           "group": "1_filter@4"
+        },
+        {
+          "command": "ado-ext.refreshPrItems",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "group": "inline"
         },
         {
           "command": "ado-ext.setPrFilter.mine",
