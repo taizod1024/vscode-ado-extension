@@ -426,12 +426,15 @@ export function activate(context: vscode.ExtensionContext) {
             return;
           }
 
-          // 2. PAT を入力
+          // 2. org を先に登録（PAT 入力前にキャンセルされても org は残す）
+          provider.addOrganization(org);
+
+          // 3. PAT を入力
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // 3. PAT を検証・保存して org を追加
-          await handlePatValidationAndSave(org, pat, true);
+          // 4. PAT を検証・保存（org はすでに登録済みのため addOrgToProvider=false）
+          await handlePatValidationAndSave(org, pat, false);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to add organization: " + msg);
@@ -496,6 +499,17 @@ export function activate(context: vscode.ExtensionContext) {
             await provider.revealOrganization(org);
           }
           vscode.window.showInformationMessage("Refreshed");
+
+          // PAT 未入力の組織があれば順番に入力を促す
+          const orgsToPrompt = org
+            ? [org]
+            : provider.getOrganizations();
+          for (const o of orgsToPrompt) {
+            const stored = await context.secrets.get(`ado-ext.pat.${o}`);
+            if (!stored) {
+              await vscode.commands.executeCommand("ado-ext.enterPatForOrg", o);
+            }
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to refresh: " + msg);

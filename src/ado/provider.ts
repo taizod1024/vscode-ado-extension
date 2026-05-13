@@ -758,6 +758,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // Organization Commands
   // -----------------------
   /**
+   * 登録済み組織名の一覧を返します。
+   */
+  getOrganizations(): string[] {
+    return [...this.organizations];
+  }
+
+  /**
    * 組織を追加します（重複無視）。workspaceState に永続化。
    */
   addOrganization(org: string) {
