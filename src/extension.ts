@@ -312,29 +312,52 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("ado-ext.openGitGraph", async (arg?: any) => {
         try {
           const repoName: string | undefined = arg?.repoName;
+          const repoUrl: string | undefined = arg?.url; // ボタン押下時に確定している ADO repo URL
           // VS Code Git 拡張 API からローカルリポジトリを検索
           const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
           const gitAPI = gitExt?.getAPI(1);
-          const repos: any[] = gitAPI?.repositories ?? [];
           let matchedPath: string | undefined;
-          for (const repo of repos) {
-            const rootPath: string = repo.rootUri?.fsPath ?? "";
+
+          // 開いているワークスペースフォルダから優先的に検索
+          const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+          for (const wf of workspaceFolders) {
+            const repo = gitAPI?.getRepository(wf.uri);
+            if (!repo) continue;
             const remotes: any[] = repo.state?.remotes ?? [];
-            const remoteMatch = remotes.some((r: any) => {
-              const url: string = r.fetchUrl ?? r.pushUrl ?? "";
-              return repoName && url.toLowerCase().includes(repoName.toLowerCase());
+            const matched = remotes.some((r: any) => {
+              const url: string = (r.fetchUrl ?? r.pushUrl ?? "").toLowerCase();
+              if (repoUrl && url.includes(repoUrl.toLowerCase())) return true;
+              return repoName && url.includes(repoName.toLowerCase());
             });
-            const folderMatch =
-              repoName &&
-              rootPath
-                .replace(/\\/g, "/")
-                .toLowerCase()
-                .endsWith("/" + repoName.toLowerCase());
-            if (remoteMatch || folderMatch) {
-              matchedPath = rootPath;
+            if (matched) {
+              matchedPath = repo.rootUri?.fsPath ?? wf.uri.fsPath;
               break;
             }
           }
+
+          // ワークスペースフォルダで見つからなければ全リポジトリからフォールバック検索
+          if (!matchedPath) {
+            const repos: any[] = gitAPI?.repositories ?? [];
+            for (const repo of repos) {
+              const rootPath: string = repo.rootUri?.fsPath ?? "";
+              const remotes: any[] = repo.state?.remotes ?? [];
+              const remoteMatch = remotes.some((r: any) => {
+                const url: string = r.fetchUrl ?? r.pushUrl ?? "";
+                return repoName && url.toLowerCase().includes(repoName.toLowerCase());
+              });
+              const folderMatch =
+                repoName &&
+                rootPath
+                  .replace(/\\/g, "/")
+                  .toLowerCase()
+                  .endsWith("/" + repoName.toLowerCase());
+              if (remoteMatch || folderMatch) {
+                matchedPath = rootPath;
+                break;
+              }
+            }
+          }
+
           if (matchedPath) {
             await vscode.commands.executeCommand("git-graph.view", { rootUri: vscode.Uri.file(matchedPath) });
           } else {
