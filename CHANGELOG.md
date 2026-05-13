@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.8](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.7...v0.0.8) (2026-05-13)
+
+
+### Bug Fixes
+
+* [#33](https://github.com/taizod1024/vscode-ado-extension/issues/33):git graphは開いているワークスペースから検索する ([55fc2bd](https://github.com/taizod1024/vscode-ado-extension/commit/55fc2bd425144a95dacf57f520ac0851eef49181))
+* org登録時はPAT入力前にorgを登録し、refresh時にPAT未入力orgを自動プロンプト ([#34](https://github.com/taizod1024/vscode-ado-extension/issues/34)) ([0a72ced](https://github.com/taizod1024/vscode-ado-extension/commit/0a72ced62a7f0ee8093430a32bf4b0b347fe1ccf))
+
 ### [0.0.7](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.6...v0.0.7) (2026-05-12)
 
 
