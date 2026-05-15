@@ -194,22 +194,22 @@
         },
         {
           "command": "ado-ext.openSprints",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsFolder",
           "group": "inline"
         },
         {
           "command": "ado-ext.openSprintSettings",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsFolder",
           "group": "inline@99"
         },
         {
           "command": "ado-ext.openWorkItems",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsFolder",
           "group": "inline@98"
         },
         {
           "command": "ado-ext.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == reposFolder",
           "group": "inline@99"
         },
         {
@@ -279,7 +279,7 @@
         },
         {
           "command": "ado-ext.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsIteration",
           "group": "inline@99"
         },
         {
@@ -294,27 +294,27 @@
         },
         {
           "command": "ado-ext.refreshIterationItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "inline"
         },
         {
           "command": "ado-ext.setIterationItemFilter.all",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@1"
         },
         {
           "command": "ado-ext.setIterationItemFilter.assigned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@2"
         },
         {
           "command": "ado-ext.setIterationItemFilter.myactivity",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@3"
         },
         {
           "command": "ado-ext.setIterationItemFilter.active",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@4"
         },
         {

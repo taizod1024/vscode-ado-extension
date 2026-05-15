@@ -18,7 +18,7 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "sprintsFolder" | "sprintsCategory" | "sprintsFilter" | "sprintsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
+export type AdoItemType = "organization" | "project" | "boardsFolder" | "boardsCategory" | "boardsFilter" | "boardsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsFilter" | "workItem" | "reposFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。
@@ -54,11 +54,11 @@ export class AdoTreeItem extends vscode.TreeItem {
    */
   url?: string;
   /**
-   * フィルタボタンノードが参照する親フォルダノード（sprintsFilter / pullRequestsFilter 専用）。
+   * フィルタボタンノードが参照する親フォルダノード（boardsFilter / pullRequestsFilter 専用）。
    */
   folderRef?: AdoTreeItem;
   /**
-   * イテレーションパス（sprintsIteration ノード専用）。
+   * イテレーションパス（boardsIteration ノード専用）。
    */
   iterationPath?: string;
   /**
