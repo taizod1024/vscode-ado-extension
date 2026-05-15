@@ -141,6 +141,13 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Refresh Pipelines items
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.refreshPipelinesItems", async (arg?: any) => {
+        provider.refreshPipelinesItems(arg);
+      }),
+    );
+
     // Open project/repo/pipeline URL (integrated browser only)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.openUrl", async (arg?: any) => {
@@ -520,6 +527,27 @@ export function activate(context: vscode.ExtensionContext) {
             const folderElement = filterBtnArg?.folderRef;
             if (!folderElement) return;
             provider.setPrFilter(folderElement, idx);
+          } catch (err) {
+            channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }),
+      );
+    }
+
+    // Pipeline run filter: individual commands
+    const pipelineRunFilters: [string, number][] = [
+      ["ado-ext.setPipelineRunFilter.all", 0],
+      ["ado-ext.setPipelineRunFilter.running", 1],
+      ["ado-ext.setPipelineRunFilter.failed", 2],
+      ["ado-ext.setPipelineRunFilter.succeeded", 3],
+    ];
+    for (const [cmd, idx] of pipelineRunFilters) {
+      context.subscriptions.push(
+        vscode.commands.registerCommand(cmd, (filterBtnArg?: any) => {
+          try {
+            const folderElement = filterBtnArg?.folderRef;
+            if (!folderElement) return;
+            provider.setPipelineRunFilter(folderElement, idx);
           } catch (err) {
             channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
           }

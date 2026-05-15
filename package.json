@@ -30,6 +30,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "ado-ext.refreshPipelinesItems",
+        "title": "Azure DevOps: Refresh Pipelines",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "ado-ext.openUrl",
         "title": "Azure DevOps: Open URL",
         "icon": "$(globe)"
@@ -150,6 +155,22 @@
       {
         "command": "ado-ext.setPrFilter.abandoned",
         "title": "Abandoned"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.all",
+        "title": "All"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.running",
+        "title": "Running"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.failed",
+        "title": "Failed"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.succeeded",
+        "title": "Succeeded"
       }
     ],
     "menus": {
@@ -211,6 +232,46 @@
           "command": "ado-ext.openUrl",
           "when": "view == azureDevOps.sidePanel && viewItem == reposFolder",
           "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipelinesFolder",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipeline",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipelineRun",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.refreshPipelinesItems",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.all",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@1"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.running",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@2"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.failed",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@3"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.succeeded",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@4"
         },
         {
           "command": "ado-ext.openUrl",
@@ -370,6 +431,11 @@
           "type": "string",
           "default": "working",
           "description": "Prefix for created branches (e.g., working/username/#id_title)"
+        },
+        "adoExt.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging for API requests"
         }
       }
     }

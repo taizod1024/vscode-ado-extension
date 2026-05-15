@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration } from "./types";
+import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration, AdoPipeline, AdoPipelineRun } from "./types";
 import { AdoApiClient } from "./adoApiClient";
 
 /**
@@ -80,6 +80,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   private iterationItemFilterState: { [iterKey: string]: number } = {};
   private prFilterState: { [folderId: string]: number } = {};
+  private pipelineRunFilterState: { [key: string]: number } = {};
+  private repoPipelineIdMap: { [repoId: string]: number } = {};
 
   // -----------------------
   // Authentication State
@@ -129,7 +131,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       if (k.startsWith(`${organization}:`)) this.workItemStateOverrides.delete(k);
     }
     if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-    const prefixes = [`projects:${organization}`, `workitems:${organization}:`, `repos:${organization}:`, `branches:${organization}:`, `prs:${organization}:`];
+    const prefixes = [`projects:${organization}`, `workitems:${organization}:`, `repos:${organization}:`, `branches:${organization}:`, `prs:${organization}:`, `pipelines:${organization}:`, `pipelineruns:${organization}:`];
     for (const k of Object.keys(this.childrenCache)) {
       if (prefixes.some(p => k === p || k.startsWith(p))) delete this.childrenCache[k];
     }
@@ -385,6 +387,53 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return children.map(w => this.makeWorkItemHierarchyItem(w, element.organization!, element.projectId, element.iterationCacheKey!, childrenMap));
     }
 
+    // pipelinesFolder の子: フィルタボタン＋リポジトリに対応するパイプランの実行履歴を直接表示
+    if (t === "pipelinesFolder" && element.organization && element.projectId) {
+      const org = element.organization as string;
+      const pid = element.projectId as string;
+      const repoId = element.repoId as string;
+      const repoName = element.repoName as string;
+      const pipelineRunCategories = [
+        { key: "all", label: "All" },
+        { key: "running", label: "Running" },
+        { key: "failed", label: "Failed" },
+        { key: "succeeded", label: "Succeeded" },
+      ];
+      const filterStateKey = `${org}:${pid}:${repoId}`;
+      const filterIdx = (this.pipelineRunFilterState[filterStateKey] || 0) % pipelineRunCategories.length;
+      const currentCat = pipelineRunCategories[filterIdx];
+
+      const filterBtn = new AdoTreeItem(currentCat.label, vscode.TreeItemCollapsibleState.None);
+      filterBtn.itemType = "pipelinesFilter";
+      filterBtn.organization = org;
+      filterBtn.projectId = pid;
+      filterBtn.repoId = repoId;
+      filterBtn.id = `pipelines-filter:${org}:${pid}:${repoId}`;
+      filterBtn.contextValue = `pipelinesFilter_${currentCat.key}`;
+      filterBtn.folderRef = element;
+      filterBtn.iconPath = new vscode.ThemeIcon("filter");
+      filterBtn.tooltip = "右クリックでフィルタを選択";
+
+      const key = `pipelineruns:${org}:${pid}:${repoId}`;
+      const items = this.lazyLoadChildren<AdoPipelineRun>(
+        key,
+        element,
+        async () => {
+          const pipelines = await this.apiClient.fetchPipelines(org, pid);
+          const matching = pipelines.find(p => p.name === repoName);
+          if (!matching) return [];
+          this.repoPipelineIdMap[repoId] = matching.id;
+          return await this.apiClient.fetchPipelineRuns(org, pid, matching.id);
+        },
+        runs => {
+          const pipelineId = this.repoPipelineIdMap[repoId] || 0;
+          return this.applyPipelineRunFilter(runs, filterIdx).map(r => this.makePipelineRunTreeItem(r, org, pid, pipelineId));
+        },
+        "Loading pipeline runs...",
+      );
+      return this.isLoaded(key) ? [filterBtn, ...items] : items;
+    }
+
     // reposFolder の子: repositories
     if (t === "reposFolder" && element.organization && element.projectId) {
       const org = element.organization as string;
@@ -436,7 +485,24 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         if (url) prsFolder.url = url;
       } catch (e) {}
 
-      return [prsFolder, branchesFolder];
+      const pipelinesFolderForRepo = new AdoTreeItem("Pipelines", vscode.TreeItemCollapsibleState.Collapsed);
+      pipelinesFolderForRepo.itemType = "pipelinesFolder";
+      pipelinesFolderForRepo.organization = org;
+      pipelinesFolderForRepo.projectId = element.projectId;
+      pipelinesFolderForRepo.repoId = element.repoId || (repoId as string);
+      pipelinesFolderForRepo.repoName = element.repoName || "";
+      pipelinesFolderForRepo.id = `pipelines:${org}:${element.repoId || repoId}:gen:0`;
+      pipelinesFolderForRepo.contextValue = "pipelinesFolder";
+      pipelinesFolderForRepo.iconPath = new vscode.ThemeIcon("rocket", new vscode.ThemeColor("foreground"));
+      try {
+        const projNameForUrl = element.projectId || "";
+        if (projNameForUrl) {
+          const resolvedProj = await this.apiClient.resolveProjectName(org, projNameForUrl);
+          pipelinesFolderForRepo.url = this.apiClient.buildWebUrl(org, resolvedProj || projNameForUrl, undefined, "pipelinesFolder");
+        }
+      } catch (e) {}
+
+      return [prsFolder, branchesFolder, pipelinesFolderForRepo];
     }
 
     // branchesFolder の子: ブランチ一覧
@@ -539,6 +605,40 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     delete this.childrenCache[cacheKey];
     delete this.childrenFetchPromises[cacheKey];
     this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
+  /**
+   * Pipelines フォルダのキャッシュをクリアして再取得する。
+   * @param filterElement pipelinesFilter の AdoTreeItem
+   */
+  refreshPipelinesItems(filterElement: AdoTreeItem): void {
+    const folderElement = filterElement.folderRef;
+    if (!folderElement) return;
+    const org = folderElement.organization;
+    const pid = folderElement.projectId;
+    const repoId = folderElement.repoId;
+    if (!org || !pid || !repoId) return;
+    const key = `pipelineruns:${org}:${pid}:${repoId}`;
+    delete this.childrenCache[key];
+    delete this.childrenFetchPromises[key];
+    this.childrenFetchTokens[key] = (this.childrenFetchTokens[key] || 0) + 1;
+    this._onDidChangeTreeData.fire(folderElement);
+  }
+
+  /**
+   * Pipelines のランフィルタを指定インデックスに設定する。
+   * @param folderElement pipelinesFolder の AdoTreeItem
+   * @param index フィルタのインデックス（0: all, 1: running, 2: failed, 3: succeeded）
+   */
+  setPipelineRunFilter(folderElement: AdoTreeItem, index: number): void {
+    const org = folderElement.organization;
+    const pid = folderElement.projectId;
+    const repoId = folderElement.repoId;
+    if (!org || !pid || !repoId) return;
+    const key = `${org}:${pid}:${repoId}`;
+    const categoryCount = 4;
+    this.pipelineRunFilterState[key] = index % categoryCount;
     this._onDidChangeTreeData.fire(folderElement);
   }
 
@@ -653,7 +753,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       item.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
     } else if (isDoing) {
       item.contextValue = "workitem_doing";
-      item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
+      item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.yellow"));
     } else {
       item.contextValue = "workitem_todo";
       item.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
@@ -883,7 +983,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         item.iconPath = new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
       } else if (isDoing) {
         item.contextValue = "workitem_doing";
-        item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.red"));
+        item.iconPath = new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.yellow"));
       } else {
         item.contextValue = "workitem_todo";
         item.iconPath = new vscode.ThemeIcon("issues", new vscode.ThemeColor("charts.yellow"));
@@ -1070,5 +1170,71 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   private isRepoInWorkspace(repoName: string): boolean {
     return findLocalRepo(repoName) !== undefined;
+  }
+
+  // -----------------------
+  // Private Tree Item Factories - Pipelines
+  // -----------------------
+  private makePipelineTreeItem(p: AdoPipeline, org: string, pid: string): AdoTreeItem {
+    const it = new AdoTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed);
+    it.itemType = "pipeline";
+    it.organization = org;
+    it.projectId = pid;
+    it.pipelineId = p.id;
+    it.id = `pipeline:${org}:${pid}:${p.id}`;
+    it.contextValue = "pipeline";
+    it.iconPath = new vscode.ThemeIcon("rocket", new vscode.ThemeColor("charts.blue"));
+    it.url = p.url || "";
+    it.tooltip = p.name;
+    return it;
+  }
+
+  private makePipelineRunTreeItem(r: AdoPipelineRun, org: string, pid: string, pipelineId: number): AdoTreeItem {
+    const it = new AdoTreeItem(r.name, vscode.TreeItemCollapsibleState.None);
+    it.itemType = "pipelineRun";
+    it.organization = org;
+    it.projectId = pid;
+    it.pipelineId = pipelineId;
+    it.id = `pipelinerun:${org}:${pid}:${pipelineId}:${r.id}`;
+    it.contextValue = "pipelineRun";
+    it.url = r.url || "";
+    it.iconPath = this.pipelineRunIcon(r.state, r.result);
+
+    // description: 時刻・状態
+    const date = r.createdDate ? new Date(r.createdDate).toLocaleString() : undefined;
+    const status = r.result === "succeeded" ? "Succeeded" : r.result === "failed" ? "Failed" : r.result === "partiallySucceeded" ? "Partial" : r.state === "inProgress" ? "Running" : r.result || r.state || "Unknown";
+    const parts = [date, status].filter(Boolean);
+    it.description = parts.join(" · ") || undefined;
+
+    return it;
+  }
+
+  private applyPipelineRunFilter(runs: AdoPipelineRun[], filterIdx: number): AdoPipelineRun[] {
+    if (filterIdx === 1) {
+      return runs.filter(r => r.state === "inProgress" || r.state === "canceling");
+    } else if (filterIdx === 2) {
+      return runs.filter(r => r.result === "failed" || r.result === "partiallySucceeded");
+    } else if (filterIdx === 3) {
+      return runs.filter(r => r.result === "succeeded");
+    }
+    return runs;
+  }
+
+  private pipelineRunIcon(state?: string, result?: string): vscode.ThemeIcon {
+    if (state === "inProgress" || state === "canceling") {
+      return new vscode.ThemeIcon("run", new vscode.ThemeColor("charts.yellow"));
+    }
+    switch (result) {
+      case "succeeded":
+        return new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.blue"));
+      case "partiallySucceeded":
+        return new vscode.ThemeIcon("check", new vscode.ThemeColor("charts.yellow"));
+      case "failed":
+        return new vscode.ThemeIcon("stop", new vscode.ThemeColor("charts.red"));
+      case "canceled":
+        return new vscode.ThemeIcon("circle-slash", new vscode.ThemeColor("foreground"));
+      default:
+        return new vscode.ThemeIcon("circle-outline", new vscode.ThemeColor("foreground"));
+    }
   }
 }
