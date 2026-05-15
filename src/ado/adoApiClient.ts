@@ -67,7 +67,7 @@ export class AdoApiClient {
         this.projectsByOrg[organization] = projects;
         return projects;
       } catch (err) {
-        return [];
+        throw err;
       } finally {
         delete this.projectsFetchPromises[organization];
       }

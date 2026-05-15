@@ -714,8 +714,8 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const org = element?.organization as string | undefined;
     if (org) {
       this.clearCacheForOrganization(org);
-      // 対象 org のサブツリーだけ再描画（他 org に影響しなя）
-      this._onDidChangeTreeData.fire(element);
+      // ルートレベルのエラーシブリングも含めてツリー全体を再描画
+      this._onDidChangeTreeData.fire(undefined);
     } else {
       this.childrenCache = {};
       this.childrenFetchPromises = {};
@@ -839,7 +839,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         const res = await fetchFn();
         this.childrenCache[key] = res || [];
         // エラーをクリア
-        const orgMatch = key.match(/^[^:]+:(.+?):/);
+        const orgMatch = key.match(/^[^:]+:([^:]+)/);
         if (orgMatch) {
           const org = orgMatch[1];
           delete this.errorsByOrg[org];
@@ -850,7 +850,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         const msg = err instanceof Error ? err.message : String(err);
         this.childrenCache[key] = [];
         // エラーを記録
-        const orgMatch = key.match(/^[^:]+:(.+?):/);
+        const orgMatch = key.match(/^[^:]+:([^:]+)/);
         if (orgMatch) {
           const org = orgMatch[1];
           this.errorsByOrg[org] = msg;
@@ -860,8 +860,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       } finally {
         delete this.childrenFetchPromises[key];
         try {
-          // only fire update if this fetch was not invalidated
-          if (this.childrenFetchTokens[key] === token) this._onDidChangeTreeData.fire(element);
+          if (this.childrenFetchTokens[key] === token) {
+            // ルートレベルのエラーシブリングも更新するため全体を再描画
+            this._onDidChangeTreeData.fire(undefined);
+          }
         } catch (e) {}
       }
     })();
