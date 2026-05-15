@@ -16,6 +16,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 - View work items in a parent-child hierarchy (Epic → Feature → Story → Task) with filter support
 - Clone repositories with automatic PAT embedding
 - View branches and pull requests per repository with filter support
+- View pipeline run history per repository with filter support (All / Running / Failed / Succeeded)
 - Create a pull request from a branch with source branch pre-filled
 - Send work items to GitHub Copilot Chat
 - Create branches for work items automatically from the tree view
@@ -36,6 +37,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
    - Project and Team (Read)
    - Work Items (Read)
    - Code (Read)
+   - Build (Read)
 4. Copy the token
 
 ### Step 2: Add an Organization
@@ -50,9 +52,13 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 1. Expand an organization to see its Projects
 2. Each Project contains:
-   - Sprints: work items in each sprint
-   - Repositories: Git repositories
-3. Right-click any node to perform actions
+   - Boards: work items in each sprint
+   - Repos: Git repositories
+3. Each Repository contains:
+   - Branches: branch list
+   - Pull Requests: PR list with filter
+   - Pipelines: pipeline run history with filter
+4. Right-click any node to perform actions
 
 ### View Work Items
 
@@ -79,6 +85,16 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
    - abandoned: abandoned PRs
 3. Click the refresh icon on the PR list to reload
 
+### View Pipeline Runs
+
+1. Expand Pipelines under a repository
+2. Right-click the filter icon to change the view:
+   - all: show all runs
+   - running: in-progress runs
+   - failed: failed / partially succeeded runs
+   - succeeded: successful runs
+3. Click the refresh icon on the pipeline list to reload
+
 ### Repository Operations
 
 1. Expand Repositories to view repos
@@ -87,7 +103,8 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
    - Clone Repository: clone locally (PAT is embedded automatically)
    - Open Git Graph: open Git Graph for the locally cloned repository
 3. Expand Branches to view the branch list
-4. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
+4. Click the refresh icon on Branches to reload
+5. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
 
 ### Refresh the Tree
 
@@ -95,22 +112,25 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ## Commands
 
-| Command                     | Description                              |
-| --------------------------- | ---------------------------------------- |
-| Add Organization            | Add an organization                      |
-| Enter PAT for Org           | Update PAT for a specific org            |
-| Remove Organization         | Remove an organization                   |
-| Remove All Organizations    | Remove all organizations                 |
-| Open Sprints                | Open the sprints page in the browser     |
-| Create Pull Request         | Open PR creation page with source branch |
-| Clone Repository            | Clone a repository                       |
-| Open Git Graph              | Open Git Graph for the repository        |
-| Refresh Node                | Refresh the tree                         |
-| Open Work Items             | Open the work items list                 |
-| Open URL                    | Open in the integrated browser           |
-| Send Work Item to Copilot   | Send a work item to GitHub Copilot       |
-| Create Branch for Work Item | Create/checkout a branch for a work item |
-| Open Settings               | Open extension settings                  |
+| Command                     | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| Add Organization            | Add an organization                                     |
+| Enter PAT for Org           | Update PAT for a specific org                           |
+| Remove Organization         | Remove an organization                                  |
+| Remove All Organizations    | Remove all organizations                                |
+| Open Sprints                | Open the sprints page in the browser                    |
+| Create Pull Request         | Open PR creation page with source branch                |
+| Clone Repository            | Clone a repository                                      |
+| Open Git Graph              | Open Git Graph for the repository                       |
+| Refresh Node                | Refresh the tree                                        |
+| Refresh Branches            | Refresh the branch list                                 |
+| Refresh PR Items            | Refresh pull request list (keep filter)                 |
+| Refresh Pipelines           | Refresh pipeline run list (keep filter)                 |
+| Open Work Items             | Open the work items list                                |
+| Open URL                    | Open in the integrated browser                          |
+| Send Work Item to Copilot   | Send a work item to GitHub Copilot                      |
+| Create Branch for Work Item | Create/checkout a branch for a work item                |
+| Open Settings               | Open extension settings                                 |
 
 ## Troubleshooting
 
@@ -156,6 +176,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 - ワークアイテムを親子階層（Epic → Feature → Story → Task）でフィルタ付きで表示
 - PAT 自動埋め込みでリポジトリをクローン
 - リポジトリごとのブランチ・PR をフィルタ付きで表示
+- リポジトリごとのパイプライン実行履歴をフィルタ付きで表示（All / Running / Failed / Succeeded）
 - ブランチからソースブランチ自動入力で PR 作成ページを開く
 - ワークアイテムを GitHub Copilot Chat に送信
 - ツリービューからワークアイテムに対応するブランチを自動作成
@@ -176,6 +197,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
    - Project and Team (Read)
    - Work Items (Read)
    - Code (Read)
+   - Build (Read)
 4. トークンをコピー
 
 ### ステップ 2: 組織を追加
@@ -190,9 +212,13 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 1. Organizations を展開すると、Projects が表示される
 2. 各 Project の下に以下が表示される:
-   - Sprints: スプリント内のワークアイテム
-   - Repositories: Git リポジトリ
-3. 各ノードを右クリックしてアクション実行
+   - Boards: スプリント内のワークアイテム
+   - Repos: Git リポジトリ
+3. 各 Repository の下に以下が表示される:
+   - Branches: ブランチ一覧
+   - Pull Requests: PR 一覧（フィルタ付き）
+   - Pipelines: パイプライン実行履歴（フィルタ付き）
+4. 各ノードを右クリックしてアクション実行
 
 ### ワークアイテム参照
 
@@ -219,6 +245,16 @@ VS Code から Azure DevOps を操作する拡張機能です。
    - abandoned: 破棄された PR
 3. PRのリフレッシュアイコンをクリックして再表示
 
+### パイプライン実行履歴参照
+
+1. Repository の下の Pipelines を展開
+2. フィルタアイコンを右クリックして表示内容を変更:
+   - all: すべての実行を表示
+   - running: 実行中
+   - failed: 失敗・部分成功
+   - succeeded: 成功
+3. リフレッシュアイコンをクリックして再表示
+
 ### リポジトリ操作
 
 1. Repositories を展開してリポジトリを表示
@@ -227,7 +263,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
    - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
    - Open Git Graph: ローカルにクローン済みのリポジトリの Git Graph を開く
 3. Branches を展開してブランチ一覧を表示
-4. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
+4. Branches のリフレッシュアイコンをクリックして再表示
+5. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
 
 ### ツリーをリフレッシュ
 
@@ -246,6 +283,9 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | Clone Repository            | リポジトリをクローン                          |
 | Open Git Graph              | リポジトリの Git Graph を開く                 |
 | Refresh Node                | ツリーをリフレッシュ                          |
+| Refresh Branches            | ブランチ一覧を再読み込み                      |
+| Refresh PR Items            | PR 一覧を再読み込み（フィルタ維持）               |
+| Refresh Pipelines           | パイプライン実行履歴を再読み込み（フィルタ維持）    |
 | Open Work Items             | ワークアイテム一覧を表示                      |
 | Open URL                    | Web UI をブラウザで開く                       |
 | Send Work Item to Copilot   | ワークアイテムを GitHub Copilot に送信        |

@@ -502,7 +502,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         }
       } catch (e) {}
 
-      return [prsFolder, branchesFolder, pipelinesFolderForRepo];
+      return [branchesFolder, prsFolder, pipelinesFolderForRepo];
     }
 
     // branchesFolder の子: ブランチ一覧
@@ -585,6 +585,21 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     delete this.childrenFetchPromises[cacheKey];
     this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
     this._onDidChangeTreeData.fire(iterElement);
+  }
+
+  /**
+   * Branches フォルダのキャッシュをクリアして再取得する。
+   * @param branchesFolderElement branchesFolder の AdoTreeItem
+   */
+  refreshBranchItems(branchesFolderElement: AdoTreeItem): void {
+    const org = branchesFolderElement.organization;
+    const repoId = branchesFolderElement.repoId;
+    if (!org || !repoId) return;
+    const key = `branches:${org}:${repoId}`;
+    delete this.childrenCache[key];
+    delete this.childrenFetchPromises[key];
+    this.childrenFetchTokens[key] = (this.childrenFetchTokens[key] || 0) + 1;
+    this._onDidChangeTreeData.fire(branchesFolderElement);
   }
 
   /**

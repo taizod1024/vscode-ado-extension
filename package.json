@@ -25,6 +25,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "ado-ext.refreshBranchItems",
+        "title": "Azure DevOps: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "ado-ext.refreshPrItems",
         "title": "Azure DevOps: Refresh",
         "icon": "$(refresh)"
@@ -381,6 +386,11 @@
         {
           "command": "ado-ext.refreshPrItems",
           "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.refreshBranchItems",
+          "when": "view == azureDevOps.sidePanel && viewItem == branchesFolder",
           "group": "inline"
         },
         {

@@ -134,6 +134,13 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Refresh Branch items
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.refreshBranchItems", async (arg?: any) => {
+        provider.refreshBranchItems(arg);
+      }),
+    );
+
     // Refresh PR items (keep current filter)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.refreshPrItems", async (arg?: any) => {
