@@ -248,6 +248,42 @@ export function activate(context: vscode.ExtensionContext) {
             if (!cloneUrl) return;
           }
 
+          // Check if repository already exists locally
+          const repoName: string | undefined = typeof arg === "object" && arg ? arg.repoName : undefined;
+          if (repoName) {
+            const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
+            const gitAPI = gitExt?.getAPI(1);
+            const repos: any[] = gitAPI?.repositories ?? [];
+            let matchedPath: string | undefined;
+            for (const existingRepo of repos) {
+              const rootPath: string = existingRepo.rootUri?.fsPath ?? "";
+              const remotes: any[] = existingRepo.state?.remotes ?? [];
+              const remoteMatch = remotes.some((r: any) => {
+                const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "");
+                const lowerUrl = url.toLowerCase();
+                const lowerName = repoName.toLowerCase();
+                // Match only the repo segment (/_git/<name> or trailing /<name>)
+                return lowerUrl.endsWith("/_git/" + lowerName) || lowerUrl.endsWith("/" + lowerName);
+              });
+              const folderMatch = rootPath
+                .replace(/\\/g, "/")
+                .toLowerCase()
+                .endsWith("/" + repoName.toLowerCase());
+              if (remoteMatch || folderMatch) {
+                matchedPath = rootPath;
+                break;
+              }
+            }
+            if (matchedPath) {
+              const folderUri = vscode.Uri.file(matchedPath);
+              const alreadyOpen = vscode.workspace.workspaceFolders?.some(f => f.uri.fsPath === folderUri.fsPath);
+              if (alreadyOpen) {
+                await vscode.commands.executeCommand("workbench.view.explorer");
+                return;
+              }
+            }
+          }
+
           // Attempt to embed PAT for Azure DevOps HTTPS clones when available
           let attemptUrl = cloneUrl;
           try {
@@ -321,8 +357,10 @@ export function activate(context: vscode.ExtensionContext) {
             const rootPath: string = repo.rootUri?.fsPath ?? "";
             const remotes: any[] = repo.state?.remotes ?? [];
             const remoteMatch = remotes.some((r: any) => {
-              const url: string = r.fetchUrl ?? r.pushUrl ?? "";
-              return repoName && url.toLowerCase().includes(repoName.toLowerCase());
+              const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "");
+              const lowerUrl = url.toLowerCase();
+              const lowerName = (repoName ?? "").toLowerCase();
+              return lowerName && (lowerUrl.endsWith("/_git/" + lowerName) || lowerUrl.endsWith("/" + lowerName));
             });
             const folderMatch =
               repoName &&
