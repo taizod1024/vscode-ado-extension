@@ -112,25 +112,25 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ## Commands
 
-| Command                     | Description                                             |
-| --------------------------- | ------------------------------------------------------- |
-| Add Organization            | Add an organization                                     |
-| Enter PAT for Org           | Update PAT for a specific org                           |
-| Remove Organization         | Remove an organization                                  |
-| Remove All Organizations    | Remove all organizations                                |
-| Open Sprints                | Open the sprints page in the browser                    |
-| Create Pull Request         | Open PR creation page with source branch                |
-| Clone Repository            | Clone a repository                                      |
-| Open Git Graph              | Open Git Graph for the repository                       |
-| Refresh Node                | Refresh the tree                                        |
-| Refresh Branches            | Refresh the branch list                                 |
-| Refresh PR Items            | Refresh pull request list (keep filter)                 |
-| Refresh Pipelines           | Refresh pipeline run list (keep filter)                 |
-| Open Work Items             | Open the work items list                                |
-| Open URL                    | Open in the integrated browser                          |
-| Send Work Item to Copilot   | Send a work item to GitHub Copilot                      |
-| Create Branch for Work Item | Create/checkout a branch for a work item                |
-| Open Settings               | Open extension settings                                 |
+| Command                     | Description                              |
+| --------------------------- | ---------------------------------------- |
+| Add Organization            | Add an organization                      |
+| Enter PAT for Org           | Update PAT for a specific org            |
+| Remove Organization         | Remove an organization                   |
+| Remove All Organizations    | Remove all organizations                 |
+| Open Sprints                | Open the sprints page in the browser     |
+| Create Pull Request         | Open PR creation page with source branch |
+| Clone Repository            | Clone a repository                       |
+| Open Git Graph              | Open Git Graph for the repository        |
+| Refresh Node                | Refresh the tree                         |
+| Refresh Branches            | Refresh the branch list                  |
+| Refresh PR Items            | Refresh pull request list (keep filter)  |
+| Refresh Pipelines           | Refresh pipeline run list (keep filter)  |
+| Open Work Items             | Open the work items list                 |
+| Open URL                    | Open in the integrated browser           |
+| Send Work Item to Copilot   | Send a work item to GitHub Copilot       |
+| Create Branch for Work Item | Create/checkout a branch for a work item |
+| Open Settings               | Open extension settings                  |
 
 ## Troubleshooting
 
@@ -272,25 +272,25 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 ## コマンド一覧
 
-| コマンド                    | 説明                                          |
-| --------------------------- | --------------------------------------------- |
-| Add Organization            | 組織を追加                                    |
-| Enter PAT for Org           | 特定組織の PAT を更新                         |
-| Remove Organization         | 組織を削除                                    |
-| Remove All Organizations    | すべての組織を削除                            |
-| Open Sprints                | スプリント管理ページを開く                    |
-| Create Pull Request         | ソースブランチ自動入力で PR 作成ページを開く  |
-| Clone Repository            | リポジトリをクローン                          |
-| Open Git Graph              | リポジトリの Git Graph を開く                 |
-| Refresh Node                | ツリーをリフレッシュ                          |
-| Refresh Branches            | ブランチ一覧を再読み込み                      |
-| Refresh PR Items            | PR 一覧を再読み込み（フィルタ維持）               |
-| Refresh Pipelines           | パイプライン実行履歴を再読み込み（フィルタ維持）    |
-| Open Work Items             | ワークアイテム一覧を表示                      |
-| Open URL                    | Web UI をブラウザで開く                       |
-| Send Work Item to Copilot   | ワークアイテムを GitHub Copilot に送信        |
-| Create Branch for Work Item | ワークアイテムのブランチを作成/チェックアウト |
-| Open Settings               | 設定を開く                                    |
+| コマンド                    | 説明                                             |
+| --------------------------- | ------------------------------------------------ |
+| Add Organization            | 組織を追加                                       |
+| Enter PAT for Org           | 特定組織の PAT を更新                            |
+| Remove Organization         | 組織を削除                                       |
+| Remove All Organizations    | すべての組織を削除                               |
+| Open Sprints                | スプリント管理ページを開く                       |
+| Create Pull Request         | ソースブランチ自動入力で PR 作成ページを開く     |
+| Clone Repository            | リポジトリをクローン                             |
+| Open Git Graph              | リポジトリの Git Graph を開く                    |
+| Refresh Node                | ツリーをリフレッシュ                             |
+| Refresh Branches            | ブランチ一覧を再読み込み                         |
+| Refresh PR Items            | PR 一覧を再読み込み（フィルタ維持）              |
+| Refresh Pipelines           | パイプライン実行履歴を再読み込み（フィルタ維持） |
+| Open Work Items             | ワークアイテム一覧を表示                         |
+| Open URL                    | Web UI をブラウザで開く                          |
+| Send Work Item to Copilot   | ワークアイテムを GitHub Copilot に送信           |
+| Create Branch for Work Item | ワークアイテムのブランチを作成/チェックアウト    |
+| Open Settings               | 設定を開く                                       |
 
 ## トラブルシューティング
 

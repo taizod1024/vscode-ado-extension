@@ -566,11 +566,9 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   /**
    * イテレーション内 Work Item を再取得する（現在のフィルタを維持）。
-   * @param filterElement boardsFilter の AdoTreeItem
+   * @param iterElement boardsIteration の AdoTreeItem
    */
-  refreshIterationItems(filterElement: AdoTreeItem): void {
-    const iterElement = filterElement.folderRef;
-    if (!iterElement) return;
+  refreshIterationItems(iterElement: AdoTreeItem): void {
     const org = iterElement.organization;
     const pid = iterElement.projectId;
     const iterPath = iterElement.iterationPath;
@@ -603,12 +601,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
-   * Pull Requests フィルタ行のリフレッシュ（現在のフィルタを維持）。
-   * @param filterElement pullRequestsFilter の AdoTreeItem
+   * Pull Requests フォルダのキャッシュをクリアして再取得する（現在のフィルタを維持）。
+   * @param folderElement pullRequestsFolder の AdoTreeItem
    */
-  refreshPrItems(filterElement: AdoTreeItem): void {
-    const folderElement = filterElement.folderRef;
-    if (!folderElement) return;
+  refreshPrItems(folderElement: AdoTreeItem): void {
     const org = folderElement.organization;
     const repoId = folderElement.repoId;
     if (!org || !repoId) return;
@@ -624,12 +620,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   /**
-   * Pipelines フォルダのキャッシュをクリアして再取得する。
-   * @param filterElement pipelinesFilter の AdoTreeItem
+   * Pipelines フォルダのキャッシュをクリアして再取得する（現在のフィルタを維持）。
+   * @param folderElement pipelinesFolder の AdoTreeItem
    */
-  refreshPipelinesItems(filterElement: AdoTreeItem): void {
-    const folderElement = filterElement.folderRef;
-    if (!folderElement) return;
+  refreshPipelinesItems(folderElement: AdoTreeItem): void {
     const org = folderElement.organization;
     const pid = folderElement.projectId;
     const repoId = folderElement.repoId;
@@ -651,9 +645,13 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const pid = folderElement.projectId;
     const repoId = folderElement.repoId;
     if (!org || !pid || !repoId) return;
-    const key = `${org}:${pid}:${repoId}`;
+    const stateKey = `${org}:${pid}:${repoId}`;
     const categoryCount = 4;
-    this.pipelineRunFilterState[key] = index % categoryCount;
+    this.pipelineRunFilterState[stateKey] = index % categoryCount;
+    const cacheKey = `pipelineruns:${org}:${pid}:${repoId}`;
+    delete this.childrenCache[cacheKey];
+    delete this.childrenFetchPromises[cacheKey];
+    this.childrenFetchTokens[cacheKey] = (this.childrenFetchTokens[cacheKey] || 0) + 1;
     this._onDidChangeTreeData.fire(folderElement);
   }
 

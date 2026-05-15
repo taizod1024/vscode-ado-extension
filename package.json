@@ -255,7 +255,7 @@
         },
         {
           "command": "ado-ext.refreshPipelinesItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipelinesFolder",
           "group": "inline"
         },
         {
@@ -360,7 +360,7 @@
         },
         {
           "command": "ado-ext.refreshIterationItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsIteration",
           "group": "inline"
         },
         {
@@ -385,7 +385,7 @@
         },
         {
           "command": "ado-ext.refreshPrItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
           "group": "inline"
         },
         {
