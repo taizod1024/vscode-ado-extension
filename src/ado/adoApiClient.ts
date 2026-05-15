@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration } from "./types";
+import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration, AdoPipeline, AdoPipelineRun } from "./types";
 import { httpRequest } from "./api";
 
 /**
@@ -66,8 +66,6 @@ export class AdoApiClient {
         }
         this.projectsByOrg[organization] = projects;
         return projects;
-      } catch (err) {
-        return [];
       } finally {
         delete this.projectsFetchPromises[organization];
       }
@@ -285,6 +283,66 @@ export class AdoApiClient {
   }
 
   // -----------------------
+  // Pipelines
+  // -----------------------
+  async fetchPipelines(organization: string, projectIdOrName: string, pat?: string): Promise<AdoPipeline[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    if (!projName) return [];
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines?api-version=7.0`;
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const out: AdoPipeline[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const p of data.value) {
+        out.push({
+          id: Number(p.id),
+          name: String(p.name || ""),
+          url: this.getWebUrl(p),
+        });
+      }
+    }
+    return out;
+  }
+
+  async fetchPipelineRuns(organization: string, projectIdOrName: string, pipelineId: number, pat?: string): Promise<AdoPipelineRun[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    if (!projName) return [];
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines/${pipelineId}/runs?api-version=7.0`;
+
+    const debugMode = vscode.workspace.getConfiguration("adoExt").get<boolean>("debug") || false;
+    if (this.channel) {
+      this.channel.appendLine(`[FETCH_RUNS] debug=${debugMode} url=${url}`);
+    }
+
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+
+    if (debugMode && this.channel && data?.value?.length > 0) {
+      this.channel.appendLine(`[DEBUG] Response sample (first run):`);
+      this.channel.appendLine(JSON.stringify(data.value[0], null, 2));
+    }
+
+    const out: AdoPipelineRun[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const r of data.value) {
+        out.push({
+          id: Number(r.id),
+          name: String(r.name || ""),
+          state: r.state || undefined,
+          result: r.result || undefined,
+          url: this.getWebUrl(r),
+          createdDate: r.createdDate || undefined,
+          finishedDate: r.finishedDate || undefined,
+          sourceBranch: r.resources?.repositories?.self?.refName || undefined,
+        });
+      }
+    }
+    return out;
+  }
+
+  // -----------------------
   // Pull Requests
   // -----------------------
   async fetchPullRequestsByStatus(organization: string, repoIdOrName: string, status: string, pat?: string): Promise<AdoPullRequest[]> {
@@ -477,6 +535,10 @@ export class AdoApiClient {
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}` : `https://dev.azure.com/${encodeURIComponent(org)}`;
       case "workitemsRoot":
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/recentlyupdated/` : `https://dev.azure.com/${encodeURIComponent(org)}/_workitems`;
+      case "pipelinesFolder":
+        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_build` : "";
+      case "pipelinesFolder":
+        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_build` : "";
       case "reposFolder":
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_settings/repositories` : "";
       case "repo":

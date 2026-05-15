@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
-import { createTreeProvider, httpRequest, ERROR_MESSAGES } from "./ado";
+import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
@@ -134,10 +134,24 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Refresh Branch items
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.refreshBranchItems", async (arg?: any) => {
+        provider.refreshBranchItems(arg);
+      }),
+    );
+
     // Refresh PR items (keep current filter)
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.refreshPrItems", async (arg?: any) => {
         provider.refreshPrItems(arg);
+      }),
+    );
+
+    // Refresh Pipelines items
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.refreshPipelinesItems", async (arg?: any) => {
+        provider.refreshPipelinesItems(arg);
       }),
     );
 
@@ -248,6 +262,20 @@ export function activate(context: vscode.ExtensionContext) {
             if (!cloneUrl) return;
           }
 
+          // Check if repository already exists locally and is already open
+          const repoName: string | undefined = typeof arg === "object" && arg ? arg.repoName : undefined;
+          if (repoName) {
+            const matchedPath = findLocalRepo(repoName);
+            if (matchedPath) {
+              const folderUri = vscode.Uri.file(matchedPath);
+              const isAlreadyOpen = vscode.workspace.workspaceFolders?.some(f => f.uri.fsPath === folderUri.fsPath);
+              if (isAlreadyOpen) {
+                await vscode.commands.executeCommand("workbench.view.explorer");
+                return;
+              }
+            }
+          }
+
           // Attempt to embed PAT for Azure DevOps HTTPS clones when available
           let attemptUrl = cloneUrl;
           try {
@@ -312,56 +340,11 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("ado-ext.openGitGraph", async (arg?: any) => {
         try {
           const repoName: string | undefined = arg?.repoName;
-          const repoUrl: string | undefined = arg?.url; // ボタン押下時に確定している ADO repo URL
-          // VS Code Git 拡張 API からローカルリポジトリを検索
-          const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
-          const gitAPI = gitExt?.getAPI(1);
-          let matchedPath: string | undefined;
-
-          // 開いているワークスペースフォルダから優先的に検索
-          const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-          for (const wf of workspaceFolders) {
-            const repo = gitAPI?.getRepository(wf.uri);
-            if (!repo) continue;
-            const remotes: any[] = repo.state?.remotes ?? [];
-            const matched = remotes.some((r: any) => {
-              const url: string = (r.fetchUrl ?? r.pushUrl ?? "").toLowerCase();
-              if (repoUrl && url.includes(repoUrl.toLowerCase())) return true;
-              return repoName && url.includes(repoName.toLowerCase());
-            });
-            if (matched) {
-              matchedPath = repo.rootUri?.fsPath ?? wf.uri.fsPath;
-              break;
-            }
-          }
-
-          // ワークスペースフォルダで見つからなければ全リポジトリからフォールバック検索
-          if (!matchedPath) {
-            const repos: any[] = gitAPI?.repositories ?? [];
-            for (const repo of repos) {
-              const rootPath: string = repo.rootUri?.fsPath ?? "";
-              const remotes: any[] = repo.state?.remotes ?? [];
-              const remoteMatch = remotes.some((r: any) => {
-                const url: string = r.fetchUrl ?? r.pushUrl ?? "";
-                return repoName && url.toLowerCase().includes(repoName.toLowerCase());
-              });
-              const folderMatch =
-                repoName &&
-                rootPath
-                  .replace(/\\/g, "/")
-                  .toLowerCase()
-                  .endsWith("/" + repoName.toLowerCase());
-              if (remoteMatch || folderMatch) {
-                matchedPath = rootPath;
-                break;
-              }
-            }
-          }
-
+          const matchedPath = repoName ? findLocalRepo(repoName) : undefined;
           if (matchedPath) {
             await vscode.commands.executeCommand("git-graph.view", { rootUri: vscode.Uri.file(matchedPath) });
           } else {
-            vscode.window.showInformationMessage(`Git Graph: ローカルに "${repoName ?? ""}" が見つかりません。先にクローンしてください。`);
+            vscode.window.showInformationMessage(`Git Graph: Repository "${repoName ?? ""}" not found locally. Please clone it first.`);
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -498,12 +481,11 @@ export function activate(context: vscode.ExtensionContext) {
           if (org) {
             await provider.revealOrganization(org);
           }
-          vscode.window.showInformationMessage("Refreshed");
+          const refreshTarget = org ? `Organization "${org}"` : "Tree";
+          vscode.window.showInformationMessage(`${refreshTarget} refreshed.`);
 
           // PAT 未入力の組織があれば順番に入力を促す
-          const orgsToPrompt = org
-            ? [org]
-            : provider.getOrganizations();
+          const orgsToPrompt = org ? [org] : provider.getOrganizations();
           for (const o of orgsToPrompt) {
             const stored = await context.secrets.get(`ado-ext.pat.${o}`);
             if (!stored) {
@@ -552,6 +534,27 @@ export function activate(context: vscode.ExtensionContext) {
             const folderElement = filterBtnArg?.folderRef;
             if (!folderElement) return;
             provider.setPrFilter(folderElement, idx);
+          } catch (err) {
+            channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }),
+      );
+    }
+
+    // Pipeline run filter: individual commands
+    const pipelineRunFilters: [string, number][] = [
+      ["ado-ext.setPipelineRunFilter.all", 0],
+      ["ado-ext.setPipelineRunFilter.running", 1],
+      ["ado-ext.setPipelineRunFilter.failed", 2],
+      ["ado-ext.setPipelineRunFilter.succeeded", 3],
+    ];
+    for (const [cmd, idx] of pipelineRunFilters) {
+      context.subscriptions.push(
+        vscode.commands.registerCommand(cmd, (filterBtnArg?: any) => {
+          try {
+            const folderElement = filterBtnArg?.folderRef;
+            if (!folderElement) return;
+            provider.setPipelineRunFilter(folderElement, idx);
           } catch (err) {
             channel.appendLine(`${cmd} error: ${err instanceof Error ? err.message : String(err)}`);
           }

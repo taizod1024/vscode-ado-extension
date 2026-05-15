@@ -25,8 +25,18 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "ado-ext.refreshBranchItems",
+        "title": "Azure DevOps: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "ado-ext.refreshPrItems",
         "title": "Azure DevOps: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ado-ext.refreshPipelinesItems",
+        "title": "Azure DevOps: Refresh Pipelines",
         "icon": "$(refresh)"
       },
       {
@@ -150,6 +160,22 @@
       {
         "command": "ado-ext.setPrFilter.abandoned",
         "title": "Abandoned"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.all",
+        "title": "All"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.running",
+        "title": "Running"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.failed",
+        "title": "Failed"
+      },
+      {
+        "command": "ado-ext.setPipelineRunFilter.succeeded",
+        "title": "Succeeded"
       }
     ],
     "menus": {
@@ -194,23 +220,63 @@
         },
         {
           "command": "ado-ext.openSprints",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsFolder",
           "group": "inline"
         },
         {
           "command": "ado-ext.openSprintSettings",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsFolder",
           "group": "inline@99"
         },
         {
           "command": "ado-ext.openWorkItems",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsFolder",
           "group": "inline@98"
         },
         {
           "command": "ado-ext.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == repositoriesFolder",
+          "when": "view == azureDevOps.sidePanel && viewItem == reposFolder",
           "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipelinesFolder",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipeline",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.openUrl",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipelineRun",
+          "group": "inline@99"
+        },
+        {
+          "command": "ado-ext.refreshPipelinesItems",
+          "when": "view == azureDevOps.sidePanel && viewItem == pipelinesFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.all",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@1"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.running",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@2"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.failed",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@3"
+        },
+        {
+          "command": "ado-ext.setPipelineRunFilter.succeeded",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pipelinesFilter_/",
+          "group": "1_filter@4"
         },
         {
           "command": "ado-ext.openUrl",
@@ -279,7 +345,7 @@
         },
         {
           "command": "ado-ext.openUrl",
-          "when": "view == azureDevOps.sidePanel && viewItem == sprintsIteration",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsIteration",
           "group": "inline@99"
         },
         {
@@ -294,32 +360,37 @@
         },
         {
           "command": "ado-ext.refreshIterationItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem == boardsIteration",
           "group": "inline"
         },
         {
           "command": "ado-ext.setIterationItemFilter.all",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@1"
         },
         {
           "command": "ado-ext.setIterationItemFilter.assigned",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@2"
         },
         {
           "command": "ado-ext.setIterationItemFilter.myactivity",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@3"
         },
         {
           "command": "ado-ext.setIterationItemFilter.active",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^sprintsIterationFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem =~ /^boardsIterationFilter_/",
           "group": "1_filter@4"
         },
         {
           "command": "ado-ext.refreshPrItems",
-          "when": "view == azureDevOps.sidePanel && viewItem =~ /^pullRequestsFilter_/",
+          "when": "view == azureDevOps.sidePanel && viewItem == pullRequestsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "ado-ext.refreshBranchItems",
+          "when": "view == azureDevOps.sidePanel && viewItem == branchesFolder",
           "group": "inline"
         },
         {
@@ -370,6 +441,11 @@
           "type": "string",
           "default": "working",
           "description": "Prefix for created branches (e.g., working/username/#id_title)"
+        },
+        "adoExt.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging for API requests"
         }
       }
     }

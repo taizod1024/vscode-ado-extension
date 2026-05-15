@@ -1,3 +1,3 @@
 export * from "./types";
 export * from "./api";
-export { createTreeProvider } from "./provider";
+export { createTreeProvider, findLocalRepo } from "./provider";

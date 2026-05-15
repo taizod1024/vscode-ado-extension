@@ -18,7 +18,7 @@ import * as vscode from "vscode";
  * Ado のツリー要素で許容される種別のリテラル型。
  * 必要に応じて値を追加してください。
  */
-export type AdoItemType = "organization" | "project" | "sprintsFolder" | "sprintsCategory" | "sprintsFilter" | "sprintsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsCategory" | "pullRequestsFilter" | "workItem" | "repositoriesFolder" | "repository" | "branch" | "pullRequest" | "placeholder" | "error";
+export type AdoItemType = "organization" | "project" | "boardsFolder" | "boardsCategory" | "boardsFilter" | "boardsIteration" | "branchesFolder" | "pullRequestsFolder" | "pullRequestsFilter" | "workItem" | "reposFolder" | "repository" | "branch" | "pullRequest" | "pipelinesFolder" | "pipelinesFilter" | "pipeline" | "pipelineRun" | "placeholder" | "error";
 
 /**
  * ADO ツリーで使うカスタム TreeItem。
@@ -54,11 +54,11 @@ export class AdoTreeItem extends vscode.TreeItem {
    */
   url?: string;
   /**
-   * フィルタボタンノードが参照する親フォルダノード（sprintsFilter / pullRequestsFilter 専用）。
+   * フィルタボタンノードが参照する親フォルダノード（boardsFilter / pullRequestsFilter 専用）。
    */
   folderRef?: AdoTreeItem;
   /**
-   * イテレーションパス（sprintsIteration ノード専用）。
+   * イテレーションパス（boardsIteration ノード専用）。
    */
   iterationPath?: string;
   /**
@@ -73,6 +73,10 @@ export class AdoTreeItem extends vscode.TreeItem {
    * Work Item の ID（workItem ノード専用、子アイテム探索に使用）。
    */
   workItemId?: number;
+  /**
+   * パイプライン ID（pipeline ノード専用）。
+   */
+  pipelineId?: number;
   /**
    * イテレーションキャッシュキー（workItem ノード専用、子 Work Item 探索に使用）。
    */
@@ -154,4 +158,34 @@ export interface AdoPullRequest {
   status?: string;
   createdBy?: any;
   webUrl?: string;
+}
+
+/** パイプライン（定義）の簡易表現 */
+export interface AdoPipeline {
+  /** パイプライン ID */
+  id: number;
+  /** パイプライン名 */
+  name: string;
+  /** Web URL */
+  url?: string;
+}
+
+/** パイプラインの実行結果の簡易表現 */
+export interface AdoPipelineRun {
+  /** ラン ID */
+  id: number;
+  /** ラン名（例: "20240101.1"） */
+  name: string;
+  /** 実行状態: "inProgress" | "completed" | "canceling" | "unknown" */
+  state?: string;
+  /** 実行結果: "succeeded" | "failed" | "canceled" | "partiallySucceeded" | "none" */
+  result?: string;
+  /** Web URL */
+  url?: string;
+  /** 実行開始日時（ISO 8601） */
+  createdDate?: string;
+  /** 実行完了日時（ISO 8601） */
+  finishedDate?: string;
+  /** ソースブランチ（例: refs/heads/main, refs/pull/4/merge） */
+  sourceBranch?: string;
 }
