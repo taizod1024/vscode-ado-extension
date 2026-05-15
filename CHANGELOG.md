@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.9](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.8...v0.0.9) (2026-05-15)
+
+
+### Features
+
+* add pipeline and pipeline run fetching functionality to AdoApiClient and update related components ([eeb9e09](https://github.com/taizod1024/vscode-ado-extension/commit/eeb9e097269aeeb83c617bca0184beefda7cd89a))
+
+
+### Bug Fixes
+
+* closes [#35](https://github.com/taizod1024/vscode-ado-extension/issues/35):open repositoryもワークスペースを確認して開く ([219984c](https://github.com/taizod1024/vscode-ado-extension/commit/219984cef9d10a05d144c8e3175c27629273e91e))
+* closes [#36](https://github.com/taizod1024/vscode-ado-extension/issues/36):メッセージは英語に統一 ([efa6f60](https://github.com/taizod1024/vscode-ado-extension/commit/efa6f60feb6ddef7db268dab3db6b1178ffe1654))
+* closes [#37](https://github.com/taizod1024/vscode-ado-extension/issues/37) ([d073708](https://github.com/taizod1024/vscode-ado-extension/commit/d07370895095911a3dbace6607f84ab1e11b164e))
+* closes [#37](https://github.com/taizod1024/vscode-ado-extension/issues/37):Pipelinesを追加。同時に名前をBoards、Reposに変更 ([71c253b](https://github.com/taizod1024/vscode-ado-extension/commit/71c253bfe99fb8549f9d8fdd89ee771c71549c47))
+* closes [#39](https://github.com/taizod1024/vscode-ado-extension/issues/39):HTTP404エラーのときにエラーアイコンが残った、リフレッシュで消えた ([2be8422](https://github.com/taizod1024/vscode-ado-extension/commit/2be84229fdfab9c5da77c3d480e30710618c317d))
+
 ### [0.0.8](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.7...v0.0.8) (2026-05-13)
 
 
