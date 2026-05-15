@@ -2,6 +2,35 @@ import * as vscode from "vscode";
 import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration } from "./types";
 import { AdoApiClient } from "./adoApiClient";
 
+/**
+ * VS Code Git 拡張から、指定リポジトリ名に一致するローカルパスを返す。
+ * リモートURL末尾（`/_git/<name>` or `/<name>`）またはフォルダ名で照合する。
+ * @param repoName リポジトリ名
+ * @returns 見つかった場合はルートパス、見つからない場合は undefined
+ */
+export function findLocalRepo(repoName: string): string | undefined {
+  const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
+  const gitAPI = gitExt?.getAPI(1);
+  const repos: any[] = gitAPI?.repositories ?? [];
+  const lowerName = repoName.toLowerCase();
+  for (const repo of repos) {
+    const rootPath: string = repo.rootUri?.fsPath ?? "";
+    const remotes: any[] = repo.state?.remotes ?? [];
+    const isRemoteMatch = remotes.some((r: any) => {
+      const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "").toLowerCase();
+      return url.endsWith("/_git/" + lowerName) || url.endsWith("/" + lowerName);
+    });
+    const isFolderMatch = rootPath
+      .replace(/\\/g, "/")
+      .toLowerCase()
+      .endsWith("/" + lowerName);
+    if (isRemoteMatch || isFolderMatch) {
+      return rootPath;
+    }
+  }
+  return undefined;
+}
+
 export function createTreeProvider(context?: vscode.ExtensionContext, channel?: vscode.LogOutputChannel): AdoTreeProvider {
   /**
    * AdoTreeProvider のファクトリ。
@@ -779,7 +808,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     return this.childrenCache[key] !== undefined;
   }
 
-  private lazyLoadChildren<T>(key: string, element: AdoTreeItem, fetchFn: () => Promise<T[]>, toItems: (arr: T[]) => AdoTreeItem[], placeholderLabel: string = "Loading..."): AdoTreeItem[] {
+  private lazyLoadChildren<T>(key: string, _element: AdoTreeItem, fetchFn: () => Promise<T[]>, toItems: (arr: T[]) => AdoTreeItem[], placeholderLabel: string = "Loading..."): AdoTreeItem[] {
     const cached = this.childrenCache[key];
     if (cached && Array.isArray(cached)) {
       return toItems(cached as T[]);
@@ -961,7 +990,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.contextValue = "repo";
     it.projectId = pid;
     it.defaultBranch = r.defaultBranch ? r.defaultBranch.replace(/^refs\/heads\//, "") : undefined;
-    it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor("charts.blue"));
+    it.iconPath = new vscode.ThemeIcon("repo", new vscode.ThemeColor(this.isRepoInWorkspace(r.name) ? "charts.green" : "charts.blue"));
     try {
       const url = this.apiClient.buildWebUrl(org, resolvedProj || pid || "", r.name || "", "repo");
       if (url) {
@@ -990,7 +1019,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.repoName = repoName;
     it.projectId = pid;
     it.contextValue = "branch";
-    it.iconPath = new vscode.ThemeIcon("git-branch", new vscode.ThemeColor("charts.blue"));
+    it.iconPath = new vscode.ThemeIcon("git-branch", new vscode.ThemeColor(this.isRepoInWorkspace(repoName) ? "charts.green" : "charts.blue"));
     try {
       const projNameFallback = pid && typeof pid === "string" ? pid : resolvedProj || "";
       const url = this.apiClient.buildWebUrl(org, resolvedProj || projNameFallback, repoName || repoId || "", "branch", name);
@@ -1006,7 +1035,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     it.organization = org;
     it.id = `pr:${org}:${repoId}:${pr.pullRequestId}`;
     it.contextValue = "pullrequest";
-    it.iconPath = new vscode.ThemeIcon("git-merge", new vscode.ThemeColor("charts.blue"));
+    it.iconPath = new vscode.ThemeIcon("git-merge", new vscode.ThemeColor(this.isRepoInWorkspace(repoName) ? "charts.green" : "charts.blue"));
     const candidate = pr.webUrl || pr.url || "";
     if (candidate && candidate.includes("/_apis/")) {
       if (resolvedProj && repoName) {
@@ -1034,5 +1063,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   // -----------------------
   private patKeyForOrg(org: string): string {
     return `ado-ext.pat.${org}`;
+  }
+
+  // -----------------------
+  // Private Utilities - Local Repo Check
+  // -----------------------
+  private isRepoInWorkspace(repoName: string): boolean {
+    return findLocalRepo(repoName) !== undefined;
   }
 }

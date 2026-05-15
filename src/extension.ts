@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
-import { createTreeProvider, httpRequest, ERROR_MESSAGES } from "./ado";
+import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
@@ -37,35 +37,6 @@ export function activate(context: vscode.ExtensionContext) {
     // -----------------------
     // Common PAT Validation Handler
     // -----------------------
-    /**
-     * VS Code Git 拡張から、指定リポジトリ名に一致するローカルパスを返す。
-     * リモートURL末尾（`/_git/<name>` or `/<name>`）またはフォルダ名で照合する。
-     * @param repoName リポジトリ名
-     * @returns 見つかった場合はルートパス、見つからない場合は undefined
-     */
-    const findLocalRepo = (repoName: string): string | undefined => {
-      const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
-      const gitAPI = gitExt?.getAPI(1);
-      const repos: any[] = gitAPI?.repositories ?? [];
-      const lowerName = repoName.toLowerCase();
-      for (const repo of repos) {
-        const rootPath: string = repo.rootUri?.fsPath ?? "";
-        const remotes: any[] = repo.state?.remotes ?? [];
-        const isRemoteMatch = remotes.some((r: any) => {
-          const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "").toLowerCase();
-          return url.endsWith("/_git/" + lowerName) || url.endsWith("/" + lowerName);
-        });
-        const isFolderMatch = rootPath
-          .replace(/\\/g, "/")
-          .toLowerCase()
-          .endsWith("/" + lowerName);
-        if (isRemoteMatch || isFolderMatch) {
-          return rootPath;
-        }
-      }
-      return undefined;
-    };
-
     /**
      * PAT の検証と保存を行う共通ハンドラー。
      * @param org 組織名
