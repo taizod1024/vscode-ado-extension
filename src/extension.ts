@@ -38,6 +38,35 @@ export function activate(context: vscode.ExtensionContext) {
     // Common PAT Validation Handler
     // -----------------------
     /**
+     * VS Code Git 拡張から、指定リポジトリ名に一致するローカルパスを返す。
+     * リモートURL末尾（`/_git/<name>` or `/<name>`）またはフォルダ名で照合する。
+     * @param repoName リポジトリ名
+     * @returns 見つかった場合はルートパス、見つからない場合は undefined
+     */
+    const findLocalRepo = (repoName: string): string | undefined => {
+      const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
+      const gitAPI = gitExt?.getAPI(1);
+      const repos: any[] = gitAPI?.repositories ?? [];
+      const lowerName = repoName.toLowerCase();
+      for (const repo of repos) {
+        const rootPath: string = repo.rootUri?.fsPath ?? "";
+        const remotes: any[] = repo.state?.remotes ?? [];
+        const isRemoteMatch = remotes.some((r: any) => {
+          const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "").toLowerCase();
+          return url.endsWith("/_git/" + lowerName) || url.endsWith("/" + lowerName);
+        });
+        const isFolderMatch = rootPath
+          .replace(/\\/g, "/")
+          .toLowerCase()
+          .endsWith("/" + lowerName);
+        if (isRemoteMatch || isFolderMatch) {
+          return rootPath;
+        }
+      }
+      return undefined;
+    };
+
+    /**
      * PAT の検証と保存を行う共通ハンドラー。
      * @param org 組織名
      * @param pat Personal Access Token
@@ -248,36 +277,14 @@ export function activate(context: vscode.ExtensionContext) {
             if (!cloneUrl) return;
           }
 
-          // Check if repository already exists locally
+          // Check if repository already exists locally and is already open
           const repoName: string | undefined = typeof arg === "object" && arg ? arg.repoName : undefined;
           if (repoName) {
-            const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
-            const gitAPI = gitExt?.getAPI(1);
-            const repos: any[] = gitAPI?.repositories ?? [];
-            let matchedPath: string | undefined;
-            for (const existingRepo of repos) {
-              const rootPath: string = existingRepo.rootUri?.fsPath ?? "";
-              const remotes: any[] = existingRepo.state?.remotes ?? [];
-              const remoteMatch = remotes.some((r: any) => {
-                const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "");
-                const lowerUrl = url.toLowerCase();
-                const lowerName = repoName.toLowerCase();
-                // Match only the repo segment (/_git/<name> or trailing /<name>)
-                return lowerUrl.endsWith("/_git/" + lowerName) || lowerUrl.endsWith("/" + lowerName);
-              });
-              const folderMatch = rootPath
-                .replace(/\\/g, "/")
-                .toLowerCase()
-                .endsWith("/" + repoName.toLowerCase());
-              if (remoteMatch || folderMatch) {
-                matchedPath = rootPath;
-                break;
-              }
-            }
+            const matchedPath = findLocalRepo(repoName);
             if (matchedPath) {
               const folderUri = vscode.Uri.file(matchedPath);
-              const alreadyOpen = vscode.workspace.workspaceFolders?.some(f => f.uri.fsPath === folderUri.fsPath);
-              if (alreadyOpen) {
+              const isAlreadyOpen = vscode.workspace.workspaceFolders?.some(f => f.uri.fsPath === folderUri.fsPath);
+              if (isAlreadyOpen) {
                 await vscode.commands.executeCommand("workbench.view.explorer");
                 return;
               }
@@ -348,31 +355,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("ado-ext.openGitGraph", async (arg?: any) => {
         try {
           const repoName: string | undefined = arg?.repoName;
-          // VS Code Git 拡張 API からローカルリポジトリを検索
-          const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
-          const gitAPI = gitExt?.getAPI(1);
-          const repos: any[] = gitAPI?.repositories ?? [];
-          let matchedPath: string | undefined;
-          for (const repo of repos) {
-            const rootPath: string = repo.rootUri?.fsPath ?? "";
-            const remotes: any[] = repo.state?.remotes ?? [];
-            const remoteMatch = remotes.some((r: any) => {
-              const url: string = (r.fetchUrl ?? r.pushUrl ?? "").replace(/\.git$/i, "");
-              const lowerUrl = url.toLowerCase();
-              const lowerName = (repoName ?? "").toLowerCase();
-              return lowerName && (lowerUrl.endsWith("/_git/" + lowerName) || lowerUrl.endsWith("/" + lowerName));
-            });
-            const folderMatch =
-              repoName &&
-              rootPath
-                .replace(/\\/g, "/")
-                .toLowerCase()
-                .endsWith("/" + repoName.toLowerCase());
-            if (remoteMatch || folderMatch) {
-              matchedPath = rootPath;
-              break;
-            }
-          }
+          const matchedPath = repoName ? findLocalRepo(repoName) : undefined;
           if (matchedPath) {
             await vscode.commands.executeCommand("git-graph.view", { rootUri: vscode.Uri.file(matchedPath) });
           } else {
