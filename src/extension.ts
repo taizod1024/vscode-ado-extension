@@ -338,7 +338,7 @@ export function activate(context: vscode.ExtensionContext) {
           if (matchedPath) {
             await vscode.commands.executeCommand("git-graph.view", { rootUri: vscode.Uri.file(matchedPath) });
           } else {
-            vscode.window.showInformationMessage(`Git Graph: ローカルに "${repoName ?? ""}" が見つかりません。先にクローンしてください。`);
+            vscode.window.showInformationMessage(`Git Graph: Repository "${repoName ?? ""}" not found locally. Please clone it first.`);
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -475,12 +475,11 @@ export function activate(context: vscode.ExtensionContext) {
           if (org) {
             await provider.revealOrganization(org);
           }
-          vscode.window.showInformationMessage("Refreshed");
+          const refreshTarget = org ? `Organization "${org}"` : "Tree";
+          vscode.window.showInformationMessage(`${refreshTarget} refreshed.`);
 
           // PAT 未入力の組織があれば順番に入力を促す
-          const orgsToPrompt = org
-            ? [org]
-            : provider.getOrganizations();
+          const orgsToPrompt = org ? [org] : provider.getOrganizations();
           for (const o of orgsToPrompt) {
             const stored = await context.secrets.get(`ado-ext.pat.${o}`);
             if (!stored) {
