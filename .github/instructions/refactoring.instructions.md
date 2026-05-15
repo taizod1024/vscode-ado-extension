@@ -67,13 +67,13 @@ const url2 = `${baseUrl}/yyy`;
 - イベントハンドラには `handle` / `on` プレフィックスを付ける。
 - 一時変数 `tmp`、`data`、`result` など意味の薄い名前は避ける。
 
-| 悪い例 | 良い例 | 理由 |
-| --- | --- | --- |
-| `p` | `projectList` | 何のプロミスか不明 |
-| `it` | `orgItem` / `projectItem` | ノード種別が不明 |
-| `pick` | `selectedOrg` | 何を選択したか不明 |
-| `data` | `apiResponse` | 何のデータか不明 |
-| `flag` | `isPatValid` | 真偽値の意味が不明 |
+| 悪い例 | 良い例                    | 理由               |
+| ------ | ------------------------- | ------------------ |
+| `p`    | `projectList`             | 何のプロミスか不明 |
+| `it`   | `orgItem` / `projectItem` | ノード種別が不明   |
+| `pick` | `selectedOrg`             | 何を選択したか不明 |
+| `data` | `apiResponse`             | 何のデータか不明   |
+| `flag` | `isPatValid`              | 真偽値の意味が不明 |
 
 ## チェックリスト
 
