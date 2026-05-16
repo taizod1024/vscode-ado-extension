@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.10](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.9...v0.0.10) (2026-05-16)
+
+
+### Features
+
+* AdoTreeProvider にエラーハンドリング機能を追加し、エラーを表示する機能を強化 ([17484f0](https://github.com/taizod1024/vscode-ado-extension/commit/17484f090f796a445cc6ff40a60a66055502d3e7))
+* パイプライン実行履歴の表示機能を改善し、リポジトリに紐づくパイプライン定義の取得を追加 ([e753bb5](https://github.com/taizod1024/vscode-ado-extension/commit/e753bb5a24b3a7066cffda772a74f2e267a2a715))
+
 ### [0.0.9](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.8...v0.0.9) (2026-05-15)
 
 
