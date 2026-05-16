@@ -88,12 +88,16 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 ### View Pipeline Runs
 
 1. Expand Pipelines under a repository
-2. Right-click the filter icon to change the view:
+2. The view loads runs from pipeline definitions linked to that repository
+3. If repository linkage cannot be resolved, a same-name pipeline is used as fallback
+4. The list shows up to the latest 50 runs
+5. If 50 runs are shown, an "over 50 (showing latest 50)" info row is displayed at the end
+6. Right-click the filter icon to change the view:
    - all: show all runs
    - running: in-progress runs
    - failed: failed / partially succeeded runs
    - succeeded: successful runs
-3. Click the refresh icon on the pipeline list to reload
+7. Click the refresh icon on the pipeline list to reload
 
 ### Repository Operations
 
@@ -248,12 +252,16 @@ VS Code から Azure DevOps を操作する拡張機能です。
 ### パイプライン実行履歴参照
 
 1. Repository の下の Pipelines を展開
-2. フィルタアイコンを右クリックして表示内容を変更:
+2. 対象リポジトリに紐づくパイプライン定義の実行履歴を表示
+3. リポジトリ紐づけが解決できない場合のみ、同名パイプライン定義をフォールバックとして使用
+4. 実行履歴は新しい順で最大 50 件を表示
+5. 50 件に達した場合は末尾に「over 50 (showing latest 50)」案内行を表示
+6. フィルタアイコンを右クリックして表示内容を変更:
    - all: すべての実行を表示
    - running: 実行中
    - failed: 失敗・部分成功
    - succeeded: 成功
-3. リフレッシュアイコンをクリックして再表示
+7. リフレッシュアイコンをクリックして再表示
 
 ### リポジトリ操作
 

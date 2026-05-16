@@ -69,6 +69,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private childrenCache: { [key: string]: any[] } = {};
   private childrenFetchPromises: { [key: string]: Promise<any[]> } = {};
   private errorsByOrg: { [org: string]: string } = {};
+  private errorsByKey: { [key: string]: string } = {};
   private childrenFetchTokens: { [key: string]: number } = {};
   /** イテレーション内 Work Item の親子マップ（key: iterationCacheKey, value: parentId → [子 WorkItem]） */
   private workItemChildrenMaps: { [key: string]: Map<number, AdoWorkItem[]> } = {};
@@ -81,7 +82,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private iterationItemFilterState: { [iterKey: string]: number } = {};
   private prFilterState: { [folderId: string]: number } = {};
   private pipelineRunFilterState: { [key: string]: number } = {};
-  private repoPipelineIdMap: { [repoId: string]: number } = {};
 
   // -----------------------
   // Authentication State
@@ -419,19 +419,57 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => {
-          const pipelines = await this.apiClient.fetchPipelines(org, pid);
-          const matching = pipelines.find(p => p.name === repoName);
-          if (!matching) return [];
-          this.repoPipelineIdMap[repoId] = matching.id;
-          return await this.apiClient.fetchPipelineRuns(org, pid, matching.id);
+          let pipelines = await this.apiClient.fetchPipelinesByRepository(org, pid, repoId);
+
+          // 互換性のため、リポジトリ連携が取れない定義は従来の同名判定をフォールバックとして使う
+          if (pipelines.length === 0 && repoName) {
+            const allPipelines = await this.apiClient.fetchPipelines(org, pid);
+            const sameName = allPipelines.find(p => p.name === repoName);
+            if (sameName) {
+              pipelines = [sameName];
+            }
+          }
+
+          if (pipelines.length === 0) return [];
+
+          const runLists = await Promise.all(pipelines.map(p => this.apiClient.fetchPipelineRuns(org, pid, p.id)));
+          const runs = runLists.flat();
+          runs.sort((a, b) => {
+            const at = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+            const bt = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+            return bt - at;
+          });
+          return runs.slice(0, 50);
         },
         runs => {
-          const pipelineId = this.repoPipelineIdMap[repoId] || 0;
-          return this.applyPipelineRunFilter(runs, filterIdx).map(r => this.makePipelineRunTreeItem(r, org, pid, pipelineId));
+          const filteredRuns = this.applyPipelineRunFilter(runs, filterIdx);
+          const items = filteredRuns.map(r => this.makePipelineRunTreeItem(r, org, pid, r.pipelineId || 0));
+          if (runs.length >= 50) {
+            const more = new AdoTreeItem("Showing latest 50 runs", vscode.TreeItemCollapsibleState.None);
+            more.itemType = "placeholder";
+            more.id = `pipelineruns-more:${org}:${pid}:${repoId}`;
+            more.contextValue = "placeholder";
+            more.iconPath = new vscode.ThemeIcon("info");
+            more.tooltip = "取得上限に達したため、最新 50 件のみ表示しています";
+            items.push(more);
+          }
+          return items;
         },
         "Loading pipeline runs...",
       );
-      return this.isLoaded(key) ? [filterBtn, ...items] : items;
+      
+      // エラーがあれば直下に表示
+      let result = this.isLoaded(key) ? [filterBtn, ...items] : items;
+      if (this.errorsByKey[key]) {
+        const errItem = new AdoTreeItem(this.errorsByKey[key], vscode.TreeItemCollapsibleState.None);
+        errItem.itemType = "error";
+        errItem.id = `error:${key}`;
+        errItem.contextValue = "error";
+        errItem.tooltip = this.errorsByKey[key];
+        errItem.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("charts.red"));
+        result = [filterBtn, errItem];
+      }
+      return result;
     }
 
     // reposFolder の子: repositories
@@ -555,7 +593,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const cacheKey = `prs:${org}:${repoId}:category:${currentCat.key}`;
       const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
       const items = this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
-      return this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
+      
+      // エラーがあれば直下に表示
+      let result = this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
+      if (this.errorsByKey[cacheKey]) {
+        const errItem = new AdoTreeItem(this.errorsByKey[cacheKey], vscode.TreeItemCollapsibleState.None);
+        errItem.itemType = "error";
+        errItem.id = `error:${cacheKey}`;
+        errItem.contextValue = "error";
+        errItem.tooltip = this.errorsByKey[cacheKey];
+        errItem.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("charts.red"));
+        result = [filterBtn, errItem];
+      }
+      return result;
     }
 
     return [];
@@ -941,31 +991,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       try {
         const res = await fetchFn();
         this.childrenCache[key] = res || [];
-        // エラーをクリア
-        const orgMatch = key.match(/^[^:]+:([^:]+)/);
-        if (orgMatch) {
-          const org = orgMatch[1];
-          delete this.errorsByOrg[org];
-          if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-        }
+        delete this.errorsByKey[key];
         return res || [];
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         this.childrenCache[key] = [];
-        // エラーを記録
-        const orgMatch = key.match(/^[^:]+:([^:]+)/);
-        if (orgMatch) {
-          const org = orgMatch[1];
-          this.errorsByOrg[org] = msg;
-          if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-        }
+        this.errorsByKey[key] = msg;
         return [];
       } finally {
         delete this.childrenFetchPromises[key];
         try {
           if (this.childrenFetchTokens[key] === token) {
-            // ルートレベルのエラーシブリングも更新するため全体を再描画
-            this._onDidChangeTreeData.fire(undefined);
+            this._onDidChangeTreeData.fire(_element);
           }
         } catch (e) {}
       }

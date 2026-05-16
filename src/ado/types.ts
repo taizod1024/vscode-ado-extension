@@ -174,6 +174,8 @@ export interface AdoPipeline {
 export interface AdoPipelineRun {
   /** ラン ID */
   id: number;
+  /** パイプライン ID */
+  pipelineId?: number;
   /** ラン名（例: "20240101.1"） */
   name: string;
   /** 実行状態: "inProgress" | "completed" | "canceling" | "unknown" */
