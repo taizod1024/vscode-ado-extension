@@ -69,6 +69,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private childrenCache: { [key: string]: any[] } = {};
   private childrenFetchPromises: { [key: string]: Promise<any[]> } = {};
   private errorsByOrg: { [org: string]: string } = {};
+  private errorsByKey: { [key: string]: string } = {};
   private childrenFetchTokens: { [key: string]: number } = {};
   /** イテレーション内 Work Item の親子マップ（key: iterationCacheKey, value: parentId → [子 WorkItem]） */
   private workItemChildrenMaps: { [key: string]: Map<number, AdoWorkItem[]> } = {};
@@ -456,7 +457,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         },
         "Loading pipeline runs...",
       );
-      return this.isLoaded(key) ? [filterBtn, ...items] : items;
+      
+      // エラーがあれば直下に表示
+      let result = this.isLoaded(key) ? [filterBtn, ...items] : items;
+      if (this.errorsByKey[key]) {
+        const errItem = new AdoTreeItem(this.errorsByKey[key], vscode.TreeItemCollapsibleState.None);
+        errItem.itemType = "error";
+        errItem.id = `error:${key}`;
+        errItem.contextValue = "error";
+        errItem.tooltip = this.errorsByKey[key];
+        errItem.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("charts.red"));
+        result = [filterBtn, errItem];
+      }
+      return result;
     }
 
     // reposFolder の子: repositories
@@ -580,7 +593,19 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const cacheKey = `prs:${org}:${repoId}:category:${currentCat.key}`;
       const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
       const items = this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
-      return this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
+      
+      // エラーがあれば直下に表示
+      let result = this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
+      if (this.errorsByKey[cacheKey]) {
+        const errItem = new AdoTreeItem(this.errorsByKey[cacheKey], vscode.TreeItemCollapsibleState.None);
+        errItem.itemType = "error";
+        errItem.id = `error:${cacheKey}`;
+        errItem.contextValue = "error";
+        errItem.tooltip = this.errorsByKey[cacheKey];
+        errItem.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("charts.red"));
+        result = [filterBtn, errItem];
+      }
+      return result;
     }
 
     return [];
@@ -966,31 +991,18 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       try {
         const res = await fetchFn();
         this.childrenCache[key] = res || [];
-        // エラーをクリア
-        const orgMatch = key.match(/^[^:]+:([^:]+)/);
-        if (orgMatch) {
-          const org = orgMatch[1];
-          delete this.errorsByOrg[org];
-          if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-        }
+        delete this.errorsByKey[key];
         return res || [];
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         this.childrenCache[key] = [];
-        // エラーを記録
-        const orgMatch = key.match(/^[^:]+:([^:]+)/);
-        if (orgMatch) {
-          const org = orgMatch[1];
-          this.errorsByOrg[org] = msg;
-          if (this.context) this.context.globalState.update("azuredevops.errorsByOrg", this.errorsByOrg);
-        }
+        this.errorsByKey[key] = msg;
         return [];
       } finally {
         delete this.childrenFetchPromises[key];
         try {
           if (this.childrenFetchTokens[key] === token) {
-            // ルートレベルのエラーシブリングも更新するため全体を再描画
-            this._onDidChangeTreeData.fire(undefined);
+            this._onDidChangeTreeData.fire(_element);
           }
         } catch (e) {}
       }
