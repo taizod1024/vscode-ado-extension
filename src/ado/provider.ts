@@ -81,7 +81,6 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private iterationItemFilterState: { [iterKey: string]: number } = {};
   private prFilterState: { [folderId: string]: number } = {};
   private pipelineRunFilterState: { [key: string]: number } = {};
-  private repoPipelineIdMap: { [repoId: string]: number } = {};
 
   // -----------------------
   // Authentication State
@@ -419,15 +418,41 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         key,
         element,
         async () => {
-          const pipelines = await this.apiClient.fetchPipelines(org, pid);
-          const matching = pipelines.find(p => p.name === repoName);
-          if (!matching) return [];
-          this.repoPipelineIdMap[repoId] = matching.id;
-          return await this.apiClient.fetchPipelineRuns(org, pid, matching.id);
+          let pipelines = await this.apiClient.fetchPipelinesByRepository(org, pid, repoId);
+
+          // 互換性のため、リポジトリ連携が取れない定義は従来の同名判定をフォールバックとして使う
+          if (pipelines.length === 0 && repoName) {
+            const allPipelines = await this.apiClient.fetchPipelines(org, pid);
+            const sameName = allPipelines.find(p => p.name === repoName);
+            if (sameName) {
+              pipelines = [sameName];
+            }
+          }
+
+          if (pipelines.length === 0) return [];
+
+          const runLists = await Promise.all(pipelines.map(p => this.apiClient.fetchPipelineRuns(org, pid, p.id)));
+          const runs = runLists.flat();
+          runs.sort((a, b) => {
+            const at = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+            const bt = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+            return bt - at;
+          });
+          return runs.slice(0, 50);
         },
         runs => {
-          const pipelineId = this.repoPipelineIdMap[repoId] || 0;
-          return this.applyPipelineRunFilter(runs, filterIdx).map(r => this.makePipelineRunTreeItem(r, org, pid, pipelineId));
+          const filteredRuns = this.applyPipelineRunFilter(runs, filterIdx);
+          const items = filteredRuns.map(r => this.makePipelineRunTreeItem(r, org, pid, r.pipelineId || 0));
+          if (runs.length >= 50) {
+            const more = new AdoTreeItem("Showing latest 50 runs", vscode.TreeItemCollapsibleState.None);
+            more.itemType = "placeholder";
+            more.id = `pipelineruns-more:${org}:${pid}:${repoId}`;
+            more.contextValue = "placeholder";
+            more.iconPath = new vscode.ThemeIcon("info");
+            more.tooltip = "取得上限に達したため、最新 50 件のみ表示しています";
+            items.push(more);
+          }
+          return items;
         },
         "Loading pipeline runs...",
       );
