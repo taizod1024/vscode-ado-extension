@@ -290,7 +290,7 @@ export class AdoApiClient {
     if (!usePat) return [];
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     if (!projName) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines?api-version=7.0`;
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines?$top=50&api-version=6.0`;
     const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
     const out: AdoPipeline[] = [];
     if (data && Array.isArray(data.value)) {
@@ -305,12 +305,33 @@ export class AdoApiClient {
     return out;
   }
 
+  async fetchPipelinesByRepository(organization: string, projectIdOrName: string, repositoryId: string, pat?: string): Promise<AdoPipeline[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) return [];
+    const projName = await this.resolveProjectName(organization, projectIdOrName);
+    if (!projName) return [];
+
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/build/definitions?repositoryId=${encodeURIComponent(repositoryId)}&repositoryType=TfsGit&queryOrder=lastModifiedDescending&$top=50&api-version=7.1-preview.7`;
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const out: AdoPipeline[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const definition of data.value) {
+        out.push({
+          id: Number(definition.id),
+          name: String(definition.name || ""),
+          url: this.getWebUrl(definition),
+        });
+      }
+    }
+    return out;
+  }
+
   async fetchPipelineRuns(organization: string, projectIdOrName: string, pipelineId: number, pat?: string): Promise<AdoPipelineRun[]> {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return [];
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     if (!projName) return [];
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines/${pipelineId}/runs?api-version=7.0`;
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines/${pipelineId}/runs?$top=50&api-version=6.0`;
 
     const debugMode = vscode.workspace.getConfiguration("adoExt").get<boolean>("debug") || false;
     if (this.channel) {
@@ -329,6 +350,7 @@ export class AdoApiClient {
       for (const r of data.value) {
         out.push({
           id: Number(r.id),
+          pipelineId,
           name: String(r.name || ""),
           state: r.state || undefined,
           result: r.result || undefined,
@@ -565,7 +587,7 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization);
     if (!usePat) throw new Error("PAT not provided");
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=7.0`;
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=6.0`;
     let lastError: Error | undefined;
     for (const state of targetStates) {
       try {
@@ -604,7 +626,7 @@ export class AdoApiClient {
 
     if (!assignee) throw new Error("Could not resolve current user identity");
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
-    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=7.0`;
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=6.0`;
     const body = [{ op: "add", path: "/fields/System.AssignedTo", value: assignee }];
     const result = await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
     return (result?.fields?.["System.AssignedTo"]?.displayName ?? assignee) as string;
