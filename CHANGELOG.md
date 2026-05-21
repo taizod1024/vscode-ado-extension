@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.11](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.10...v0.0.11) (2026-05-21)
+
+
+### Features
+
+* AB# ワークアイテム補完機能を追加し、コミットメッセージ入力での候補表示を実装 ([8c747be](https://github.com/taizod1024/vscode-ado-extension/commit/8c747be0db6792c180d97067c6bf60f8c3e71cdd))
+
 ### [0.0.10](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.9...v0.0.10) (2026-05-16)
 
 
