@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.12](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.11...v0.0.12) (2026-05-21)
+
+
+### Features
+
+* ワークアイテムのアサイン・アサイン解除機能を追加し、関連コマンドを実装 ([e6b2995](https://github.com/taizod1024/vscode-ado-extension/commit/e6b2995c4f3e3f2aab6cb859549cf4884d9469b6))
+
 ### [0.0.11](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.10...v0.0.11) (2026-05-21)
 
 
