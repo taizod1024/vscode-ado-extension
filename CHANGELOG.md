@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.13](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.12...v0.0.13) (2026-05-21)
+
+
+### Features
+
+* ADO 組織とプロジェクトの特定機能を追加し、ワークアイテム取得を最適化 ([69f711d](https://github.com/taizod1024/vscode-ado-extension/commit/69f711d5a8cd270c854677fd4bfb195ec6ded3c6))
+
 ### [0.0.12](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.11...v0.0.12) (2026-05-21)
 
 
