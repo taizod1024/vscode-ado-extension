@@ -911,48 +911,77 @@ export function activate(context: vscode.ExtensionContext) {
               const partialNum = match[2];
               const afterHashPos = position.character - partialNum.length;
 
-              // 設定済み組織がなければ何もしない
-              const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
-              if (orgs.length === 0) return undefined;
+              // SCM input box に対応する git リポジトリのリモート URL から ADO org/project を特定
+              const gitExt = vscode.extensions.getExtension<any>("vscode.git")?.exports;
+              const gitAPI = gitExt?.getAPI(1);
+              const repos: any[] = gitAPI?.repositories ?? [];
 
-              // 全組織・全プロジェクトからワークアイテムを並列取得
+              // inputBox.document.uri で照合（VS Code バージョンによっては undefined の場合あり）
+              let activeRepo: any = repos.find(r => r.inputBox?.document?.uri?.toString() === document.uri.toString());
+              // 照合失敗時: ワークスペースフォルダ経由で取得
+              if (!activeRepo) {
+                for (const folder of vscode.workspace.workspaceFolders ?? []) {
+                  const found = gitAPI?.getRepository?.(folder.uri);
+                  if (found) {
+                    activeRepo = found;
+                    break;
+                  }
+                }
+              }
+              // それでも不明な場合: 単一リポジトリならそのまま使う
+              if (!activeRepo && repos.length === 1) {
+                activeRepo = repos[0];
+              }
+              if (!activeRepo) return undefined;
+
+              const remotes: any[] = activeRepo.state?.remotes ?? [];
+              const remoteUrl: string = (remotes.find((r: any) => r.name === "origin") ?? remotes[0])?.fetchUrl ?? remotes[0]?.pushUrl ?? "";
+
+              // ADO URL から org と project を抽出
+              // 形式1: https://dev.azure.com/{org}/{project}/_git/{repo}
+              // 形式2: https://{user}@dev.azure.com/{org}/{project}/_git/{repo}（PAT 埋め込み形式）
+              // 形式3: https://{org}.visualstudio.com/{project}/_git/{repo}
+              let adoOrg: string | undefined;
+              let adoProject: string | undefined;
+              const devAzureMatch = remoteUrl.match(/https:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//i);
+              if (devAzureMatch) {
+                adoOrg = devAzureMatch[1];
+                adoProject = devAzureMatch[2];
+              } else {
+                const vstsMatch = remoteUrl.match(/https:\/\/([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//i);
+                if (vstsMatch) {
+                  adoOrg = vstsMatch[1];
+                  adoProject = vstsMatch[2];
+                }
+              }
+              if (!adoOrg || !adoProject) return undefined;
+
+              const pat = await context.secrets.get(`ado-ext.pat.${adoOrg}`);
+              if (!pat) return undefined;
+
+              // 対象プロジェクトのワークアイテムを取得（キャッシュ利用）
               const client = provider.getClient();
               const candidateItems: WorkItemCandidate[] = [];
               const now = Date.now();
 
-              await Promise.all(
-                orgs.map(async org => {
-                  if (token.isCancellationRequested) return;
-                  try {
-                    const pat = await context.secrets.get(`ado-ext.pat.${org}`);
-                    if (!pat) return;
-                    const projects = await client.fetchProjects(org, pat);
-                    await Promise.all(
-                      projects.map(async project => {
-                        if (token.isCancellationRequested) return;
-                        // キャッシュヒット確認
-                        const cacheKey = `${org}/${project.id}`;
-                        const cached = workItemCompletionCache.get(cacheKey);
-                        let items: WorkItemCandidate[];
-                        if (cached && now - cached.ts < WORK_ITEM_COMPLETION_CACHE_TTL_MS) {
-                          items = cached.items;
-                        } else {
-                          try {
-                            const wiList = await client.fetchMyActivity(org, project.id, pat);
-                            items = wiList.map(wi => ({ wi, org, projectName: project.name }));
-                            workItemCompletionCache.set(cacheKey, { items, ts: Date.now() });
-                          } catch {
-                            items = [];
-                          }
-                        }
-                        candidateItems.push(...items);
-                      }),
-                    );
-                  } catch (err) {
-                    channel.appendLine(`AB# completion error for ${org}: ${err instanceof Error ? err.message : String(err)}`);
-                  }
-                }),
-              );
+              if (token.isCancellationRequested) return undefined;
+
+              const cacheKey = `${adoOrg}/${adoProject}`;
+              const cached = workItemCompletionCache.get(cacheKey);
+              let items: WorkItemCandidate[];
+              if (cached && now - cached.ts < WORK_ITEM_COMPLETION_CACHE_TTL_MS) {
+                items = cached.items;
+              } else {
+                try {
+                  const wiList = await client.fetchMyActivity(adoOrg, adoProject, pat);
+                  items = wiList.map(wi => ({ wi, org: adoOrg!, projectName: adoProject! }));
+                  workItemCompletionCache.set(cacheKey, { items, ts: Date.now() });
+                } catch (err) {
+                  channel.appendLine(`AB# completion error for ${adoOrg}/${adoProject}: ${err instanceof Error ? err.message : String(err)}`);
+                  items = [];
+                }
+              }
+              candidateItems.push(...items);
 
               if (token.isCancellationRequested) return undefined;
 
@@ -961,7 +990,7 @@ export function activate(context: vscode.ExtensionContext) {
               for (const { wi, org, projectName } of candidateItems) {
                 const idStr = String(wi.id);
                 if (partialNum && !idStr.startsWith(partialNum)) continue;
-                const item = new vscode.CompletionItem(`#${wi.id}:${wi.title}`, vscode.CompletionItemKind.Reference);
+                const item = new vscode.CompletionItem(`#${wi.id}:${wi.title}`, vscode.CompletionItemKind.Issue);
                 item.detail = `${org} / ${projectName} [${wi.status}]${wi.assignee ? ` @${wi.assignee}` : ""}`;
                 item.filterText = idStr;
                 item.insertText = `${idStr}:${wi.title}`;
