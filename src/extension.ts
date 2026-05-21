@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
-import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo } from "./ado";
+import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo, AdoWorkItem } from "./ado";
 
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
@@ -854,6 +854,90 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showErrorMessage("Failed to create branch: " + msg);
         }
       }),
+    );
+
+    // -----------------------
+    // AB# Work Item Completion Provider (git commit message)
+    // -----------------------
+    /** AB# コンプリーション用ワークアイテムキャッシュ。key: `{org}/{projectId}` */
+    const workItemCompletionCache = new Map<string, { items: Array<{ wi: AdoWorkItem; org: string; projectName: string }>; ts: number }>();
+    const WORK_ITEM_COMPLETION_CACHE_TTL = 5 * 60 * 1000;
+    context.subscriptions.push(
+      vscode.languages.registerCompletionItemProvider(
+        [{ scheme: "vscode-scm" }],
+        {
+          async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.CompletionItem[] | undefined> {
+            try {
+              const lineText = document.lineAt(position.line).text;
+              const textBeforeCursor = lineText.substring(0, position.character);
+              const match = textBeforeCursor.match(/(?<![a-zA-Z])(AB|ab)#(\d*)$/);
+              if (!match) return undefined;
+
+              const partialNum = match[2];
+              const afterHashPos = position.character - partialNum.length;
+              const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
+              if (orgs.length === 0) return undefined;
+
+              const client = provider.getClient();
+              const allItems: Array<{ wi: AdoWorkItem; org: string; projectName: string }> = [];
+              const now = Date.now();
+
+              await Promise.all(
+                orgs.map(async org => {
+                  if (token.isCancellationRequested) return;
+                  try {
+                    const pat = await context.secrets.get(`ado-ext.pat.${org}`);
+                    if (!pat) return;
+                    const projects = await client.fetchProjects(org, pat);
+                    await Promise.all(
+                      projects.map(async project => {
+                        if (token.isCancellationRequested) return;
+                        const cacheKey = `${org}/${project.id}`;
+                        const cached = workItemCompletionCache.get(cacheKey);
+                        let items: Array<{ wi: AdoWorkItem; org: string; projectName: string }>;
+                        if (cached && now - cached.ts < WORK_ITEM_COMPLETION_CACHE_TTL) {
+                          items = cached.items;
+                        } else {
+                          try {
+                            const wiList = await client.fetchMyActivity(org, project.id, pat);
+                            items = wiList.map(wi => ({ wi, org, projectName: project.name }));
+                            workItemCompletionCache.set(cacheKey, { items, ts: Date.now() });
+                          } catch {
+                            items = [];
+                          }
+                        }
+                        allItems.push(...items);
+                      }),
+                    );
+                  } catch (err) {
+                    channel.appendLine(`AB# completion error for ${org}: ${err instanceof Error ? err.message : String(err)}`);
+                  }
+                }),
+              );
+
+              if (token.isCancellationRequested) return undefined;
+
+              const completions: vscode.CompletionItem[] = [];
+              for (const { wi, org, projectName } of allItems) {
+                const idStr = String(wi.id);
+                if (partialNum && !idStr.startsWith(partialNum)) continue;
+                const item = new vscode.CompletionItem(`#${wi.id}:${wi.title}`, vscode.CompletionItemKind.Reference);
+                item.detail = `${org} / ${projectName} [${wi.status}]${wi.assignee ? ` @${wi.assignee}` : ""}`;
+                item.filterText = idStr;
+                item.insertText = `${idStr}:${wi.title}`;
+                item.range = new vscode.Range(new vscode.Position(position.line, afterHashPos), position);
+                item.sortText = idStr.padStart(10, "0");
+                completions.push(item);
+              }
+              return completions.length > 0 ? completions : undefined;
+            } catch (err) {
+              channel.appendLine(`AB# completion error: ${err instanceof Error ? err.message : String(err)}`);
+              return undefined;
+            }
+          },
+        },
+        "#",
+      ),
     );
 
     // Open settings
