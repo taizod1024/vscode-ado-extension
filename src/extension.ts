@@ -396,6 +396,25 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
+    // Unassign Work Item
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.unassignWorkItem", async (arg?: any) => {
+        try {
+          const org: string | undefined = arg?.organization;
+          const projectId: string | undefined = arg?.projectId;
+          const workItemId: number | undefined = arg?.workItemId ?? (arg?.id ? Number(String(arg.id).split(":")[2]) : undefined);
+          if (!org || !workItemId || isNaN(workItemId)) return;
+          const client = provider.getClient();
+          await client.unassignWorkItem(org, projectId, workItemId);
+          vscode.window.showInformationMessage(`Work item #${workItemId} unassigned.`);
+          provider.updateWorkItemDescription(arg, "");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage("Failed to unassign work item: " + msg);
+        }
+      }),
+    );
+
     // Add organization
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.addOrganization", async () => {
@@ -859,15 +878,31 @@ export function activate(context: vscode.ExtensionContext) {
     // -----------------------
     // AB# Work Item Completion Provider (git commit message)
     // -----------------------
-    /** AB# コンプリーション用ワークアイテムキャッシュ。key: `{org}/{projectId}` */
-    const workItemCompletionCache = new Map<string, { items: Array<{ wi: AdoWorkItem; org: string; projectName: string }>; ts: number }>();
-    const WORK_ITEM_COMPLETION_CACHE_TTL = 5 * 60 * 1000;
+
+    /** AB# 補完候補の 1 件分を表す型。 */
+    type WorkItemCandidate = { wi: AdoWorkItem; org: string; projectName: string };
+
+    /** AB# 補完キャッシュ。key: `{org}/{projectId}`、value: 候補リストと取得タイムスタンプ。 */
+    const workItemCompletionCache = new Map<string, { items: WorkItemCandidate[]; ts: number }>();
+
+    /** 補完キャッシュの有効期間（ミリ秒）。5 分。 */
+    const WORK_ITEM_COMPLETION_CACHE_TTL_MS = 5 * 60 * 1000;
+
     context.subscriptions.push(
       vscode.languages.registerCompletionItemProvider(
         [{ scheme: "vscode-scm" }],
         {
+          /**
+           * SCM インプットボックスで `AB#` または `ab#` に続いて `#` を入力した際に
+           * Azure Boards のワークアイテム候補を返す。
+           * @param document SCM インプットボックスのドキュメント
+           * @param position 現在のカーソル位置
+           * @param token キャンセルトークン
+           * @returns 補完候補リスト。トリガ条件不一致またはキャンセル時は undefined。
+           */
           async provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.CompletionItem[] | undefined> {
             try {
+              // トリガ判定: カーソル直前が (AB|ab)# で終わるか確認
               const lineText = document.lineAt(position.line).text;
               const textBeforeCursor = lineText.substring(0, position.character);
               const match = textBeforeCursor.match(/(?<![a-zA-Z])(AB|ab)#(\d*)$/);
@@ -875,11 +910,14 @@ export function activate(context: vscode.ExtensionContext) {
 
               const partialNum = match[2];
               const afterHashPos = position.character - partialNum.length;
+
+              // 設定済み組織がなければ何もしない
               const orgs = context.globalState.get<string[]>("azuredevops.organizations") || [];
               if (orgs.length === 0) return undefined;
 
+              // 全組織・全プロジェクトからワークアイテムを並列取得
               const client = provider.getClient();
-              const allItems: Array<{ wi: AdoWorkItem; org: string; projectName: string }> = [];
+              const candidateItems: WorkItemCandidate[] = [];
               const now = Date.now();
 
               await Promise.all(
@@ -892,10 +930,11 @@ export function activate(context: vscode.ExtensionContext) {
                     await Promise.all(
                       projects.map(async project => {
                         if (token.isCancellationRequested) return;
+                        // キャッシュヒット確認
                         const cacheKey = `${org}/${project.id}`;
                         const cached = workItemCompletionCache.get(cacheKey);
-                        let items: Array<{ wi: AdoWorkItem; org: string; projectName: string }>;
-                        if (cached && now - cached.ts < WORK_ITEM_COMPLETION_CACHE_TTL) {
+                        let items: WorkItemCandidate[];
+                        if (cached && now - cached.ts < WORK_ITEM_COMPLETION_CACHE_TTL_MS) {
                           items = cached.items;
                         } else {
                           try {
@@ -906,7 +945,7 @@ export function activate(context: vscode.ExtensionContext) {
                             items = [];
                           }
                         }
-                        allItems.push(...items);
+                        candidateItems.push(...items);
                       }),
                     );
                   } catch (err) {
@@ -917,8 +956,9 @@ export function activate(context: vscode.ExtensionContext) {
 
               if (token.isCancellationRequested) return undefined;
 
+              // 補完アイテムを構築
               const completions: vscode.CompletionItem[] = [];
-              for (const { wi, org, projectName } of allItems) {
+              for (const { wi, org, projectName } of candidateItems) {
                 const idStr = String(wi.id);
                 if (partialNum && !idStr.startsWith(partialNum)) continue;
                 const item = new vscode.CompletionItem(`#${wi.id}:${wi.title}`, vscode.CompletionItemKind.Reference);

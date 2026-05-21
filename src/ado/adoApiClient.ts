@@ -631,4 +631,19 @@ export class AdoApiClient {
     const result = await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
     return (result?.fields?.["System.AssignedTo"]?.displayName ?? assignee) as string;
   }
+
+  /**
+   * Work Item の担当者を未設定にします。
+   * @param organization 組織名
+   * @param projectIdOrName プロジェクト ID またはプロジェクト名
+   * @param workItemId Work Item の ID
+   */
+  async unassignWorkItem(organization: string, projectIdOrName: string | undefined, workItemId: number): Promise<void> {
+    const usePat = await this.resolvePat(organization);
+    if (!usePat) throw new Error("PAT not provided");
+    const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=6.0`;
+    const body = [{ op: "add", path: "/fields/System.AssignedTo", value: "" }];
+    await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
+  }
 }

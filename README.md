@@ -20,6 +20,8 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 - Create a pull request from a branch with source branch pre-filled
 - Send work items to GitHub Copilot Chat
 - Create branches for work items automatically from the tree view
+- Assign or unassign work items directly from the tree view
+- Type `AB#` or `ab#` in the git commit message input to pick a work item from Azure Boards
 - PAT is stored securely in VS Code Secret Storage
 
 ## Installation
@@ -114,6 +116,17 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 - Click the refresh icon next to the organization node.
 
+### Work Item Assignment
+
+- Right-click a work item and select **Assign to me** to assign it to yourself
+- Right-click a work item and select **Unassign** to remove the assignee
+
+### Link Work Items in Commit Messages
+
+1. Open the Source Control panel and start typing a commit message
+2. Type `AB#` or `ab#` to trigger the work item picker
+3. Select a work item — the ID and title are inserted in `AB#id:title` format
+
 ## Commands
 
 | Command                     | Description                              |
@@ -134,6 +147,8 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 | Open URL                    | Open in the integrated browser           |
 | Send Work Item to Copilot   | Send a work item to GitHub Copilot       |
 | Create Branch for Work Item | Create/checkout a branch for a work item |
+| Assign to me                | Assign a work item to yourself           |
+| Unassign                    | Remove the assignee from a work item     |
 | Open Settings               | Open extension settings                  |
 
 ## Troubleshooting
@@ -184,6 +199,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 - ブランチからソースブランチ自動入力で PR 作成ページを開く
 - ワークアイテムを GitHub Copilot Chat に送信
 - ツリービューからワークアイテムに対応するブランチを自動作成
+- ツリービューからワークアイテムを自分にアサイン・アサイン解除
+- git コミットメッセージ入力欄で `AB#` または `ab#` と入力して Azure Boards のワークアイテムを選択
 - PAT は VS Code の Secret Storage に安全に保存
 
 ## インストール
@@ -278,6 +295,17 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 - 組織ノード横のリフレッシュアイコンをクリックする
 
+### ワークアイテムのアサイン
+
+- ワークアイテムを右クリックして **Assign to me** を選択すると、自分にアサインされる
+- ワークアイテムを右クリックして **Unassign** を選択すると、担当者が解除される
+
+### コミットメッセージでワークアイテムを参照
+
+1. ソース管理パネルを開いてコミットメッセージの入力を開始
+2. `AB#` または `ab#` と入力すると Work Item 候補が表示される
+3. 候補を選択すると `AB#id:title` 形式で挿入される
+
 ## コマンド一覧
 
 | コマンド                    | 説明                                             |
@@ -298,6 +326,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | Open URL                    | Web UI をブラウザで開く                          |
 | Send Work Item to Copilot   | ワークアイテムを GitHub Copilot に送信           |
 | Create Branch for Work Item | ワークアイテムのブランチを作成/チェックアウト    |
+| Assign to me                | ワークアイテムを自分にアサイン                   |
+| Unassign                    | ワークアイテムの担当者を解除                     |
 | Open Settings               | 設定を開く                                       |
 
 ## トラブルシューティング

@@ -95,6 +95,11 @@
         "icon": "$(person-add)"
       },
       {
+        "command": "ado-ext.unassignWorkItem",
+        "title": "Unassign",
+        "icon": "$(person-remove)"
+      },
+      {
         "command": "ado-ext.addOrganization",
         "title": "Azure DevOps: Add Organization",
         "icon": "$(add)"
@@ -332,6 +337,11 @@
           "command": "ado-ext.assignWorkItemToMe",
           "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
           "group": "workitem_assign@1"
+        },
+        {
+          "command": "ado-ext.unassignWorkItem",
+          "when": "view == azureDevOps.sidePanel && (viewItem == workitem_todo || viewItem == workitem_doing || viewItem == workitem_done)",
+          "group": "workitem_assign@2"
         },
         {
           "command": "ado-ext.openUrl",
