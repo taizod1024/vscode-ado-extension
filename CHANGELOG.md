@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.14](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.13...v0.0.14) (2026-05-22)
+
+
+### Bug Fixes
+
+* update branches folder icon path to use theme color for better visibility ([edcebcc](https://github.com/taizod1024/vscode-ado-extension/commit/edcebcc78dab461bfb5c70fb1e430f6225394f26))
+
 ### [0.0.13](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.12...v0.0.13) (2026-05-21)
 
 
