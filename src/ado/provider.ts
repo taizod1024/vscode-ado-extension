@@ -457,7 +457,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         },
         "Loading pipeline runs...",
       );
-      
+
       // エラーがあれば直下に表示
       let result = this.isLoaded(key) ? [filterBtn, ...items] : items;
       if (this.errorsByKey[key]) {
@@ -502,7 +502,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       branchesFolder.defaultBranch = element.defaultBranch;
       branchesFolder.id = `branches:${org}:${repoId}:gen:0`;
       branchesFolder.contextValue = "branchesFolder";
-      branchesFolder.iconPath = new vscode.ThemeIcon("git-branch");
+      branchesFolder.iconPath = new vscode.ThemeIcon("git-branch", new vscode.ThemeColor("foreground"));
 
       const prsFolder = new AdoTreeItem("Pull Requests", vscode.TreeItemCollapsibleState.Collapsed);
       prsFolder.itemType = "pullRequestsFolder";
@@ -593,7 +593,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       const cacheKey = `prs:${org}:${repoId}:category:${currentCat.key}`;
       const resolvedProjForPrs = await this.apiClient.resolveProjectName(org, element.projectId as string | undefined);
       const items = this.lazyLoadChildren<AdoPullRequest>(cacheKey, element, fetchFn, prs => prs.map(pr => this.makePullRequestTreeItem(pr, org, repoId, (element as any).repoName || "", resolvedProjForPrs)), "Loading pull requests...");
-      
+
       // エラーがあれば直下に表示
       let result = this.isLoaded(cacheKey) ? [filterBtn, ...items] : items;
       if (this.errorsByKey[cacheKey]) {
