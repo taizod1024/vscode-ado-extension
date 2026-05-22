@@ -559,8 +559,6 @@ export class AdoApiClient {
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_workitems/recentlyupdated/` : `https://dev.azure.com/${encodeURIComponent(org)}/_workitems`;
       case "pipelinesFolder":
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_build` : "";
-      case "pipelinesFolder":
-        return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_build` : "";
       case "reposFolder":
         return projectName ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(projectName)}/_settings/repositories` : "";
       case "repo":
