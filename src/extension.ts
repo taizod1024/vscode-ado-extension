@@ -34,6 +34,17 @@ export function activate(context: vscode.ExtensionContext) {
       };
     };
 
+    /**
+     * PAT をログ出力向けにマスクする（先頭4文字のみ表示）。
+     * @param pat PAT 文字列
+     * @returns 先頭4文字 + 以降を `*` にした文字列
+     */
+    const maskPatForLog = (pat: string): string => {
+      if (!pat) return "";
+      if (pat.length <= 4) return pat;
+      return pat.slice(0, 4) + "*".repeat(pat.length - 4);
+    };
+
     // -----------------------
     // Common PAT Validation Handler
     // -----------------------
@@ -92,8 +103,19 @@ export function activate(context: vscode.ExtensionContext) {
           const orgFromArg = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           const org = orgFromArg || (await vscode.window.showInputBox({ prompt: "Organization for this PAT (e.g. myorg)" }));
           if (!org) return;
+
+          const patKey = `ado-ext.pat.${org}`;
+          const currentPat = await context.secrets.get(patKey);
+          const masked = currentPat ? maskPatForLog(currentPat) : "(none)";
+          channel.appendLine(`Current PAT (masked) for ${org}: ${masked}`);
+
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
+
+          // 新 PAT を検証する前に、既存 PAT を削除する
+          await context.secrets.delete(patKey);
+          provider.getClient().clearPatCache();
+          channel.appendLine(`Deleted existing PAT for organization: ${org}`);
 
           await handlePatValidationAndSave(org, pat, false);
         } catch (err) {

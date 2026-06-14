@@ -611,11 +611,7 @@ export class AdoApiClient {
     const me = await this.fetchAuthenticatedUser(organization, usePat);
     this.channel?.appendLine(`[assignWorkItemToMe] authenticatedUser: ${JSON.stringify(me)}`);
 
-    const assignee: string | undefined =
-      me?.properties?.Account?.$value ||
-      me?.providerDisplayName ||
-      me?.uniqueName ||
-      me?.id;
+    const assignee: string | undefined = me?.properties?.Account?.$value || me?.providerDisplayName || me?.uniqueName || me?.id;
 
     if (!assignee) throw new Error("Could not resolve current user identity");
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
