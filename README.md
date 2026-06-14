@@ -4,7 +4,7 @@
 
 # Azure DevOps Extension EN
 
-> **Note** This extension is under active development.
+> **Note** This extension is under development.
 
 A VS Code extension to interact with Azure DevOps from the sidebar.
 
@@ -216,7 +216,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 2. User settings > Personal access tokens > New Token
 3. 以下のスコープを選択:
    - Project and Team (Read)
-   - Work Items (Read)
+   - Work Items (Read&Write)
    - Code (Read)
    - Build (Read)
 4. トークンをコピー
@@ -357,3 +357,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 ## 詳細仕様
 
 詳しい仕様については [.github/APP_SPEC.md](./.github/APP_SPEC.md) を参照
+
+# 謝辞
+
+Azure devops logo Icon by CoreUI on <a href="https://icon-icons.com/authors/923-coreui">Icon-Icons.com</a>

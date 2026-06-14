@@ -430,7 +430,7 @@
         {
           "id": "azureDevOps",
           "title": "Azure DevOps Extension",
-          "icon": "$(azure-devops)"
+          "icon": "resources/azure_devops_logo_icon_145466.svg"
         }
       ]
     },
@@ -439,7 +439,7 @@
         {
           "id": "azureDevOps.sidePanel",
           "name": "Azure DevOps Extension",
-          "icon": "resources/icon.svg"
+          "icon": "resources/azure_devops_logo_icon_145466.svg"
         }
       ]
     },

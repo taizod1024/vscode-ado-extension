@@ -14,7 +14,6 @@ export class AdoApiClient {
   private channel?: vscode.LogOutputChannel;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
-  private currentProfileCache: any | undefined;
   private patCache: { [org: string]: string } = {};
 
   // -----------------------
@@ -395,14 +394,16 @@ export class AdoApiClient {
     if (!usePat) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
     const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
-    const profile = await this.fetchCurrentProfile(organization, usePat);
-    const myId = profile?.id || profile?.identifier || profile?.displayName || profile?.uniqueName;
+    const me = await this.fetchAuthenticatedUser(organization, usePat);
+    const myId = me?.id || me?.descriptor || me?.uniqueName || me?.providerDisplayName;
+    const myUniqueName = String(me?.uniqueName || "").toLowerCase();
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
         const createdBy = pr.createdBy || {};
         const createdId = createdBy.id || createdBy.uniqueName || createdBy.displayName || createdBy.descriptor;
-        if (!myId || String(createdId) === String(myId) || String(createdBy.uniqueName || "").toLowerCase() === String(profile?.uniqueName || "").toLowerCase()) {
+        const createdUniqueName = String(createdBy.uniqueName || "").toLowerCase();
+        if (!myId || String(createdId) === String(myId) || (!!myUniqueName && createdUniqueName === myUniqueName)) {
           const web = this.getWebUrl(pr);
           const apiUrl = this.getApiUrl(pr);
           out.push({
@@ -447,17 +448,21 @@ export class AdoApiClient {
     }
   }
 
-  private async fetchCurrentProfile(organization: string, pat?: string): Promise<any> {
-    if (this.currentProfileCache) return this.currentProfileCache;
+  /**
+   * 接続情報 API から現在の認証ユーザーを取得します。
+   * @param organization 組織名
+   * @param pat PAT（省略時は Secret Storage から解決）
+   * @returns authenticatedUser 情報。取得失敗時は undefined
+   */
+  private async fetchAuthenticatedUser(organization: string, pat?: string): Promise<any | undefined> {
     const usePat = await this.resolvePat(organization, pat);
     if (!usePat) return undefined;
-    const url = `https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0`;
     try {
-      const data = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
-      this.currentProfileCache = data;
-      return data;
+      const connUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/connectionData`;
+      const connData = await httpRequest("GET", connUrl, usePat, undefined, { channel: this.channel });
+      return connData?.authenticatedUser;
     } catch (e) {
-      this.channel?.appendLine(`[fetchCurrentProfile] failed: ${e}`);
+      this.channel?.appendLine(`[fetchAuthenticatedUser] failed: ${e}`);
       return undefined;
     }
   }
@@ -603,24 +608,14 @@ export class AdoApiClient {
     const usePat = await this.resolvePat(organization);
     if (!usePat) throw new Error("PAT not provided");
 
-    // profiles/me のレスポンスは coreAttributes にネストしていることがある
-    const profile = await this.fetchCurrentProfile(organization, usePat);
-    this.channel?.appendLine(`[assignWorkItemToMe] profile keys: ${JSON.stringify(Object.keys(profile ?? {}))}`);
-    this.channel?.appendLine(`[assignWorkItemToMe] profile: ${JSON.stringify(profile)}`);
+    const me = await this.fetchAuthenticatedUser(organization, usePat);
+    this.channel?.appendLine(`[assignWorkItemToMe] authenticatedUser: ${JSON.stringify(me)}`);
 
-    let assignee: string | undefined = profile?.emailAddress || profile?.uniqueName || profile?.coreAttributes?.EmailAddress?.value || profile?.coreAttributes?.PublicAlias?.value || profile?.displayName;
-
-    // フォールバック: connectionData の authenticatedUser を使う
-    if (!assignee) {
-      try {
-        const connUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/connectionData`;
-        const connData = await httpRequest("GET", connUrl, usePat, undefined, { channel: this.channel });
-        this.channel?.appendLine(`[assignWorkItemToMe] connectionData.authenticatedUser: ${JSON.stringify(connData?.authenticatedUser)}`);
-        assignee = connData?.authenticatedUser?.properties?.Account?.$value || connData?.authenticatedUser?.providerDisplayName || connData?.authenticatedUser?.uniqueName || connData?.authenticatedUser?.id;
-      } catch (e) {
-        this.channel?.appendLine(`[assignWorkItemToMe] connectionData fallback failed: ${e}`);
-      }
-    }
+    const assignee: string | undefined =
+      me?.properties?.Account?.$value ||
+      me?.providerDisplayName ||
+      me?.uniqueName ||
+      me?.id;
 
     if (!assignee) throw new Error("Could not resolve current user identity");
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
