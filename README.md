@@ -4,7 +4,7 @@
 
 # Azure DevOps Extension EN
 
-> **Note** This extension is under active development.
+> **Note** This extension is under development.
 
 A VS Code extension to interact with Azure DevOps from the sidebar.
 
@@ -132,7 +132,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 | Command                     | Description                              |
 | --------------------------- | ---------------------------------------- |
 | Add Organization            | Add an organization                      |
-| Enter PAT for Org           | Update PAT for a specific org            |
+| Enter PAT for Org           | Re-enter PAT for a specific org          |
 | Remove Organization         | Remove an organization                   |
 | Remove All Organizations    | Remove all organizations                 |
 | Open Sprints                | Open the sprints page in the browser     |
@@ -162,7 +162,8 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 ### PAT Error
 
 - Error: "Authentication failed. The PAT is invalid or has expired."
-- Fix: Right-click the organization node and select "Enter PAT for Org" to reset the PAT
+- Fix: Right-click the organization node and select "Enter PAT for Org" to re-enter the PAT
+- The output log shows a masked value of the current PAT (first 4 chars only), removes the old PAT, then validates the new PAT
 
 ### Repositories Not Shown
 
@@ -216,7 +217,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 2. User settings > Personal access tokens > New Token
 3. 以下のスコープを選択:
    - Project and Team (Read)
-   - Work Items (Read)
+   - Work Items (Read&Write)
    - Code (Read)
    - Build (Read)
 4. トークンをコピー
@@ -311,7 +312,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | コマンド                    | 説明                                             |
 | --------------------------- | ------------------------------------------------ |
 | Add Organization            | 組織を追加                                       |
-| Enter PAT for Org           | 特定組織の PAT を更新                            |
+| Enter PAT for Org           | 特定組織の PAT を再入力する                      |
 | Remove Organization         | 組織を削除                                       |
 | Remove All Organizations    | すべての組織を削除                               |
 | Open Sprints                | スプリント管理ページを開く                       |
@@ -342,6 +343,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 - エラーメッセージ: "Authentication failed. The PAT is invalid or has expired."
 - 対応: 組織ノードを右クリックして「Enter PAT for Org」を選択して PAT を再設定
+- 実行時は、現行 PAT の先頭 4 文字のみを残したマスク値をログに出力し、旧 PAT を削除してから新 PAT で接続確認する
 
 ### リポジトリが表示されない
 
@@ -357,3 +359,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 ## 詳細仕様
 
 詳しい仕様については [.github/APP_SPEC.md](./.github/APP_SPEC.md) を参照
+
+# 謝辞
+
+Azure devops logo Icon by CoreUI on <a href="https://icon-icons.com/authors/923-coreui">Icon-Icons.com</a>
