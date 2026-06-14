@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.15](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.14...v0.0.15) (2026-06-14)
+
+
+### Features
+
+* PAT入力機能を改善し、ログにマスクされたPATを表示、既存PATを削除してから新PATを検証 ([6ebeb56](https://github.com/taizod1024/vscode-ado-extension/commit/6ebeb56784722c61e6d97b7af77233acb8a8955a))
+
+
+### Bug Fixes
+
+* remove duplicate case for pipelinesFolder in AdoApiClient URL generation ([104189b](https://github.com/taizod1024/vscode-ado-extension/commit/104189b80eed30e9680af7ee37306137d381c7df))
+* アイコン表示、不要API呼出削除 ([4fd58a1](https://github.com/taizod1024/vscode-ado-extension/commit/4fd58a175d5f1f08946c1ec8eb38ce132eaefd29))
+
 ### [0.0.14](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.13...v0.0.14) (2026-05-22)
 
 
