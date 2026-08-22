@@ -118,6 +118,8 @@ export interface AdoRepository {
 export interface AdoWorkItem {
   id: number;
   title: string;
+  /** Work Item 種別（例: "Epic", "Issue", "Task"） */
+  workItemType?: string;
   url?: string;
   /** 状態ラベル（例: "New", "Active", "Closed"） */
   status?: string;

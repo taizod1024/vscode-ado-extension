@@ -38,6 +38,7 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
   - プロジェクト下のすべてのスプリント（イテレーション）を表示
   - カレンダーアイコンで視覚的に識別
   - 各スプリントのワークアイテムを遅延ロードで取得
+  - ワークアイテムのラベルは `[種別] #ID タイトル` 形式で表示（例: `[Epic] #123 Login`）
 
 - **ワークアイテム一覧表示** (`ado-ext.openWorkItems`)
   - Azure DevOps の最近更新されたワークアイテムページ（`/_workitems/recentlyupdated/`）を Integrated Browser で開く
