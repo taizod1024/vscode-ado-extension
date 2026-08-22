@@ -37,7 +37,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 2. User settings > Personal access tokens > New Token
 3. Select the following scopes:
    - Project and Team (Read)
-   - Work Items (Read)
+   - Work Items (Read&Write)
    - Code (Read)
    - Build (Read)
 4. Copy the token
