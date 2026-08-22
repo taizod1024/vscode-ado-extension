@@ -729,6 +729,7 @@ export function activate(context: vscode.ExtensionContext) {
             else {
               const label = typeof arg?.label === "string" ? arg.label : String(arg?.label ?? "");
               title = String(label)
+                .replace(/^\[[^\]]+\]\s*/, "")
                 .replace(/^#\d+\s*/, "")
                 .trim();
             }

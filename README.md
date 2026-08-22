@@ -37,7 +37,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 2. User settings > Personal access tokens > New Token
 3. Select the following scopes:
    - Project and Team (Read)
-   - Work Items (Read)
+   - Work Items (Read&Write)
    - Code (Read)
    - Build (Read)
 4. Copy the token
@@ -66,12 +66,13 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 1. Expand Sprints and select a sprint
 2. Work items are displayed in a parent-child hierarchy
-3. Right-click the filter icon to change the view:
+3. Each work item label is shown as `[Type] #ID Title` (for example, `[Epic] #123 Login`)
+4. Right-click the filter icon to change the view:
    - all: show everything
    - assigned: items assigned to you
    - myactivity: items you created or edited
    - active: incomplete items
-4. Click the refresh icon on the sprint to reload
+5. Click the refresh icon on the sprint to reload
 
 ### Create Work Items
 
@@ -104,13 +105,14 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 ### Repository Operations
 
 1. Expand Repositories to view repos
-2. Click the icon buttons next to the repo to:
+2. Repositories are listed in ascending order by repository name
+3. Click the icon buttons next to the repo to:
    - Open URL: open the Web UI in the integrated browser
    - Clone Repository: clone locally (PAT is embedded automatically)
    - Open Git Graph: open Git Graph for the locally cloned repository
-3. Expand Branches to view the branch list
-4. Click the refresh icon on Branches to reload
-5. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
+4. Expand Branches to view the branch list
+5. Click the refresh icon on Branches to reload
+6. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
 
 ### Refresh the Tree
 
@@ -246,12 +248,13 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 1. Sprints を展開して目的のスプリントを選択
 2. ワークアイテムが親子階層で表示される
-3. フィルタアイコンを右クリックして表示内容を変更:
+3. 各ワークアイテムは `[種別] #ID タイトル` 形式で表示される（例: `[Epic] #123 Login`）
+4. フィルタアイコンを右クリックして表示内容を変更:
    - all: すべて表示
    - assigned: 自分に割り当てられたアイテム
    - myactivity: 自分が作成・編集したアイテム
    - active: 完了していないアイテム
-4. スプリントのリフレッシュアイコンをクリックして再表示
+5. スプリントのリフレッシュアイコンをクリックして再表示
 
 ### ワークアイテム作成
 
@@ -284,13 +287,14 @@ VS Code から Azure DevOps を操作する拡張機能です。
 ### リポジトリ操作
 
 1. Repositories を展開してリポジトリを表示
-2. リポジトリ横のアイコンをクリックして以下を実行:
+2. リポジトリ名の昇順で表示される
+3. リポジトリ横のアイコンをクリックして以下を実行:
    - Open URL: Web UI をブラウザで開く
    - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
    - Open Git Graph: ローカルにクローン済みのリポジトリの Git Graph を開く
-3. Branches を展開してブランチ一覧を表示
-4. Branches のリフレッシュアイコンをクリックして再表示
-5. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
+4. Branches を展開してブランチ一覧を表示
+5. Branches のリフレッシュアイコンをクリックして再表示
+6. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
 
 ### ツリーをリフレッシュ
 

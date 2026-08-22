@@ -481,7 +481,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return this.lazyLoadChildren<AdoRepository>(
         key,
         element,
-        async () => await this.apiClient.fetchRepositories(org, pid),
+        async () => {
+          const repos = await this.apiClient.fetchRepositories(org, pid);
+          return repos.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+        },
         repos => repos.map(r => this.makeRepositoryTreeItem(r, org, pid, resolvedProjForRepos)),
         "Loading repositories...",
       );
@@ -1042,7 +1045,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   }
 
   private makeWorkItemTreeItem(w: AdoWorkItem, org: string, projectId?: string): AdoTreeItem {
-    const it = new AdoTreeItem(`#${w.id} ${w.title}`, vscode.TreeItemCollapsibleState.None);
+    const it = new AdoTreeItem(this.formatWorkItemLabel(w), vscode.TreeItemCollapsibleState.None);
     it.itemType = "workItem";
     it.organization = org;
     it.projectId = projectId;
@@ -1061,7 +1064,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
   private makeWorkItemHierarchyItem(w: AdoWorkItem, org: string, projectId: string | undefined, iterCacheKey: string, childrenMap: Map<number, AdoWorkItem[]>): AdoTreeItem {
     const children = childrenMap.get(w.id) || [];
     const state = children.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
-    const it = new AdoTreeItem(`#${w.id} ${w.title}`, state);
+    const it = new AdoTreeItem(this.formatWorkItemLabel(w), state);
     it.itemType = "workItem";
     it.organization = org;
     it.projectId = projectId;
@@ -1076,6 +1079,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       it.description = w.assignee || "";
     } catch (e) {}
     return it;
+  }
+
+  private formatWorkItemLabel(w: AdoWorkItem): string {
+    const type = String(w.workItemType || "").trim();
+    const typeLabel = type.length > 0 ? type : "Work Item";
+    return `[${typeLabel}] #${w.id} ${w.title}`;
   }
 
   /** Work Item リストを親子階層に変換し、ルートノードの配列を返す */

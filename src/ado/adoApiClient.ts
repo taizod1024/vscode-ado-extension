@@ -114,7 +114,7 @@ export class AdoApiClient {
     if (ids.length === 0) return [];
 
     const idsStr = ids.join(",");
-    const fields = encodeURIComponent("System.Id,System.Title,System.State,System.Description,System.IterationPath,System.Parent,System.AssignedTo");
+    const fields = encodeURIComponent("System.Id,System.Title,System.WorkItemType,System.State,System.Description,System.IterationPath,System.Parent,System.AssignedTo");
     const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&fields=${fields}&api-version=6.0`;
     const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
     const items: AdoWorkItem[] = [];
@@ -126,6 +126,7 @@ export class AdoApiClient {
           webUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectName)}/_workitems/edit/${encodeURIComponent(String(wid))}`;
         }
         const state = (d.fields?.["System.State"] || d.fields?.["State"] || "") as string;
+        const workItemType = (d.fields?.["System.WorkItemType"] || d.fields?.["Work Item Type"] || "") as string;
         let rawDesc = d.fields?.["System.Description"] || d.fields?.["Description"] || "";
         if (rawDesc && typeof rawDesc === "string") {
           rawDesc = rawDesc
@@ -142,6 +143,7 @@ export class AdoApiClient {
         items.push({
           id: wid,
           title: (d.fields?.["System.Title"] || d.fields?.["Title"] || "(no title)") as string,
+          workItemType,
           url: webUrl,
           status: state,
           assignee,
