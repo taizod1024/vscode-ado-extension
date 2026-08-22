@@ -481,7 +481,10 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
       return this.lazyLoadChildren<AdoRepository>(
         key,
         element,
-        async () => await this.apiClient.fetchRepositories(org, pid),
+        async () => {
+          const repos = await this.apiClient.fetchRepositories(org, pid);
+          return repos.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+        },
         repos => repos.map(r => this.makeRepositoryTreeItem(r, org, pid, resolvedProjForRepos)),
         "Loading repositories...",
       );
