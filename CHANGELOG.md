@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.16](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.15...v0.0.16) (2026-08-22)
+
+
+### Features
+
+* work itemに分類を追加 ([d78c388](https://github.com/taizod1024/vscode-ado-extension/commit/d78c3889734733625a41411e719e74c8c2abb28f))
+
+
+### Bug Fixes
+
+* reposを昇順で表示するよう修正 ([48b0a54](https://github.com/taizod1024/vscode-ado-extension/commit/48b0a549079e17c2b560eff85edb2f40e88ba5e5))
+
 ### [0.0.15](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.14...v0.0.15) (2026-06-14)
 
 
