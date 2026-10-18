@@ -45,6 +45,11 @@
         "icon": "$(globe)"
       },
       {
+        "command": "ado-ext.openUrlExternal",
+        "title": "Azure DevOps: Open URL in External Browser",
+        "icon": "$(link-external)"
+      },
+      {
         "command": "ado-ext.openCreatePullRequest",
         "title": "Azure DevOps: Create Pull Request",
         "icon": "$(git-pull-request)"
@@ -208,6 +213,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "ado-ext.openUrlExternal",
+          "when": "view == azureDevOps.sidePanel && (viewItem =~ /^(organization|adoProject|reposFolder|pipelinesFolder|pipeline|pipelineRun|repo|board|pullrequest|pullRequestsFolder|boardsIteration|branch|workitem_todo|workitem_doing|workitem_done)$/)",
+          "group": "inline@100"
+        },
         {
           "command": "ado-ext.refreshNode",
           "when": "view == azureDevOps.sidePanel && viewItem == organization",

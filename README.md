@@ -108,6 +108,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 2. Repositories are listed in ascending order by repository name
 3. Click the icon buttons next to the repo to:
    - Open URL: open the Web UI in the integrated browser
+   - Open URL (External): open the Web UI in the default browser
    - Clone Repository: clone locally (PAT is embedded automatically)
    - Open Git Graph: open Git Graph for the locally cloned repository
 4. Expand Branches to view the branch list
@@ -147,6 +148,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 | Refresh Pipelines           | Refresh pipeline run list (keep filter)  |
 | Open Work Items             | Open the work items list                 |
 | Open URL                    | Open in the integrated browser           |
+| Open URL (External)         | Open in the default browser              |
 | Send Work Item to Copilot   | Send a work item to GitHub Copilot       |
 | Create Branch for Work Item | Create/checkout a branch for a work item |
 | Assign to me                | Assign a work item to yourself           |
@@ -289,7 +291,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 1. Repositories を展開してリポジトリを表示
 2. リポジトリ名の昇順で表示される
 3. リポジトリ横のアイコンをクリックして以下を実行:
-   - Open URL: Web UI をブラウザで開く
+   - Open URL: Web UI を内部ブラウザで開く
+   - Open URL (External): Web UI を既定の外部ブラウザで開く
    - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
    - Open Git Graph: ローカルにクローン済みのリポジトリの Git Graph を開く
 4. Branches を展開してブランチ一覧を表示
@@ -328,7 +331,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | Refresh PR Items            | PR 一覧を再読み込み（フィルタ維持）              |
 | Refresh Pipelines           | パイプライン実行履歴を再読み込み（フィルタ維持） |
 | Open Work Items             | ワークアイテム一覧を表示                         |
-| Open URL                    | Web UI をブラウザで開く                          |
+| Open URL                    | Web UI を内部ブラウザで開く                      |
+| Open URL (External)         | Web UI を既定の外部ブラウザで開く                |
 | Send Work Item to Copilot   | ワークアイテムを GitHub Copilot に送信           |
 | Create Branch for Work Item | ワークアイテムのブランチを作成/チェックアウト    |
 | Assign to me                | ワークアイテムを自分にアサイン                   |

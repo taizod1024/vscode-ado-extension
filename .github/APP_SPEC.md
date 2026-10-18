@@ -149,6 +149,8 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 - **URL を開く** (`ado-ext.openUrl`)
   - パネル内のアイテムから Web ページを Integrated Browser で開く
+- **URL を外部ブラウザで開く** (`ado-ext.openUrlExternal`)
+  - アイコンは `$(link-external)`。`ado-ext.openUrl` と同じ対象ノードのインラインに表示し、`vscode.env.openExternal` で OS の既定ブラウザで開く
   - URL 取得時に複数フォールバック手段を試行：
     1. `_links?.web?.href`（Web UI リンク）
     2. `url`（API リンク）
@@ -371,7 +373,7 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 - WIQL クエリ制限：最大 50 アイテムまでを詳細フェッチ
 - ブランチ表示：heads（ローカル・リモート）のみ、タグなし
-- PR 表示：基本情報のみ、詳細は Integrated Browser 確認が必要
+- PR 表示：基本情報のみ、詳細は Integrated Browser での確認が必要
 
 ### 今後の改善案
 
