@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
   try {
     // Register a TreeDataProvider for the side panel view id
     const provider = createTreeProvider(context, channel);
-    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
+    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider, showCollapseAll: true });
     context.subscriptions.push(treeView);
     provider.setTreeView(treeView);
 

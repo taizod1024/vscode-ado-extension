@@ -217,6 +217,8 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 ### サイドパネル（Activity Bar）
 
+ビュータイトルの一番右に「すべて折りたたむ」ボタンを表示する（`createTreeView` の `showCollapseAll: true`）。
+
 ```
 📍 Azure DevOps (Sidebar Icon)
 ├── 🏢 Organization 1
