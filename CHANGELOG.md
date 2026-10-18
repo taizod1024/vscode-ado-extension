@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.17](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.16...v0.0.17) (2026-10-18)
+
+
+### Features
+
+* サイドパネルに「すべて折りたたむ」ボタンを追加 ([47916d5](https://github.com/taizod1024/vscode-ado-extension/commit/47916d5371ea71f0ce75dfbcf67a27965018b686))
+* 外部ブラウザでURLを開く機能を追加し、関連するドキュメントを更新 ([d80c426](https://github.com/taizod1024/vscode-ado-extension/commit/d80c426e66999a53d53bdde9c1e416ebf2c32566))
+
 ### [0.0.16](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.15...v0.0.16) (2026-08-22)
 
 
