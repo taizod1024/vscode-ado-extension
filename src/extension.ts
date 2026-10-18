@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
   try {
     // Register a TreeDataProvider for the side panel view id
     const provider = createTreeProvider(context, channel);
-    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider });
+    const treeView = vscode.window.createTreeView("azureDevOps.sidePanel", { treeDataProvider: provider, showCollapseAll: true });
     context.subscriptions.push(treeView);
     provider.setTreeView(treeView);
 
@@ -177,24 +177,41 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Open project/repo/pipeline URL (integrated browser only)
+    // Open project/repo/pipeline URL (integrated browser)
+    const resolveUrl = (arg?: any): string => {
+      if (typeof arg === "string") return arg;
+      // Use getWebUrl() helper to extract Web URL with fallback logic
+      if (arg && typeof arg === "object") return provider.getClient().getWebUrl(arg);
+      return "";
+    };
+
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.openUrl", async (arg?: any) => {
         try {
-          let url: string = "";
-          if (typeof arg === "string") {
-            url = arg;
-          } else if (arg && typeof arg === "object") {
-            // Use getWebUrl() helper to extract Web URL with fallback logic
-            const client = provider.getClient();
-            url = client.getWebUrl(arg);
-          }
-
+          const url = resolveUrl(arg);
           if (!url) return;
           channel.appendLine(`open url - url=${url}`);
 
           await vscode.commands.executeCommand("simpleBrowser.show", url);
           channel.appendLine("opened with integrated browser");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          channel.appendLine(`Failed to open URL: ${msg}`);
+          vscode.window.showErrorMessage("Failed to open URL: " + msg);
+        }
+      }),
+    );
+
+    // Open project/repo/pipeline URL (external browser)
+    context.subscriptions.push(
+      vscode.commands.registerCommand("ado-ext.openUrlExternal", async (arg?: any) => {
+        try {
+          const url = resolveUrl(arg);
+          if (!url) return;
+          channel.appendLine(`open url external - url=${url}`);
+
+          await vscode.env.openExternal(vscode.Uri.parse(url));
+          channel.appendLine("opened with external browser");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           channel.appendLine(`Failed to open URL: ${msg}`);
