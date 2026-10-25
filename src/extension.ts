@@ -2,6 +2,27 @@ import * as vscode from "vscode";
 import { execSync } from "child_process";
 import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo, AdoWorkItem } from "./ado";
 
+interface GitRemoteSource {
+  readonly name: string;
+  readonly description?: string;
+  readonly url: string | string[];
+}
+
+interface GitRemoteSourceProvider {
+  readonly name: string;
+  readonly icon?: string;
+  readonly supportsQuery?: boolean;
+  getRemoteSources(query?: string): Promise<GitRemoteSource[]>;
+}
+
+interface GitApi {
+  registerRemoteSourceProvider(provider: GitRemoteSourceProvider): vscode.Disposable;
+}
+
+interface GitExtensionApi {
+  getAPI(version: 1): GitApi;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
   const channel = vscode.window.createOutputChannel("Azure DevOps Extension", { log: true });
@@ -17,6 +38,61 @@ export function activate(context: vscode.ExtensionContext) {
 
     channel.appendLine("registered TreeDataProvider for azureDevOps.sidePanel");
     channel.appendLine("extension path: " + context.extensionPath);
+
+    // Register Azure Repos as a source in Git: Clone.
+    const gitExtension = vscode.extensions.getExtension<GitExtensionApi>("vscode.git");
+    if (gitExtension) {
+      try {
+        const gitApi = gitExtension.exports.getAPI(1);
+        context.subscriptions.push(
+          gitApi.registerRemoteSourceProvider({
+            name: "Azure Repos",
+            icon: "repo",
+            supportsQuery: true,
+            async getRemoteSources(query?: string): Promise<GitRemoteSource[]> {
+              const remoteSources: GitRemoteSource[] = [];
+              const searchTerm = query?.trim().toLowerCase();
+
+              try {
+                for (const org of provider.getOrganizations()) {
+                  if (!(await context.secrets.get(`ado-ext.pat.${org}`))) {
+                    channel.appendLine(`Skipping Azure Repos source for ${org}: PAT is not configured`);
+                    continue;
+                  }
+
+                  const repositories = await provider.getClient().fetchRepositoriesForOrganization(org);
+                  for (const repository of repositories) {
+                    const name = `${repository.projectName}/${repository.name}`;
+                    const description = org;
+                    if (searchTerm && !`${name} ${description}`.toLowerCase().includes(searchTerm)) {
+                      continue;
+                    }
+
+                    remoteSources.push({
+                      name,
+                      description,
+                      url: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(repository.projectName)}/_git/${encodeURIComponent(repository.name)}`,
+                    });
+                  }
+                }
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                channel.appendLine(`Failed to load Azure Repos clone sources: ${msg}`);
+                throw err;
+              }
+
+              return remoteSources.sort((a, b) => a.name.localeCompare(b.name));
+            },
+          }),
+        );
+        channel.appendLine("registered Azure Repos Git remote source provider");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        channel.appendLine(`Failed to register Azure Repos Git remote source provider: ${msg}`);
+      }
+    } else {
+      channel.appendLine("Git extension is unavailable; Azure Repos clone source provider was not registered");
+    }
 
     // -----------------------
     // Common Context Extraction Helper

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AdoProject, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration, AdoPipeline, AdoPipelineRun } from "./types";
+import { AdoProject, AdoRepository, AdoRemoteRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration, AdoPipeline, AdoPipelineRun } from "./types";
 import { httpRequest } from "./api";
 
 /**
@@ -281,6 +281,32 @@ export class AdoApiClient {
       }
     }
     return repos;
+  }
+
+  async fetchRepositoriesForOrganization(organization: string, pat?: string): Promise<AdoRemoteRepository[]> {
+    const usePat = await this.resolvePat(organization, pat);
+    if (!usePat) throw new Error(`PAT not configured for organization "${organization}"`);
+
+    const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/repositories?api-version=6.0`;
+    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const repositories: AdoRemoteRepository[] = [];
+    if (data && Array.isArray(data.value)) {
+      for (const repository of data.value) {
+        const name = repository.name || repository.repositoryName;
+        const projectName = repository.project?.name;
+        if (!name || !projectName) continue;
+
+        repositories.push({
+          id: String(repository.id || repository.repositoryId || ""),
+          name: String(name),
+          projectName: String(projectName),
+          url: this.getWebUrl(repository),
+          defaultBranch: repository.defaultBranch || undefined,
+        });
+      }
+    }
+    this.channel?.appendLine(`Fetched ${repositories.length} repositories for organization ${organization}`);
+    return repositories;
   }
 
   // -----------------------

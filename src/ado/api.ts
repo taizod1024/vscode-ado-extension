@@ -21,8 +21,6 @@ export const ERROR_MESSAGES = {
 export type HttpRequestOptions = { channel?: vscode.LogOutputChannel; contentType?: string };
 
 export async function httpRequest(method: "GET" | "POST" | "PATCH", urlStr: string, pat: string, body?: any, opts?: HttpRequestOptions): Promise<any> {
-  const https = require("https");
-  const http = require("http");
   const u = new URL(urlStr);
   const channel = opts?.channel;
 
@@ -44,90 +42,46 @@ export async function httpRequest(method: "GET" | "POST" | "PATCH", urlStr: stri
     options.headers["Content-Length"] = Buffer.byteLength(payload);
   }
 
-  return new Promise((resolve, reject) => {
-    try {
-      const lib = u.protocol === "https:" ? https : http;
-      const req = lib.request(options, (res: any) => {
-        let bodyStr = "";
-        res.setEncoding("utf8");
-        res.on("data", (chunk: string) => (bodyStr += chunk));
-        res.on("end", () => {
-          const status = res.statusCode;
-          const masked = maskUrl(urlStr);
+  const masked = maskUrl(urlStr);
+  const log = (msg: string) => channel?.appendLine(`call api - request=${method} ${masked} ${msg}`);
 
-          // ステータスコードを最初に確認
-          if (status < 200 || status >= 300) {
-            try {
-              let parsed: any = {};
-              let errorMsg = `HTTP ${status} ${res.statusMessage || ""}`;
+  let res: Response;
+  let bodyStr: string;
+  try {
+    res = await fetch(urlStr, { method, headers: options.headers, body: payload, redirect: "manual" });
+    bodyStr = await res.text();
+  } catch (e: any) {
+    const msg = String(e?.cause?.message || e?.message || e);
+    log(`error=${msg}`);
+    throw e;
+  }
 
-              // 302リダイレクトは通常、認証失敗を示す
-              if (status === 302) {
-                errorMsg = ERROR_MESSAGES.PAT_REDIRECTED;
-              }
-
-              if (bodyStr) {
-                try {
-                  parsed = JSON.parse(bodyStr);
-                } catch (e) {
-                  // パース失敗は無視、bodyStrをそのまま使う
-                }
-              }
-
-              const err = new Error(errorMsg);
-              (err as any).status = status;
-              (err as any).body = parsed;
-              if (channel) {
-                channel.appendLine(`call api - request=${method} ${masked} error=${errorMsg} status=${status}`);
-              }
-              reject(err);
-            } catch (parseErr) {
-              const err = new Error(`HTTP ${status} ${res.statusMessage || ""}`);
-              (err as any).status = status;
-              if (channel) {
-                channel.appendLine(`call api - request=${method} ${masked} error=${String(err.message)}`);
-              }
-              reject(err);
-            }
-            return;
-          }
-
-          // 成功時のみJSON.parse
-          try {
-            let parsed: any = {};
-            if (bodyStr) {
-              parsed = JSON.parse(bodyStr);
-            }
-            if (channel) {
-              channel.appendLine(`call api - request=${method} ${masked} status=${status} ${res.statusMessage || ""}`);
-            }
-            resolve(parsed);
-          } catch (err) {
-            const masked2 = maskUrl(urlStr);
-            if (channel) {
-              channel.appendLine(`call api - request=${method} ${masked2} error=${String(err)}`);
-            }
-            reject(err);
-          }
-        });
-      });
-      req.on("error", (e: any) => {
-        const masked = maskUrl(urlStr);
-        if (channel) {
-          channel.appendLine(`call api - request=${method} ${masked} error=${String(e && e.message ? e.message : e)}`);
-        }
-        reject(e);
-      });
-      if (payload) req.write(payload);
-      req.end();
-    } catch (err) {
-      const masked = maskUrl(urlStr);
-      if (channel) {
-        channel.appendLine(`call api - request=${method} ${masked} error=${String(err)}`);
+  const status = res.status;
+  // redirect: "manual" の場合 Node は実ステータス(302)を返す
+  if (status < 200 || status >= 300) {
+    let parsed: any = {};
+    if (bodyStr) {
+      try {
+        parsed = JSON.parse(bodyStr);
+      } catch {
+        // 本文が JSON でない場合は無視する
       }
-      reject(err);
     }
-  });
-}
+    const errorMsg = status === 302 ? ERROR_MESSAGES.PAT_REDIRECTED : `HTTP ${status} ${res.statusText || ""}`;
+    const err = new Error(errorMsg);
+    (err as any).status = status;
+    (err as any).body = parsed;
+    log(`error=${errorMsg} status=${status}`);
+    throw err;
+  }
 
+  try {
+    const parsed = bodyStr ? JSON.parse(bodyStr) : {};
+    log(`status=${status} ${res.statusText || ""}`);
+    return parsed;
+  } catch (err) {
+    log(`error=${String(err)}`);
+    throw err;
+  }
+}
 // Deprecated: callers should use `httpRequest` directly

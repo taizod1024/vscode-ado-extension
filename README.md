@@ -14,7 +14,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 - Browse organizations, projects, sprints, work items, and repositories in the sidebar
 - View work items in a parent-child hierarchy (Epic → Feature → Story → Task) with filter support
-- Clone repositories with automatic PAT embedding
+- Clone repositories using the Git credential manager
 - View branches and pull requests per repository with filter support
 - View pipeline run history per repository with filter support (All / Running / Failed / Succeeded)
 - Create a pull request from a branch with source branch pre-filled
@@ -109,11 +109,19 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 3. Click the icon buttons next to the repo to:
    - Open URL: open the Web UI in the integrated browser
    - Open URL (External): open the Web UI in the default browser
-   - Clone Repository: clone locally (PAT is embedded automatically)
+   - Clone Repository: clone locally using the Git credential manager
    - Open Git Graph: open Git Graph for the locally cloned repository
 4. Expand Branches to view the branch list
 5. Click the refresh icon on Branches to reload
 6. Click the `$(git-pull-request)` icon on a branch to open the PR creation page with the source branch pre-filled
+
+### Clone Azure Repos from Git: Clone
+
+1. Open the Source Control view and select **Clone Repository**
+2. Select **Azure Repos** from the remote source list
+3. Search for a project or repository, then select a repository to clone
+
+The list uses repositories from configured organizations for which a PAT is stored. Authentication for the clone itself is handled by Git Credential Manager; credentials are not included in the clone URL.
 
 ### Refresh the Tree
 
@@ -178,7 +186,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 - PAT is encrypted and stored in VS Code Secret Storage
 - PAT is never written to logs (only the hostname is logged)
-- When cloning, the PAT is passed to git and is not stored locally
+- The Azure Repos source for VS Code's Git: Clone does not include PATs in clone URLs; Git Credential Manager handles authentication
 
 ## Detailed Specification
 
@@ -198,7 +206,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 - サイドバーで組織・プロジェクト・スプリント・ワークアイテム・リポジトリを参照
 - ワークアイテムを親子階層（Epic → Feature → Story → Task）でフィルタ付きで表示
-- PAT 自動埋め込みでリポジトリをクローン
+- Git Credential Manager を使ってリポジトリをクローン
 - リポジトリごとのブランチ・PR をフィルタ付きで表示
 - リポジトリごとのパイプライン実行履歴をフィルタ付きで表示（All / Running / Failed / Succeeded）
 - ブランチからソースブランチ自動入力で PR 作成ページを開く
@@ -293,11 +301,19 @@ VS Code から Azure DevOps を操作する拡張機能です。
 3. リポジトリ横のアイコンをクリックして以下を実行:
    - Open URL: Web UI を内部ブラウザで開く
    - Open URL (External): Web UI を既定の外部ブラウザで開く
-   - Clone Repository: ローカルにクローン（PAT 自動埋め込み）
+   - Clone Repository: Git Credential Manager を使ってローカルにクローン
    - Open Git Graph: ローカルにクローン済みのリポジトリの Git Graph を開く
 4. Branches を展開してブランチ一覧を表示
 5. Branches のリフレッシュアイコンをクリックして再表示
 6. ブランチの `$(git-pull-request)` アイコンをクリックするとソースブランチが自動入力された PR 作成ページを開く
+
+### Git: Clone から Azure Repos をクローン
+
+1. ソース管理ビューを開き、**Clone Repository** を選択
+2. リモートソース一覧から **Azure Repos** を選択
+3. プロジェクト名またはリポジトリ名で検索し、クローンするリポジトリを選択
+
+一覧には、組織として登録され PAT が保存されている Azure Repos のリポジトリが表示される。クローン時の認証は Git Credential Manager が行い、クローン URL に認証情報は含まれない。
 
 ### ツリーをリフレッシュ
 
@@ -362,7 +378,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 - PAT は VS Code の Secret Storage に暗号化して保存
 - ログには PAT は出力されない（ホスト名のみ）
-- リポジトリクローン時、PAT は git に引き渡されローカルに保存されない
+- VS Code の Git: Clone に登録する Azure Repos の URL に PAT は含めず、クローン時の認証は Git Credential Manager が行う
 
 ## 詳細仕様
 
