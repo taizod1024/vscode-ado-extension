@@ -114,6 +114,11 @@ export interface AdoRepository {
   defaultBranch?: string;
 }
 
+/** 組織内の Git リポジトリ情報 */
+export interface AdoRemoteRepository extends AdoRepository {
+  projectName: string;
+}
+
 /** Work item の簡易表現 */
 export interface AdoWorkItem {
   id: number;

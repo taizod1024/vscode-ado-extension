@@ -108,6 +108,12 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
   - 保存済み PAT を自動埋め込み（Basic 認証で HTTPS クローン時）
   - エラー時は PAT 埋め込みをスキップして処理継続
 
+- **Git: Clone の Azure Repos ソース**
+  - VS Code の Git 拡張に Azure Repos のリモートソースプロバイダーを登録する
+  - PAT が保存されている登録済み組織から組織横断の Git リポジトリ一覧 API で取得し、プロジェクト名・リポジトリ名で検索できる候補として表示する
+  - 候補のクローン URL に PAT は含めず、クローン認証は Git Credential Manager に委譲する
+  - 取得件数と API エラーを Output に記録する
+
 - **Pull Request 作成** (`ado-ext.openCreatePullRequest`)
   - ブランチノードのインラインアクション（`$(git-pull-request)` アイコン）として表示
   - クリックしたブランチを `sourceRef` に自動セット
