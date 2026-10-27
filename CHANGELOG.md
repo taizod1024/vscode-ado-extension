@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.19](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.18...v0.0.19) (2026-10-27)
+
+
+### Features
+
+* Azure Reposのリモートソースプロバイダーにアイコンを追加し、READMEを更新 ([89b3ac6](https://github.com/taizod1024/vscode-ado-extension/commit/89b3ac63b3089d2fed2ea865f28fa7f819d0790e))
+
 ### [0.0.18](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.17...v0.0.18) (2026-10-25)
 
 
