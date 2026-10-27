@@ -110,6 +110,7 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 - **Git: Clone の Azure Repos ソース**
   - VS Code の Git 拡張に Azure Repos のリモートソースプロバイダーを登録する
+  - `azure-devops` アイコンで表示する
   - PAT が保存されている登録済み組織から組織横断の Git リポジトリ一覧 API で取得し、プロジェクト名・リポジトリ名で検索できる候補として表示する
   - 候補のクローン URL に PAT は含めず、クローン認証は Git Credential Manager に委譲する
   - 取得件数と API エラーを Output に記録する
