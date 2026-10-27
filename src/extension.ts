@@ -47,7 +47,7 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
           gitApi.registerRemoteSourceProvider({
             name: "Azure Repos",
-            icon: "repo",
+            icon: "azure-devops",
             supportsQuery: true,
             async getRemoteSources(query?: string): Promise<GitRemoteSource[]> {
               const remoteSources: GitRemoteSource[] = [];

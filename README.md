@@ -121,7 +121,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 2. Select **Azure Repos** from the remote source list
 3. Search for a project or repository, then select a repository to clone
 
-The list uses repositories from configured organizations for which a PAT is stored. Authentication for the clone itself is handled by Git Credential Manager; credentials are not included in the clone URL.
+The Azure Repos source uses the Azure DevOps icon and lists repositories from configured organizations for which a PAT is stored. Authentication for the clone itself is handled by Git Credential Manager; credentials are not included in the clone URL.
 
 ### Refresh the Tree
 
