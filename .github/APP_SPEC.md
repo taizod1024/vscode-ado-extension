@@ -10,35 +10,31 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 - **組織追加** (`ado-ext.addOrganization`)
   - 新しい Azure DevOps 組織を追加する
-  - 認証方法を選択：
-    - **Sign In**：VS Code 認証プロバイダーを使用した Azure DevOps サインイン（デバイスフロー）
-    - **Enter PAT**：Personal Access Token（PAT）を直接入力
-  - サインイン試行時：
-    - デバイスフローで認証を試みる
-    - 成功時：取得したアクセストークンを Secret Storage に保存
-    - 失敗時：ユーザーに PAT 入力へのフォールバック選択肢を提示
-  - PAT 入力時：
-    - 従来どおり PAT を入力して検証・保存
-    - 既存ユーザーの互換性を維持
-  - 同じ組織名が既に登録済みの場合はエラーを表示して処理を中断する
-  - トークン/PAT は VS Code の Secret Storage に暗号化して保存される
-  - トークン/PAT が未設定の場合、ツリーに「Enter PAT to connect...」アイテムを表示し、クリックで認証へ誘導する
+  - 最初に「Work or school account」または「Personal account」を選択する
+  - Work or school account：
+    - VS Code 組み込みの Microsoft 認証プロバイダーから Azure DevOps 用スコープのセッションを取得する
+    - サインインユーザーのプロフィールを取得し、アクセス可能な組織を一覧表示して複数選択で登録する
+    - Azure DevOps スコープ取得または組織一覧取得に失敗した場合、PAT 接続へ案内する
+  - Personal account：組織名を入力し、PAT を検証・登録する
+  - PAT は Secret Storage に保存し、Microsoft アクセストークンは VS Code の認証セッションに管理させる
+  - 組織ごとに実際の認証方式を記録する。同じ組織が既に登録済みの場合は重複登録しない
+  - 認証情報が利用できない場合、ツリーに「Connect organization...」を表示して再接続を促す
 
-- **PAT 入力/更新** (`ado-ext.enterPatForOrg`)
-  - 指定した組織の PAT を設定または更新する
-  - 実行時に、現在 PAT/トークンの先頭 4 文字のみを残したマスク文字列を Output ログに出力する
-  - 新しい PAT の入力後、既存トークン/PAT を削除してから新 PAT で接続検証を行う
-  - 検証成功時のみ Secret Storage に保存される
-  - 以後の API 呼び出しに自動的に利用される
+- **組織への接続/再接続** (`ado-ext.enterPatForOrg`)
+  - 指定した組織を Work or school account または Personal account（PAT）で接続する
+  - PAT は既存 PAT を残したまま新しい PAT を検証し、成功した場合にのみ置き換える
+  - PAT は Secret Storage に保存し、Microsoft 認証では VS Code セッションとアカウント情報を参照する
   - 組織ノードの右クリックメニューから実行できる
 
 - **組織削除** (`ado-ext.removeOrganization`)
-  - 指定した組織と関連するトークン/PAT を削除する
+  - 指定した組織の拡張機能内登録、PAT、認証方式メタデータを削除する
+  - Azure DevOps 上の組織や Microsoft の共有サインインセッションは削除しない
   - 削除前に「REMOVE {org}」/「CANCEL」の確認ダイアログを表示する
   - 組織の全キャッシュがクリアされる
 
 - **すべてクリア** (`ado-ext.removeAllOrganizations`)
-  - すべての組織情報と保存済みトークン/PAT を一括クリアする
+  - すべての組織登録、PAT、認証方式メタデータを一括クリアする
+  - Microsoft の共有サインインセッションは維持する
   - キャッシュ・エラー状態も完全にクリアされる
 
 ### スプリント・ワークアイテム管理
@@ -120,7 +116,7 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 - **Git: Clone の Azure Repos ソース**
   - VS Code の Git 拡張に Azure Repos のリモートソースプロバイダーを登録する
   - `azure-devops` アイコンで表示する
-  - PAT が保存されている登録済み組織から組織横断の Git リポジトリ一覧 API で取得し、プロジェクト名・リポジトリ名で検索できる候補として表示する
+  - 認証情報が利用可能な登録済み組織から組織横断の Git リポジトリ一覧 API で取得し、プロジェクト名・リポジトリ名で検索できる候補として表示する
   - 候補のクローン URL に PAT は含めず、クローン認証は Git Credential Manager に委譲する
   - 取得件数と API エラーを Output に記録する
 
@@ -192,7 +188,7 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
   - 候補の詳細には `{組織} / {プロジェクト} [{状態}]` が表示される
   - ワークアイテムは `fetchMyActivity`（自分が関与したアイテム）で取得し、5 分間キャッシュする
   - 設定済み全組織・全プロジェクトから並列取得する
-  - PAT が未設定の組織はスキップされる
+  - 認証情報が利用できない組織はスキップされる
   - キャンセルトークンに対応しており、ユーザーが補完を閉じると即座にフェッチを中断する
 
 ### パイプライン操作
@@ -295,7 +291,7 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 - **`ERROR_MESSAGES.PAT_INVALID`**: "Authentication failed. The PAT is invalid or has expired."
   - PAT 検証失敗時に表示
-- **`ERROR_MESSAGES.PAT_REDIRECTED`**: "Authentication failed (redirected). Check your PAT."
+- **`ERROR_MESSAGES.AUTH_REDIRECTED`**: "Authentication failed (redirected). Check your authentication."
   - HTTP 302 リダイレクト（認証失敗）時に表示
 
 ### エラー処理の戦略
@@ -354,51 +350,40 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 ## 認証方式
 
-### サポートしている認証方法
+### Work or school account
 
-#### 1. VS Code 認証プロバイダー（推奨）
-- **方式**：Azure AD Device Flow
-- **フロー**：
-  1. ユーザーが「Sign In」を選択
-  2. デバイスコード取得、ユーザーに表示
-  3. ユーザーがブラウザで認証（https://microsoft.com/devicelogin）
-  4. VS Code 拡張が定期的にポーリングしてトークン取得
-  5. 取得したアクセストークンを Secret Storage に保存
-- **トークン形式**：JWT（Bearer 認証で Azure DevOps API へ送信）
-- **メリット**：
-  - PAT 管理不要
-  - 手動でトークン作成不要
-  - セキュアなデバイスフロー
+- VS Code 組み込みの Microsoft 認証プロバイダー (`microsoft`) を利用する。
+- Azure DevOps リソース (`499b84ac-1321-427f-aa17-267ca6975798/.default`) のセッション取得後、プロフィール API と Accounts API でユーザーがアクセス可能な組織を取得する。
+- 組織一覧に含まれる組織だけを選択・登録できる。すべての Azure DevOps 組織を列挙するものではない。
+- スコープまたは組織一覧 API が利用できない場合、手入力の組織名と PAT を案内する。
+- Microsoft アクセストークンは VS Code 認証セッションが管理し、拡張は組織ごとにセッションアカウント情報を参照する。
 
-#### 2. Personal Access Token (PAT)
-- **従来の方式**
-- **使用場面**：
-  - サインイン失敗時のフォールバック
-  - 既存ユーザーの互換性維持
-  - 自動化スクリプト用
-- **トークン形式**：Base64 (Basic 認証で Azure DevOps API へ送信)
+### Personal account / PAT
 
-### トークン判別ロジック
+- Personal account は組織名を手入力し、PAT を検証して接続する。
+- PAT は従来どおり VS Code Secret Storage に保存し、Basic 認証で Azure DevOps API に送信する。
+- Work or school account でも、Microsoft サインインが利用できない場合は PAT を選択できる。
 
-API リクエスト時に、保存済みトークンの形式を自動判別：
-- JWT（`"."` を含む）：Bearer 認証を使用
-- PAT（`"."` を含まない）：Basic 認証を使用
+### 組織ごとの認証方式
 
-これにより、既存 PAT ユーザーと新規サインインユーザーが混在可能。
+- 組織ごとに `microsoft` または `pat` を明示的に記録する。トークン文字列の形式から認証方式を推測しない。
+- Microsoft 認証は Bearer、PAT は Basic の `Authorization` ヘッダーを使用する。
+- 組織の登録解除では、その組織の PAT と認証メタデータを削除する。複数組織で共有する Microsoft セッションはログアウトしない。
+- 登録解除した組織は、再度サインインして組織一覧から選択することで登録できる。
+- 組織ノードは実際の認証方式に応じてアイコンを表示する。
 
 ### セキュリティ
 
-- トークン/PAT は VS Code の Secret Storage に暗号化保存
-- キー形式：`ado-ext.pat.{organizationName}`（命名は過去互換性のため `pat` を使用）
-- ユーザーが組織を削除すると同時にトークン/PAT も削除される
-- ログには Token/PAT は出力されない（マスキング）
+- PAT は VS Code の Secret Storage に暗号化保存する。
+- Microsoft アクセストークンは VS Code 認証セッションに保存・更新を委譲する。
+- ログにはトークン/PAT を出力しない。
 - ホスト名のみログに記録
 
 ### PAT 保管
 
-- VS Code の `context.secrets` にトークン/PAT を暗号化保存
+- VS Code の `context.secrets` に PAT を暗号化保存
 - キー形式：`ado-ext.pat.{organizationName}`
-- ユーザーが組織を削除すると同時にトークン/PAT も削除される
+- PAT 入力時は新しい PAT の接続検証に成功した場合のみ保存・置換する
 
 ### URL ロギング
 

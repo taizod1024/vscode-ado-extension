@@ -22,7 +22,7 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 - Create branches for work items automatically from the tree view
 - Assign or unassign work items directly from the tree view
 - Type `AB#` or `ab#` in the git commit message input to pick a work item from Azure Boards
-- PAT is stored securely in VS Code Secret Storage
+- PAT is stored securely in VS Code Secret Storage; Microsoft sign-in sessions are managed by VS Code
 
 ## Installation
 
@@ -31,38 +31,32 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ## Setup
 
-### Step 1: Add an Organization
+### Step 1: Choose an Account Type
 
 1. Click the Azure DevOps Extension icon in the VS Code sidebar
 2. Click the `+` icon at the top of the panel
-3. Enter your organization name
-4. Choose your authentication method:
-   - **Sign In (Recommended)**: Use your Azure DevOps account with single sign-on
-   - **Enter PAT**: Provide a Personal Access Token
+3. Choose **Work or school account** or **Personal account**
 
-#### Option A: Sign In (Recommended)
+#### Work or school account
 
-1. Select "Sign In"
-2. A browser window will open with a device code
-3. Enter the code in the browser to authenticate
-4. The extension will automatically save your access token
+1. Sign in through VS Code's built-in Microsoft authentication
+2. Select one or more Azure DevOps organizations available to your account
+3. If Microsoft sign-in cannot access Azure DevOps, choose the PAT option when prompted
 
-#### Option B: Use Personal Access Token (PAT)
+#### Personal account or PAT
 
-1. Go to [dev.azure.com](https://dev.azure.com)
-2. User settings > Personal access tokens > New Token
+1. Enter your Azure DevOps organization name
+2. Go to [dev.azure.com](https://dev.azure.com) > User settings > Personal access tokens > New Token
 3. Select the following scopes:
    - Project and Team (Read)
    - Work Items (Read&Write)
    - Code (Read)
    - Build (Read)
-4. Copy the token
-5. In VS Code, select "Enter PAT"
-6. Paste the token when prompted
+4. Copy the token and paste it into VS Code
 
-### Step 2: Start Browsing
+### Step 2: Re-add a Removed Organization
 
-Once you've authenticated, your organization and projects will appear in the Azure DevOps Extension sidebar.
+Click `+` again, sign in with your work or school account, and select the organization from the accessible organizations list.
 
 ## Usage
 
@@ -137,7 +131,7 @@ Once you've authenticated, your organization and projects will appear in the Azu
 2. Select **Azure Repos** from the remote source list
 3. Search for a project or repository, then select a repository to clone
 
-The Azure Repos source uses the Azure DevOps icon and lists repositories from configured organizations for which a PAT is stored. Authentication for the clone itself is handled by Git Credential Manager; credentials are not included in the clone URL.
+The Azure Repos source uses the Azure DevOps icon and lists repositories from configured organizations with available credentials. Authentication for the clone itself is handled by Git Credential Manager; credentials are not included in the clone URL.
 
 ### Refresh the Tree
 
@@ -159,7 +153,7 @@ The Azure Repos source uses the Azure DevOps icon and lists repositories from co
 | Command                     | Description                              |
 | --------------------------- | ---------------------------------------- |
 | Add Organization            | Add an organization                      |
-| Enter PAT for Org           | Re-enter PAT for a specific org          |
+| Connect Organization        | Reconnect with Microsoft sign-in or PAT  |
 | Remove Organization         | Remove an organization                   |
 | Remove All Organizations    | Remove all organizations                 |
 | Open Sprints                | Open the sprints page in the browser     |
@@ -190,8 +184,8 @@ The Azure Repos source uses the Azure DevOps icon and lists repositories from co
 ### PAT Error
 
 - Error: "Authentication failed. The PAT is invalid or has expired."
-- Fix: Right-click the organization node and select "Enter PAT for Org" to re-enter the PAT
-- The output log shows a masked value of the current PAT (first 4 chars only), removes the old PAT, then validates the new PAT
+- Fix: Right-click the organization node and select "Connect Organization" to sign in again or enter a PAT
+- The current PAT is masked in the output log. A replacement PAT is validated before it replaces the stored PAT
 
 ### Repositories Not Shown
 
@@ -201,7 +195,7 @@ The Azure Repos source uses the Azure DevOps icon and lists repositories from co
 ## Security
 
 - PAT is encrypted and stored in VS Code Secret Storage
-- PAT is never written to logs (only the hostname is logged)
+- Microsoft sign-in sessions are managed by VS Code; access tokens and PATs are not written to logs
 - The Azure Repos source for VS Code's Git: Clone does not include PATs in clone URLs; Git Credential Manager handles authentication
 
 ## Detailed Specification
@@ -230,7 +224,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 - ツリービューからワークアイテムに対応するブランチを自動作成
 - ツリービューからワークアイテムを自分にアサイン・アサイン解除
 - git コミットメッセージ入力欄で `AB#` または `ab#` と入力して Azure Boards のワークアイテムを選択
-- PAT は VS Code の Secret Storage に安全に保存
+- PAT は VS Code の Secret Storage に安全に保存し、Microsoft サインインセッションは VS Code が管理
 
 ## インストール
 
@@ -239,38 +233,32 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 ## セットアップ
 
-### ステップ 1: 組織を追加
+### ステップ 1: アカウント種別を選択
 
 1. VS Code のサイドバーで Azure DevOps Extension のアイコンをクリック
 2. パネル上部の `+` アイコンをクリック
-3. 組織名を入力
-4. 認証方法を選択：
-   - **サインイン（推奨）**：Azure DevOps アカウントでシングルサインオン
-   - **PAT を入力**：Personal Access Token を直接入力
+3. **Work or school account** または **Personal account** を選択
 
-#### 方法 A：サインイン（推奨）
+#### Work or school account
 
-1. 「サインイン」を選択
-2. ブラウザが開き、デバイスコードが表示されます
-3. ブラウザでコードを入力して認証
-4. 拡張機能が自動的にアクセストークンを保存
+1. VS Code 組み込みの Microsoft 認証でサインイン
+2. アカウントからアクセス可能な Azure DevOps 組織を選択
+3. Microsoft サインインで Azure DevOps に接続できない場合は、案内に従って PAT を入力
 
-#### 方法 B：Personal Access Token (PAT) を使用
+#### Personal account または PAT
 
-1. [dev.azure.com](https://dev.azure.com) にアクセス
-2. User settings > Personal access tokens > New Token
+1. Azure DevOps の組織名を入力
+2. [dev.azure.com](https://dev.azure.com) > User settings > Personal access tokens > New Token
 3. 以下のスコープを選択:
    - Project and Team (Read)
    - Work Items (Read&Write)
    - Code (Read)
    - Build (Read)
-4. トークンをコピー
-5. VS Code で「PAT を入力」を選択
-6. 求められたら、トークンを入力
+4. トークンをコピーして VS Code に貼り付け
 
-### ステップ 2: 参照を開始
+### ステップ 2: 解除した組織を再登録
 
-認証後、VS Code の Azure DevOps Extension サイドバーに、組織とプロジェクトが表示されます。
+再度 `+` をクリックし、Work or school account でサインインして、アクセス可能な組織一覧から選択します。
 
 ## 使い方
 
@@ -345,7 +333,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 2. リモートソース一覧から **Azure Repos** を選択
 3. プロジェクト名またはリポジトリ名で検索し、クローンするリポジトリを選択
 
-一覧には、組織として登録され PAT が保存されている Azure Repos のリポジトリが表示される。クローン時の認証は Git Credential Manager が行い、クローン URL に認証情報は含まれない。
+一覧には、認証情報が利用可能な組織として登録された Azure Repos のリポジトリが表示される。クローン時の認証は Git Credential Manager が行い、クローン URL に認証情報は含まれない。
 
 ### ツリーをリフレッシュ
 
@@ -367,7 +355,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 | コマンド                    | 説明                                             |
 | --------------------------- | ------------------------------------------------ |
 | Add Organization            | 組織を追加                                       |
-| Enter PAT for Org           | 特定組織の PAT を再入力する                      |
+| Connect Organization        | Microsoft サインインまたは PAT で組織に再接続 |
 | Remove Organization         | 組織を削除                                       |
 | Remove All Organizations    | すべての組織を削除                               |
 | Open Sprints                | スプリント管理ページを開く                       |
@@ -398,8 +386,8 @@ VS Code から Azure DevOps を操作する拡張機能です。
 ### PAT エラー
 
 - エラーメッセージ: "Authentication failed. The PAT is invalid or has expired."
-- 対応: 組織ノードを右クリックして「Enter PAT for Org」を選択して PAT を再設定
-- 実行時は、現行 PAT の先頭 4 文字のみを残したマスク値をログに出力し、旧 PAT を削除してから新 PAT で接続確認する
+- 対応: 組織ノードを右クリックして「Connect Organization」を選択し、再サインインまたは PAT 再設定を行う
+- 現在の PAT はログでマスクされる。新しい PAT は検証成功後に保存値と置き換わる
 
 ### リポジトリが表示されない
 
@@ -409,7 +397,7 @@ VS Code から Azure DevOps を操作する拡張機能です。
 ## セキュリティ
 
 - PAT は VS Code の Secret Storage に暗号化して保存
-- ログには PAT は出力されない（ホスト名のみ）
+- Microsoft サインインセッションは VS Code が管理し、アクセストークンと PAT はログに出力されない
 - VS Code の Git: Clone に登録する Azure Repos の URL に PAT は含めず、クローン時の認証は Git Credential Manager が行う
 
 ## 詳細仕様

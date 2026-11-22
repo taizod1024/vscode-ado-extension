@@ -21,12 +21,6 @@
     "vscode.git"
   ],
   "contributes": {
-    "authentication": [
-      {
-        "label": "Azure DevOps",
-        "id": "azure-devops"
-      }
-    ],
     "commands": [
       {
         "command": "ado-ext.refreshIterationItems",
@@ -150,7 +144,7 @@
       },
       {
         "command": "ado-ext.enterPatForOrg",
-        "title": "Azure DevOps: Enter PAT for Org",
+        "title": "Azure DevOps: Connect Organization",
         "icon": "$(key)"
       },
       {
