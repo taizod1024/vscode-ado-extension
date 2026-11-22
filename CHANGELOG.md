@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.20](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.19...v0.0.20) (2026-11-22)
+
+
+### Features
+
+* Add VS Code Authentication Provider for Azure DevOps sign-in ([e6d9026](https://github.com/taizod1024/vscode-ado-extension/commit/e6d902682a5bfd31cc64efb77f805ba87857530a))
+* **auth:** refactor authentication to support Microsoft sign-in and improve PAT handling ([8365e22](https://github.com/taizod1024/vscode-ado-extension/commit/8365e2259b02d693f6c7224a4ac18a3b6f6b985d))
+
 ### [0.0.19](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.18...v0.0.19) (2026-10-27)
 
 
