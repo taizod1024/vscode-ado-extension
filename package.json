@@ -144,7 +144,7 @@
       },
       {
         "command": "ado-ext.enterPatForOrg",
-        "title": "Azure DevOps: Enter PAT for Org",
+        "title": "Azure DevOps: Connect Organization",
         "icon": "$(key)"
       },
       {

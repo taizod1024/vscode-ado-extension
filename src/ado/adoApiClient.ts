@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AdoProject, AdoRepository, AdoRemoteRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration, AdoPipeline, AdoPipelineRun } from "./types";
-import { httpRequest } from "./api";
+import { AdoApiCredential, httpRequest } from "./api";
+import { getMicrosoftSession, getOrganizationAuthentication, resolveOrganizationCredential } from "./auth";
 
 /**
  * ADO API クライアント：API 呼び出しと認証ロジックを管理します。
@@ -14,7 +15,6 @@ export class AdoApiClient {
   private channel?: vscode.LogOutputChannel;
   private projectsByOrg: { [org: string]: AdoProject[] } = {};
   private projectsFetchPromises: { [org: string]: Promise<AdoProject[]> } = {};
-  private patCache: { [org: string]: string } = {};
 
   // -----------------------
   // Constructor
@@ -22,16 +22,6 @@ export class AdoApiClient {
   constructor(context?: vscode.ExtensionContext, channel?: vscode.LogOutputChannel) {
     this.context = context;
     this.channel = channel;
-  }
-
-  // -----------------------
-  // Configuration
-  // -----------------------
-  /**
-   * PAT キャッシュをクリアします。
-   */
-  clearPatCache(): void {
-    this.patCache = {};
   }
 
   // -----------------------
@@ -44,10 +34,10 @@ export class AdoApiClient {
 
     const p = (async () => {
       try {
-        const usePat = await this.resolvePat(organization, pat);
-        if (!usePat) throw new Error("PAT not provided");
+        const credential = await resolveOrganizationCredential(this.context, organization, pat);
+        if (!credential) throw new Error(`Authentication not configured for organization "${organization}"`);
         const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/projects?api-version=6.0`;
-        const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+        const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
         const projects: AdoProject[] = [];
         if (data && Array.isArray(data.value)) {
           for (const p of data.value) {
@@ -78,8 +68,8 @@ export class AdoApiClient {
   // Work Items
   // -----------------------
   async fetchWorkItemsByWiql(organization: string, wiql: string, projectIdOrName?: string, pat?: string): Promise<AdoWorkItem[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
 
     let projectName = projectIdOrName || "";
     if (projectIdOrName) {
@@ -105,7 +95,7 @@ export class AdoApiClient {
 
     const wiqlUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/wiql?api-version=6.0`;
     const queryBody = { query: wiql };
-    const wiqlResult: any = await httpRequest("POST", wiqlUrl, usePat, queryBody, { channel: this.channel });
+    const wiqlResult: any = await httpRequest("POST", wiqlUrl, credential, queryBody, { channel: this.channel });
 
     const ids = (wiqlResult?.workItems || [])
       .slice(0, 50)
@@ -116,7 +106,7 @@ export class AdoApiClient {
     const idsStr = ids.join(",");
     const fields = encodeURIComponent("System.Id,System.Title,System.WorkItemType,System.State,System.Description,System.IterationPath,System.Parent,System.AssignedTo");
     const detailsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/wit/workitems?ids=${encodeURIComponent(idsStr)}&fields=${fields}&api-version=6.0`;
-    const details = await httpRequest("GET", detailsUrl, usePat || "", undefined, { channel: this.channel });
+    const details = await httpRequest("GET", detailsUrl, credential, undefined, { channel: this.channel });
     const items: AdoWorkItem[] = [];
     if (details && Array.isArray(details.value)) {
       for (const d of details.value) {
@@ -207,12 +197,12 @@ export class AdoApiClient {
   }
 
   async fetchIterations(organization: string, projectIdOrName?: string, pat?: string): Promise<AdoIteration[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     if (!projName) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/work/teamsettings/iterations?api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const iterations: AdoIteration[] = [];
     if (data && Array.isArray(data.value)) {
       for (const it of data.value) {
@@ -251,10 +241,10 @@ export class AdoApiClient {
   // Branches
   // -----------------------
   async fetchBranches(organization: string, repoIdOrName: string, pat?: string): Promise<AdoBranch[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/repositories/${encodeURIComponent(repoIdOrName)}/refs?filter=heads&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const out: AdoBranch[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
@@ -266,10 +256,10 @@ export class AdoApiClient {
   }
 
   async fetchRepositories(organization: string, projectIdOrName: string, pat?: string): Promise<AdoRepository[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projectIdOrName)}/_apis/git/repositories?api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const repos: AdoRepository[] = [];
     if (data && Array.isArray(data.value)) {
       for (const r of data.value) {
@@ -284,11 +274,11 @@ export class AdoApiClient {
   }
 
   async fetchRepositoriesForOrganization(organization: string, pat?: string): Promise<AdoRemoteRepository[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) throw new Error(`PAT not configured for organization "${organization}"`);
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) throw new Error(`Authentication not configured for organization "${organization}"`);
 
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/repositories?api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const repositories: AdoRemoteRepository[] = [];
     if (data && Array.isArray(data.value)) {
       for (const repository of data.value) {
@@ -313,12 +303,12 @@ export class AdoApiClient {
   // Pipelines
   // -----------------------
   async fetchPipelines(organization: string, projectIdOrName: string, pat?: string): Promise<AdoPipeline[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     if (!projName) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines?$top=50&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const out: AdoPipeline[] = [];
     if (data && Array.isArray(data.value)) {
       for (const p of data.value) {
@@ -333,13 +323,13 @@ export class AdoApiClient {
   }
 
   async fetchPipelinesByRepository(organization: string, projectIdOrName: string, repositoryId: string, pat?: string): Promise<AdoPipeline[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     if (!projName) return [];
 
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/build/definitions?repositoryId=${encodeURIComponent(repositoryId)}&repositoryType=TfsGit&queryOrder=lastModifiedDescending&$top=50&api-version=7.1-preview.7`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const out: AdoPipeline[] = [];
     if (data && Array.isArray(data.value)) {
       for (const definition of data.value) {
@@ -354,8 +344,8 @@ export class AdoApiClient {
   }
 
   async fetchPipelineRuns(organization: string, projectIdOrName: string, pipelineId: number, pat?: string): Promise<AdoPipelineRun[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const projName = await this.resolveProjectName(organization, projectIdOrName);
     if (!projName) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/pipelines/${pipelineId}/runs?$top=50&api-version=6.0`;
@@ -365,7 +355,7 @@ export class AdoApiClient {
       this.channel.appendLine(`[FETCH_RUNS] debug=${debugMode} url=${url}`);
     }
 
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
 
     if (debugMode && this.channel && data?.value?.length > 0) {
       this.channel.appendLine(`[DEBUG] Response sample (first run):`);
@@ -395,10 +385,10 @@ export class AdoApiClient {
   // Pull Requests
   // -----------------------
   async fetchPullRequestsByStatus(organization: string, repoIdOrName: string, status: string, pat?: string): Promise<AdoPullRequest[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&searchCriteria.status=${encodeURIComponent(status)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
     const out: AdoPullRequest[] = [];
     if (data && Array.isArray(data.value)) {
       for (const pr of data.value) {
@@ -418,11 +408,11 @@ export class AdoApiClient {
   }
 
   async fetchPullRequestsMine(organization: string, repoIdOrName: string, pat?: string): Promise<AdoPullRequest[]> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return [];
+    const credential = await resolveOrganizationCredential(this.context, organization, pat);
+    if (!credential) return [];
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/git/pullrequests?searchCriteria.repositoryId=${encodeURIComponent(repoIdOrName)}&api-version=6.0`;
-    const data: any = await httpRequest("GET", url, usePat, undefined, { channel: this.channel });
-    const me = await this.fetchAuthenticatedUser(organization, usePat);
+    const data: any = await httpRequest("GET", url, credential, undefined, { channel: this.channel });
+    const me = await this.fetchAuthenticatedUser(organization, credential);
     const myId = me?.id || me?.descriptor || me?.uniqueName || me?.providerDisplayName;
     const myUniqueName = String(me?.uniqueName || "").toLowerCase();
     const out: AdoPullRequest[] = [];
@@ -479,15 +469,15 @@ export class AdoApiClient {
   /**
    * 接続情報 API から現在の認証ユーザーを取得します。
    * @param organization 組織名
-   * @param pat PAT（省略時は Secret Storage から解決）
+   * @param suppliedCredential 解決済みの資格情報（省略時は保存済み情報から解決）
    * @returns authenticatedUser 情報。取得失敗時は undefined
    */
-  private async fetchAuthenticatedUser(organization: string, pat?: string): Promise<any | undefined> {
-    const usePat = await this.resolvePat(organization, pat);
-    if (!usePat) return undefined;
+  private async fetchAuthenticatedUser(organization: string, suppliedCredential?: AdoApiCredential): Promise<any | undefined> {
+    const credential = suppliedCredential || (await resolveOrganizationCredential(this.context, organization));
+    if (!credential) return undefined;
     try {
       const connUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/_apis/connectionData`;
-      const connData = await httpRequest("GET", connUrl, usePat, undefined, { channel: this.channel });
+      const connData = await httpRequest("GET", connUrl, credential, undefined, { channel: this.channel });
       return connData?.authenticatedUser;
     } catch (e) {
       this.channel?.appendLine(`[fetchAuthenticatedUser] failed: ${e}`);
@@ -495,22 +485,12 @@ export class AdoApiClient {
     }
   }
 
-  private async resolvePat(org: string, pat?: string): Promise<string | undefined> {
-    if (pat) return pat;
-
-    // キャッシュをチェック
-    if (this.patCache[org]) return this.patCache[org];
-
-    if (this.context) {
-      try {
-        const stored = await this.context.secrets.get(this.patKeyForOrg(org));
-        if (stored) {
-          this.patCache[org] = stored;
-          return stored;
-        }
-      } catch (e) {}
+  async hasCredential(organization: string): Promise<boolean> {
+    const authentication = getOrganizationAuthentication(this.context, organization);
+    if (authentication?.method === "microsoft") {
+      return !!(await getMicrosoftSession(authentication.account));
     }
-    return undefined;
+    return !!(await this.context?.secrets.get(`ado-ext.pat.${organization}`));
   }
 
   async resolveProjectName(org: string, idOrName?: string): Promise<string> {
@@ -526,10 +506,6 @@ export class AdoApiClient {
     if (proj && proj.name) return proj.name;
     if (/^[0-9a-fA-F-]{32,36}$/.test(String(idOrName))) return "";
     return String(idOrName);
-  }
-
-  private patKeyForOrg(org: string): string {
-    return `ado-ext.pat.${org}`;
   }
 
   /**
@@ -615,15 +591,15 @@ export class AdoApiClient {
    * すべて失敗した場合は例外を投げます。
    */
   async updateWorkItemState(organization: string, projectIdOrName: string | undefined, workItemId: number, targetStates: string[]): Promise<string> {
-    const usePat = await this.resolvePat(organization);
-    if (!usePat) throw new Error("PAT not provided");
+    const credential = await resolveOrganizationCredential(this.context, organization);
+    if (!credential) throw new Error(`Authentication not configured for organization "${organization}"`);
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=6.0`;
     let lastError: Error | undefined;
     for (const state of targetStates) {
       try {
         const body = [{ op: "add", path: "/fields/System.State", value: state }];
-        const result = await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
+        const result = await httpRequest("PATCH", url, credential, body, { channel: this.channel, contentType: "application/json-patch+json" });
         return (result?.fields?.["System.State"] ?? state) as string;
       } catch (e) {
         lastError = e as Error;
@@ -633,10 +609,10 @@ export class AdoApiClient {
   }
 
   async assignWorkItemToMe(organization: string, projectIdOrName: string | undefined, workItemId: number): Promise<string> {
-    const usePat = await this.resolvePat(organization);
-    if (!usePat) throw new Error("PAT not provided");
+    const credential = await resolveOrganizationCredential(this.context, organization);
+    if (!credential) throw new Error(`Authentication not configured for organization "${organization}"`);
 
-    const me = await this.fetchAuthenticatedUser(organization, usePat);
+    const me = await this.fetchAuthenticatedUser(organization, credential);
     this.channel?.appendLine(`[assignWorkItemToMe] authenticatedUser: ${JSON.stringify(me)}`);
 
     const assignee: string | undefined = me?.properties?.Account?.$value || me?.providerDisplayName || me?.uniqueName || me?.id;
@@ -645,7 +621,7 @@ export class AdoApiClient {
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=6.0`;
     const body = [{ op: "add", path: "/fields/System.AssignedTo", value: assignee }];
-    const result = await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
+    const result = await httpRequest("PATCH", url, credential, body, { channel: this.channel, contentType: "application/json-patch+json" });
     return (result?.fields?.["System.AssignedTo"]?.displayName ?? assignee) as string;
   }
 
@@ -656,11 +632,11 @@ export class AdoApiClient {
    * @param workItemId Work Item の ID
    */
   async unassignWorkItem(organization: string, projectIdOrName: string | undefined, workItemId: number): Promise<void> {
-    const usePat = await this.resolvePat(organization);
-    if (!usePat) throw new Error("PAT not provided");
+    const credential = await resolveOrganizationCredential(this.context, organization);
+    if (!credential) throw new Error(`Authentication not configured for organization "${organization}"`);
     const projName = (await this.resolveProjectName(organization, projectIdOrName)) || projectIdOrName || "";
     const url = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(projName)}/_apis/wit/workitems/${workItemId}?api-version=6.0`;
     const body = [{ op: "add", path: "/fields/System.AssignedTo", value: "" }];
-    await httpRequest("PATCH", url, usePat, body, { channel: this.channel, contentType: "application/json-patch+json" });
+    await httpRequest("PATCH", url, credential, body, { channel: this.channel, contentType: "application/json-patch+json" });
   }
 }
