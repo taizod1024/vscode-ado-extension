@@ -10,26 +10,35 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 - **組織追加** (`ado-ext.addOrganization`)
   - 新しい Azure DevOps 組織を追加する
-  - 組織名と PAT（Personal Access Token）の入力が必要
+  - 認証方法を選択：
+    - **Sign In**：VS Code 認証プロバイダーを使用した Azure DevOps サインイン（デバイスフロー）
+    - **Enter PAT**：Personal Access Token（PAT）を直接入力
+  - サインイン試行時：
+    - デバイスフローで認証を試みる
+    - 成功時：取得したアクセストークンを Secret Storage に保存
+    - 失敗時：ユーザーに PAT 入力へのフォールバック選択肢を提示
+  - PAT 入力時：
+    - 従来どおり PAT を入力して検証・保存
+    - 既存ユーザーの互換性を維持
   - 同じ組織名が既に登録済みの場合はエラーを表示して処理を中断する
-  - PAT は VS Code の Secret Storage に暗号化して保存される
-  - PAT が未設定の場合、ツリーに「Enter PAT to connect...」アイテムを表示し、クリックで PAT 入力へ誘導する
+  - トークン/PAT は VS Code の Secret Storage に暗号化して保存される
+  - トークン/PAT が未設定の場合、ツリーに「Enter PAT to connect...」アイテムを表示し、クリックで認証へ誘導する
 
 - **PAT 入力/更新** (`ado-ext.enterPatForOrg`)
   - 指定した組織の PAT を設定または更新する
-  - 実行時に、現在 PAT の先頭 4 文字のみを残したマスク文字列を Output ログに出力する
-  - 新しい PAT の入力後、既存 PAT を削除してから新 PAT で接続検証を行う
+  - 実行時に、現在 PAT/トークンの先頭 4 文字のみを残したマスク文字列を Output ログに出力する
+  - 新しい PAT の入力後、既存トークン/PAT を削除してから新 PAT で接続検証を行う
   - 検証成功時のみ Secret Storage に保存される
   - 以後の API 呼び出しに自動的に利用される
   - 組織ノードの右クリックメニューから実行できる
 
 - **組織削除** (`ado-ext.removeOrganization`)
-  - 指定した組織と関連する PAT を削除する
+  - 指定した組織と関連するトークン/PAT を削除する
   - 削除前に「REMOVE {org}」/「CANCEL」の確認ダイアログを表示する
   - 組織の全キャッシュがクリアされる
 
 - **すべてクリア** (`ado-ext.removeAllOrganizations`)
-  - すべての組織情報と保存済み PAT を一括クリアする
+  - すべての組織情報と保存済みトークン/PAT を一括クリアする
   - キャッシュ・エラー状態も完全にクリアされる
 
 ### スプリント・ワークアイテム管理
@@ -343,11 +352,53 @@ VS Code から Azure DevOps を操作する拡張機能。サイドパネルで�
 
 > PAT 作成時は上記 4 スコープを `Read` で付与すれば最小権限で動作する。
 
+## 認証方式
+
+### サポートしている認証方法
+
+#### 1. VS Code 認証プロバイダー（推奨）
+- **方式**：Azure AD Device Flow
+- **フロー**：
+  1. ユーザーが「Sign In」を選択
+  2. デバイスコード取得、ユーザーに表示
+  3. ユーザーがブラウザで認証（https://microsoft.com/devicelogin）
+  4. VS Code 拡張が定期的にポーリングしてトークン取得
+  5. 取得したアクセストークンを Secret Storage に保存
+- **トークン形式**：JWT（Bearer 認証で Azure DevOps API へ送信）
+- **メリット**：
+  - PAT 管理不要
+  - 手動でトークン作成不要
+  - セキュアなデバイスフロー
+
+#### 2. Personal Access Token (PAT)
+- **従来の方式**
+- **使用場面**：
+  - サインイン失敗時のフォールバック
+  - 既存ユーザーの互換性維持
+  - 自動化スクリプト用
+- **トークン形式**：Base64 (Basic 認証で Azure DevOps API へ送信)
+
+### トークン判別ロジック
+
+API リクエスト時に、保存済みトークンの形式を自動判別：
+- JWT（`"."` を含む）：Bearer 認証を使用
+- PAT（`"."` を含まない）：Basic 認証を使用
+
+これにより、既存 PAT ユーザーと新規サインインユーザーが混在可能。
+
+### セキュリティ
+
+- トークン/PAT は VS Code の Secret Storage に暗号化保存
+- キー形式：`ado-ext.pat.{organizationName}`（命名は過去互換性のため `pat` を使用）
+- ユーザーが組織を削除すると同時にトークン/PAT も削除される
+- ログには Token/PAT は出力されない（マスキング）
+- ホスト名のみログに記録
+
 ### PAT 保管
 
-- VS Code の `context.secrets` に PAT を暗号化保存
+- VS Code の `context.secrets` にトークン/PAT を暗号化保存
 - キー形式：`ado-ext.pat.{organizationName}`
-- ユーザーが組織を削除すると同時に PAT も削除される
+- ユーザーが組織を削除すると同時にトークン/PAT も削除される
 
 ### URL ロギング
 

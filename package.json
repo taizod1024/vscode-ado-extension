@@ -21,6 +21,12 @@
     "vscode.git"
   ],
   "contributes": {
+    "authentication": [
+      {
+        "label": "Azure DevOps",
+        "id": "azure-devops"
+      }
+    ],
     "commands": [
       {
         "command": "ado-ext.refreshIterationItems",

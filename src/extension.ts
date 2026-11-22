@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
-import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo, AdoWorkItem } from "./ado";
+import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo, AdoWorkItem, AzureDevOpsAuthenticationProvider, AuthUtils } from "./ado";
 
 interface GitRemoteSource {
   readonly name: string;
@@ -543,14 +543,72 @@ export function activate(context: vscode.ExtensionContext) {
             return;
           }
 
-          // 2. org を先に登録（PAT 入力前にキャンセルされても org は残す）
+          // 2. org を先に登録
           provider.addOrganization(org);
 
-          // 3. PAT を入力
+          // 3. Try sign in first
+          const authProvider = new AzureDevOpsAuthenticationProvider(context, channel);
+          const signInChoice = await vscode.window.showQuickPick(
+            [{ label: "Sign in", detail: "Use Azure DevOps account" }, { label: "Enter PAT", detail: "Use Personal Access Token" }],
+            { placeHolder: "Choose authentication method" }
+          );
+
+          if (!signInChoice) return; // User cancelled
+
+          if (signInChoice.label === "Sign in") {
+            const token = await AuthUtils.trySignIn(authProvider, org, channel);
+            if (token) {
+              // Store token as PAT (OAuth tokens can be used like PAT with Bearer auth)
+              try {
+                channel.appendLine(`Attempting to verify token for organization: ${org}`);
+                const isValid = await AuthUtils.verifyToken(token, channel);
+                if (isValid) {
+                  channel.appendLine(`Token verification succeeded for ${org}`);
+                  await context.secrets.store(`ado-ext.pat.${org}`, token);
+                  await vscode.window.showInformationMessage(`Organization "${org}" added successfully via sign in.`);
+                  return;
+                } else {
+                  channel.appendLine(`Token verification failed for ${org}`);
+                  const fallback = await vscode.window.showQuickPick(
+                    ["Try again", "Enter PAT instead", "Cancel"],
+                    { placeHolder: "Token verification failed. What would you like to do?" }
+                  );
+                  if (fallback === "Enter PAT instead") {
+                    // Fall through to PAT input
+                  } else {
+                    return;
+                  }
+                }
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                channel.appendLine(`Error verifying token: ${msg}`);
+                const fallback = await vscode.window.showQuickPick(
+                  ["Try again", "Enter PAT instead", "Cancel"],
+                  { placeHolder: "Failed to verify token. What would you like to do?" }
+                );
+                if (fallback === "Enter PAT instead") {
+                  // Fall through to PAT input
+                } else {
+                  return;
+                }
+              }
+            } else {
+              // Sign in failed, ask if user wants to try PAT
+              const fallback = await vscode.window.showQuickPick(
+                ["Enter PAT instead", "Cancel"],
+                { placeHolder: "Sign in failed. Would you like to enter a PAT?" }
+              );
+              if (fallback !== "Enter PAT instead") {
+                return;
+              }
+            }
+          }
+
+          // 4. PAT を入力
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // 4. PAT を検証・保存（org はすでに登録済みのため addOrgToProvider=false）
+          // 5. PAT を検証・保存（org はすでに登録済みのため addOrgToProvider=false）
           await handlePatValidationAndSave(org, pat, false);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

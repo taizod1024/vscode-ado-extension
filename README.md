@@ -31,7 +31,23 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
 
 ## Setup
 
-### Step 1: Get a PAT
+### Step 1: Add an Organization
+
+1. Click the Azure DevOps Extension icon in the VS Code sidebar
+2. Click the `+` icon at the top of the panel
+3. Enter your organization name
+4. Choose your authentication method:
+   - **Sign In (Recommended)**: Use your Azure DevOps account with single sign-on
+   - **Enter PAT**: Provide a Personal Access Token
+
+#### Option A: Sign In (Recommended)
+
+1. Select "Sign In"
+2. A browser window will open with a device code
+3. Enter the code in the browser to authenticate
+4. The extension will automatically save your access token
+
+#### Option B: Use Personal Access Token (PAT)
 
 1. Go to [dev.azure.com](https://dev.azure.com)
 2. User settings > Personal access tokens > New Token
@@ -41,12 +57,12 @@ A VS Code extension to interact with Azure DevOps from the sidebar.
    - Code (Read)
    - Build (Read)
 4. Copy the token
+5. In VS Code, select "Enter PAT"
+6. Paste the token when prompted
 
-### Step 2: Add an Organization
+### Step 2: Start Browsing
 
-1. Click the Azure DevOps Extension icon in the VS Code sidebar
-2. Click the `+` icon at the top of the panel
-3. Enter your organization name and PAT
+Once you've authenticated, your organization and projects will appear in the Azure DevOps Extension sidebar.
 
 ## Usage
 
@@ -223,7 +239,23 @@ VS Code から Azure DevOps を操作する拡張機能です。
 
 ## セットアップ
 
-### ステップ 1: PAT を取得
+### ステップ 1: 組織を追加
+
+1. VS Code のサイドバーで Azure DevOps Extension のアイコンをクリック
+2. パネル上部の `+` アイコンをクリック
+3. 組織名を入力
+4. 認証方法を選択：
+   - **サインイン（推奨）**：Azure DevOps アカウントでシングルサインオン
+   - **PAT を入力**：Personal Access Token を直接入力
+
+#### 方法 A：サインイン（推奨）
+
+1. 「サインイン」を選択
+2. ブラウザが開き、デバイスコードが表示されます
+3. ブラウザでコードを入力して認証
+4. 拡張機能が自動的にアクセストークンを保存
+
+#### 方法 B：Personal Access Token (PAT) を使用
 
 1. [dev.azure.com](https://dev.azure.com) にアクセス
 2. User settings > Personal access tokens > New Token
@@ -233,12 +265,12 @@ VS Code から Azure DevOps を操作する拡張機能です。
    - Code (Read)
    - Build (Read)
 4. トークンをコピー
+5. VS Code で「PAT を入力」を選択
+6. 求められたら、トークンを入力
 
-### ステップ 2: 組織を追加
+### ステップ 2: 参照を開始
 
-1. VS Code のサイドバーで Azure DevOps Extension のアイコンをクリック
-2. パネル上部の `+` アイコンをクリック
-3. 組織名と PAT を入力
+認証後、VS Code の Azure DevOps Extension サイドバーに、組織とプロジェクトが表示されます。
 
 ## 使い方
 

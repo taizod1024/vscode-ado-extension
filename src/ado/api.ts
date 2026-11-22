@@ -26,14 +26,17 @@ export async function httpRequest(method: "GET" | "POST" | "PATCH", urlStr: stri
 
   const maskUrl = (s: string) => s.replace(/(^https?:\/\/)(?:[^@/]+@)?/, `$1`);
 
-  const auth = Buffer.from(":" + (pat || "")).toString("base64");
+  // Determine if token is OAuth (Bearer) or PAT (Basic)
+  // OAuth tokens typically contain "." (JWT format), PAT doesn't
+  const isOAuthToken = pat && pat.includes(".");
+  
   const payload = body ? JSON.stringify(body) : undefined;
   const options: any = {
     hostname: u.hostname,
     path: u.pathname + u.search,
     method,
     headers: {
-      Authorization: "Basic " + auth,
+      Authorization: isOAuthToken ? `Bearer ${pat}` : "Basic " + Buffer.from(":" + (pat || "")).toString("base64"),
       Accept: "application/json",
     },
   };
