@@ -1,6 +1,17 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
-import { createTreeProvider, httpRequest, ERROR_MESSAGES, findLocalRepo, AdoWorkItem } from "./ado";
+import {
+  createTreeProvider,
+  httpRequest,
+  ERROR_MESSAGES,
+  findLocalRepo,
+  AdoWorkItem,
+  fetchAccessibleOrganizations,
+  removeOrganizationAuthentication,
+  resolveOrganizationCredential,
+  setOrganizationAuthentication,
+  signInWithMicrosoft,
+} from "./ado";
 
 interface GitRemoteSource {
   readonly name: string;
@@ -55,8 +66,8 @@ export function activate(context: vscode.ExtensionContext) {
 
               try {
                 for (const org of provider.getOrganizations()) {
-                  if (!(await context.secrets.get(`ado-ext.pat.${org}`))) {
-                    channel.appendLine(`Skipping Azure Repos source for ${org}: PAT is not configured`);
+                  if (!(await provider.getClient().hasCredential(org))) {
+                    channel.appendLine(`Skipping Azure Repos source for ${org}: authentication is not configured`);
                     continue;
                   }
 
@@ -150,6 +161,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         // PAT 保存
         await context.secrets.store(`ado-ext.pat.${org}`, pat);
+        await setOrganizationAuthentication(context, org, { method: "pat" });
         channel.appendLine(`PAT successfully saved for organization: ${org}`);
 
         // 組織を追加（if requested）
@@ -185,14 +197,47 @@ export function activate(context: vscode.ExtensionContext) {
           const masked = currentPat ? maskPatForLog(currentPat) : "(none)";
           channel.appendLine(`Current PAT (masked) for ${org}: ${masked}`);
 
+          const accountType = await vscode.window.showQuickPick(
+            [
+              { label: "Work or school account", description: "Sign in to this organization" },
+              { label: "Personal account", description: "Enter a PAT" },
+            ],
+            { placeHolder: `Choose how to connect to ${org}` },
+          );
+          if (!accountType) return;
+
+          if (accountType.label === "Work or school account") {
+            let session: vscode.AuthenticationSession | undefined;
+            try {
+              session = await signInWithMicrosoft();
+              const organizations = await fetchAccessibleOrganizations(session.accessToken, channel);
+              if (!organizations.some(organization => organization.name.toLowerCase() === org.toLowerCase())) {
+                throw new Error(`The signed-in account does not have access to "${org}".`);
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              session = undefined;
+              channel.appendLine(`Microsoft sign-in failed for ${org}: ${msg}`);
+              const fallback = await vscode.window.showWarningMessage(
+                `Microsoft sign-in could not access "${org}". You can enter a PAT instead.`,
+                "Enter PAT",
+                "Cancel",
+              );
+              if (fallback !== "Enter PAT") return;
+            }
+
+            if (session) {
+              await setOrganizationAuthentication(context, org, { method: "microsoft", account: session.account });
+              await context.secrets.delete(patKey);
+              provider.clearCacheForOrganization(org);
+              await provider.revealOrganization(org);
+              await vscode.window.showInformationMessage(`Connected to ${org} with your work or school account.`);
+              return;
+            }
+          }
+
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
-
-          // 新 PAT を検証する前に、既存 PAT を削除する
-          await context.secrets.delete(patKey);
-          provider.getClient().clearPatCache();
-          channel.appendLine(`Deleted existing PAT for organization: ${org}`);
-
           await handlePatValidationAndSave(org, pat, false);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -534,24 +579,74 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.addOrganization", async () => {
         try {
-          // 1. org 名を入力
+          const accountType = await vscode.window.showQuickPick(
+            [
+              { label: "Work or school account", description: "Sign in and choose accessible organizations" },
+              { label: "Personal account", description: "Enter an organization name and PAT" },
+            ],
+            { placeHolder: "Choose account type" },
+          );
+          if (!accountType) return;
+
+          if (accountType.label === "Work or school account") {
+            let session: vscode.AuthenticationSession | undefined;
+            let organizations: { id: string; name: string }[] = [];
+            try {
+              session = await signInWithMicrosoft();
+              organizations = await fetchAccessibleOrganizations(session.accessToken, channel);
+              if (organizations.length === 0) {
+                throw new Error("No Azure DevOps organizations are available to this account.");
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              session = undefined;
+              channel.appendLine(`Microsoft sign-in failed: ${msg}`);
+              const fallback = await vscode.window.showWarningMessage(
+                "Microsoft sign-in could not access Azure DevOps. You can connect with a PAT instead.",
+                "Enter PAT",
+                "Cancel",
+              );
+              if (fallback !== "Enter PAT") return;
+            }
+
+            if (session) {
+              const selectedOrganizations = await vscode.window.showQuickPick(
+                organizations.map(organization => ({
+                  label: organization.name,
+                  description: organization.id,
+                })),
+                { canPickMany: true, placeHolder: "Select Azure DevOps organizations to add" },
+              );
+              if (!selectedOrganizations?.length) return;
+
+              const existingOrganizations = new Set(provider.getOrganizations().map(organization => organization.toLowerCase()));
+              const newOrganizations = selectedOrganizations.filter(org => !existingOrganizations.has(org.label.toLowerCase()));
+              if (newOrganizations.length === 0) {
+                await vscode.window.showInformationMessage("The selected organizations are already registered.");
+                return;
+              }
+
+              for (const organization of newOrganizations) {
+                await setOrganizationAuthentication(context, organization.label, { method: "microsoft", account: session.account });
+                provider.clearCacheForOrganization(organization.label);
+                provider.addOrganization(organization.label);
+              }
+              await vscode.window.showInformationMessage(`Added ${newOrganizations.length} Azure DevOps organization(s).`);
+              return;
+            }
+          }
+
           const org = await vscode.window.showInputBox({ prompt: "Organization name to add (e.g. myorg)" });
           if (!org) return;
-          const existing = context.globalState.get<string[]>("azuredevops.organizations") || [];
-          if (existing.includes(org)) {
-            vscode.window.showErrorMessage(`Organization "${org}" is already registered.`);
+          if (provider.getOrganizations().some(existingOrg => existingOrg.toLowerCase() === org.toLowerCase())) {
+            await vscode.window.showErrorMessage(`Organization "${org}" is already registered.`);
             return;
           }
 
-          // 2. org を先に登録（PAT 入力前にキャンセルされても org は残す）
-          provider.addOrganization(org);
-
-          // 3. PAT を入力
           const pat = await vscode.window.showInputBox({ prompt: `Enter Personal Access Token (PAT) for ${org}`, password: true });
           if (!pat) return;
 
-          // 4. PAT を検証・保存（org はすでに登録済みのため addOrgToProvider=false）
-          await handlePatValidationAndSave(org, pat, false);
+          await handlePatValidationAndSave(org, pat, true);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to add organization: " + msg);
@@ -566,12 +661,14 @@ export function activate(context: vscode.ExtensionContext) {
           const pick = typeof orgArg === "string" ? orgArg : orgArg?.organization || orgArg?.label;
           if (!pick) return;
           const confirm = await vscode.window.showQuickPick([`REMOVE ${pick}`, "CANCEL"], {
-            placeHolder: `Remove organization ${pick} and its PAT?`,
+            placeHolder: `Remove organization ${pick} and its stored credentials?`,
           });
           if (confirm !== `REMOVE ${pick}`) return;
+          provider.clearCacheForOrganization(pick);
           provider.removeOrganization(pick);
           await context.secrets.delete(`ado-ext.pat.${pick}`);
-          vscode.window.showInformationMessage(`Removed organization ${pick}`);
+          await removeOrganizationAuthentication(context, pick);
+          await vscode.window.showInformationMessage(`Removed organization ${pick}`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to remove organization: " + msg);
@@ -579,7 +676,7 @@ export function activate(context: vscode.ExtensionContext) {
       }),
     );
 
-    // Remove all organizations + delete stored PATs
+    // Remove all organizations and their stored credentials
     context.subscriptions.push(
       vscode.commands.registerCommand("ado-ext.removeAllOrganizations", async () => {
         try {
@@ -588,10 +685,13 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage("No organizations to remove");
             return;
           }
-          const confirm = await vscode.window.showQuickPick(["REMOVE ALL ORGANIZATIONS", "CANCEL"], { placeHolder: "Remove all organizations and their PATs?" });
+          const confirm = await vscode.window.showQuickPick(["REMOVE ALL ORGANIZATIONS", "CANCEL"], { placeHolder: "Remove all organizations and their stored credentials?" });
           if (confirm !== "REMOVE ALL ORGANIZATIONS") return;
           await provider.removeAllOrganizations();
-          vscode.window.showInformationMessage(`Removed ${orgs.length} organizations and their PATs`);
+          for (const org of orgs) {
+            await removeOrganizationAuthentication(context, org);
+          }
+          await vscode.window.showInformationMessage(`Removed ${orgs.length} organizations and their credentials`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           vscode.window.showErrorMessage("Failed to remove organizations: " + msg);
@@ -621,8 +721,7 @@ export function activate(context: vscode.ExtensionContext) {
           // PAT 未入力の組織があれば順番に入力を促す
           const orgsToPrompt = org ? [org] : provider.getOrganizations();
           for (const o of orgsToPrompt) {
-            const stored = await context.secrets.get(`ado-ext.pat.${o}`);
-            if (!stored) {
+            if (!(await provider.getClient().hasCredential(o))) {
               await vscode.commands.executeCommand("ado-ext.enterPatForOrg", o);
             }
           }
@@ -750,9 +849,12 @@ export function activate(context: vscode.ExtensionContext) {
               // API から work item の詳細を取得
               try {
                 const client = provider.getClient();
-                const pat = await context.secrets.get(`ado-ext.pat.${arg.organization}`);
+                const credential = await resolveOrganizationCredential(context, arg.organization);
+                if (!credential) {
+                  throw new Error(`Authentication not configured for organization "${arg.organization}".`);
+                }
                 const url = `https://dev.azure.com/${encodeURIComponent(arg.organization)}/_apis/wit/workitems/${workItemNum}?api-version=6.0`;
-                const response: any = await httpRequest("GET", url, pat || "", undefined, { channel });
+                const response: any = await httpRequest("GET", url, credential, undefined, { channel });
                 if (response && response.fields) {
                   description = response.fields["System.Description"] || response.fields["Description"] || "";
                 }
@@ -1072,8 +1174,7 @@ export function activate(context: vscode.ExtensionContext) {
               }
               if (!adoOrg || !adoProject) return undefined;
 
-              const pat = await context.secrets.get(`ado-ext.pat.${adoOrg}`);
-              if (!pat) return undefined;
+              if (!(await provider.getClient().hasCredential(adoOrg))) return undefined;
 
               // 対象プロジェクトのワークアイテムを取得（キャッシュ利用）
               const client = provider.getClient();
@@ -1089,7 +1190,7 @@ export function activate(context: vscode.ExtensionContext) {
                 items = cached.items;
               } else {
                 try {
-                  const wiList = await client.fetchMyActivity(adoOrg, adoProject, pat);
+                  const wiList = await client.fetchMyActivity(adoOrg, adoProject);
                   items = wiList.map(wi => ({ wi, org: adoOrg!, projectName: adoProject! }));
                   workItemCompletionCache.set(cacheKey, { items, ts: Date.now() });
                 } catch (err) {

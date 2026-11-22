@@ -1,5 +1,5 @@
 {
-  "version": "0.0.9",
+  "version": "0.0.19",
   "name": "ado-ext",
   "displayName": "Azure DevOps Extension",
   "description": "A VS Code extension for Azure DevOps",
@@ -144,7 +144,7 @@
       },
       {
         "command": "ado-ext.enterPatForOrg",
-        "title": "Azure DevOps: Enter PAT for Org",
+        "title": "Azure DevOps: Connect Organization",
         "icon": "$(key)"
       },
       {

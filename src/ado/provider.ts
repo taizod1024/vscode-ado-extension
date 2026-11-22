@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AdoTreeItem, AdoProject, AdoItemType, AdoRepository, AdoWorkItem, AdoBranch, AdoPullRequest, AdoIteration, AdoPipeline, AdoPipelineRun } from "./types";
 import { AdoApiClient } from "./adoApiClient";
+import { getOrganizationAuthentication } from "./auth";
 
 /**
  * VS Code Git 拡張から、指定リポジトリ名に一致するローカルパスを返す。
@@ -178,9 +179,12 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
         it.organization = o;
         it.id = `org:${o}`;
         it.contextValue = "organization";
-        it.iconPath = new vscode.ThemeIcon("organization", new vscode.ThemeColor("charts.blue"));
+        const authentication = getOrganizationAuthentication(this.context, o);
+        const isMicrosoftAuthenticated = authentication?.method === "microsoft";
+        it.iconPath = new vscode.ThemeIcon(isMicrosoftAuthenticated ? "account" : "key", new vscode.ThemeColor(isMicrosoftAuthenticated ? "charts.blue" : "charts.yellow"));
         it.url = `https://dev.azure.com/${encodeURIComponent(o)}`;
-        it.tooltip = it.url;
+        it.description = isMicrosoftAuthenticated ? "Microsoft" : "PAT";
+        it.tooltip = `${it.url} (${it.description})`;
         orgItems.push(it);
 
         // エラーがある場合は表示
@@ -210,16 +214,14 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     if (t === "organization" && element.organization) {
       const org = element.organization as string;
 
-      // PAT が未設定の場合は「Enter PAT」アイテムを表示
-      const storedPat = await this.context?.secrets.get(`ado-ext.pat.${org}`);
-      if (!storedPat) {
-        const enterPatItem = new AdoTreeItem("Enter PAT to connect...", vscode.TreeItemCollapsibleState.None);
+      if (!(await this.apiClient.hasCredential(org))) {
+        const enterPatItem = new AdoTreeItem("Connect organization...", vscode.TreeItemCollapsibleState.None);
         enterPatItem.itemType = "error";
         enterPatItem.organization = org;
-        enterPatItem.id = `enter-pat:${org}`;
+        enterPatItem.id = `connect-organization:${org}`;
         enterPatItem.contextValue = "enterPat";
         enterPatItem.iconPath = new vscode.ThemeIcon("key", new vscode.ThemeColor("charts.yellow"));
-        enterPatItem.command = { command: "ado-ext.enterPatForOrg", title: "Enter PAT", arguments: [org] };
+        enterPatItem.command = { command: "ado-ext.enterPatForOrg", title: "Connect", arguments: [org] };
         return [enterPatItem];
       }
 
@@ -867,7 +869,7 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
 
   /**
    * 指定組織のプロジェクトを先行フェッチし、ツリーで組織ノードを展開する。
-   * PAT 入力成功後に呼び出す。
+   * 組織への接続成功後に呼び出す。
    */
   async revealOrganization(org: string): Promise<void> {
     // プロジェクトをキャッシュに乗せておく
@@ -932,14 +934,11 @@ export class AdoTreeProvider implements vscode.TreeDataProvider<AdoTreeItem> {
     const orgs = Array.from(this.organizations || []);
     if (this.context) {
       for (const o of orgs) {
-        try {
-          await this.context.secrets.delete(this.patKeyForOrg(o));
-        } catch (e) {}
+        await this.context.secrets.delete(this.patKeyForOrg(o));
       }
     }
     this.organizations = [];
     if (this.context) this.context.globalState.update("azuredevops.organizations", this.organizations);
-    this.apiClient.clearPatCache();
     this.childrenCache = {};
     this.childrenFetchPromises = {};
     this.refresh();

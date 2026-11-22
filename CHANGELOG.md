@@ -2,6 +2,89 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.19](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.18...v0.0.19) (2026-10-27)
+
+
+### Features
+
+* Azure Reposのリモートソースプロバイダーにアイコンを追加し、READMEを更新 ([89b3ac6](https://github.com/taizod1024/vscode-ado-extension/commit/89b3ac63b3089d2fed2ea865f28fa7f819d0790e))
+
+### [0.0.18](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.17...v0.0.18) (2026-10-25)
+
+
+### Features
+
+* Azure Reposのリモートソースプロバイダーを登録し、リポジトリの取得機能を追加 ([a8c8534](https://github.com/taizod1024/vscode-ado-extension/commit/a8c8534b0a49d2b2fba7c90daa9f88efbd9d27a3))
+
+### [0.0.17](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.16...v0.0.17) (2026-10-18)
+
+
+### Features
+
+* サイドパネルに「すべて折りたたむ」ボタンを追加 ([47916d5](https://github.com/taizod1024/vscode-ado-extension/commit/47916d5371ea71f0ce75dfbcf67a27965018b686))
+* 外部ブラウザでURLを開く機能を追加し、関連するドキュメントを更新 ([d80c426](https://github.com/taizod1024/vscode-ado-extension/commit/d80c426e66999a53d53bdde9c1e416ebf2c32566))
+
+### [0.0.16](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.15...v0.0.16) (2026-08-22)
+
+
+### Features
+
+* work itemに分類を追加 ([d78c388](https://github.com/taizod1024/vscode-ado-extension/commit/d78c3889734733625a41411e719e74c8c2abb28f))
+
+
+### Bug Fixes
+
+* reposを昇順で表示するよう修正 ([48b0a54](https://github.com/taizod1024/vscode-ado-extension/commit/48b0a549079e17c2b560eff85edb2f40e88ba5e5))
+
+### [0.0.15](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.14...v0.0.15) (2026-06-14)
+
+
+### Features
+
+* PAT入力機能を改善し、ログにマスクされたPATを表示、既存PATを削除してから新PATを検証 ([6ebeb56](https://github.com/taizod1024/vscode-ado-extension/commit/6ebeb56784722c61e6d97b7af77233acb8a8955a))
+
+
+### Bug Fixes
+
+* remove duplicate case for pipelinesFolder in AdoApiClient URL generation ([104189b](https://github.com/taizod1024/vscode-ado-extension/commit/104189b80eed30e9680af7ee37306137d381c7df))
+* アイコン表示、不要API呼出削除 ([4fd58a1](https://github.com/taizod1024/vscode-ado-extension/commit/4fd58a175d5f1f08946c1ec8eb38ce132eaefd29))
+
+### [0.0.14](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.13...v0.0.14) (2026-05-22)
+
+
+### Bug Fixes
+
+* update branches folder icon path to use theme color for better visibility ([edcebcc](https://github.com/taizod1024/vscode-ado-extension/commit/edcebcc78dab461bfb5c70fb1e430f6225394f26))
+
+### [0.0.13](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.12...v0.0.13) (2026-05-21)
+
+
+### Features
+
+* ADO 組織とプロジェクトの特定機能を追加し、ワークアイテム取得を最適化 ([69f711d](https://github.com/taizod1024/vscode-ado-extension/commit/69f711d5a8cd270c854677fd4bfb195ec6ded3c6))
+
+### [0.0.12](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.11...v0.0.12) (2026-05-21)
+
+
+### Features
+
+* ワークアイテムのアサイン・アサイン解除機能を追加し、関連コマンドを実装 ([e6b2995](https://github.com/taizod1024/vscode-ado-extension/commit/e6b2995c4f3e3f2aab6cb859549cf4884d9469b6))
+
+### [0.0.11](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.10...v0.0.11) (2026-05-21)
+
+
+### Features
+
+* AB# ワークアイテム補完機能を追加し、コミットメッセージ入力での候補表示を実装 ([8c747be](https://github.com/taizod1024/vscode-ado-extension/commit/8c747be0db6792c180d97067c6bf60f8c3e71cdd))
+
+### [0.0.10](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.9...v0.0.10) (2026-05-16)
+
+
+### Features
+
+* AdoTreeProvider にエラーハンドリング機能を追加し、エラーを表示する機能を強化 ([17484f0](https://github.com/taizod1024/vscode-ado-extension/commit/17484f090f796a445cc6ff40a60a66055502d3e7))
+* パイプライン実行履歴の表示機能を改善し、リポジトリに紐づくパイプライン定義の取得を追加 ([e753bb5](https://github.com/taizod1024/vscode-ado-extension/commit/e753bb5a24b3a7066cffda772a74f2e267a2a715))
+
 ### [0.0.9](https://github.com/taizod1024/vscode-ado-extension/compare/v0.0.8...v0.0.9) (2026-05-15)
 
 
